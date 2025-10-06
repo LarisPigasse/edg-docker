@@ -1,0 +1,12 @@
+# .gitignore nella root edg-docker/
+
+# Cartelle Node_modules di tutti i servizi
+*/node_modules/
+
+# File di configurazione locale
+.env
+.env.*.local
+
+# Build artifacts (se i servizi non usano Docker per il build)
+*/dist/
+*/build/
