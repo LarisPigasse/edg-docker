@@ -1,4 +1,4 @@
-// src/app.ts - EDG Auth Service
+// src/app.ts - EDG Auth Service (con logging dettagliato)
 import { createServiceConfig } from './core/config/environment';
 import { createServer, ServerModule } from './core/server';
 import { DatabaseManager } from './core/config/database';
@@ -29,83 +29,132 @@ const config = createServiceConfig({
 });
 
 // ============================================================================
-// REGISTRAZIONE DEL MODULO INIZIALE (modelli e associazioni)
+// PREPARAZIONE MODULO (solo modelli e associazioni)
 // ============================================================================
 
-// Router placeholder (il vero router verrà creato dopo la sync DB)
+console.log('\n🔧 [APP] Fase 1: Creazione placeholder router');
 const placeholderRouter = Router();
+console.log('   ✅ Placeholder router creato');
 
 // Modulo contenente configurazione modelli e associazioni
 const AuthModuleConfig: ServerModule = {
   name: 'auth',
   path: '/auth',
   router: placeholderRouter,
-  // ⚠️ ORDINE CRITICO: rispetta le dipendenze foreign key!
-  models: [
-    createRoleModel, // 1️⃣ roles (nessuna FK)
-    createRolePermissionModel, // 2️⃣ role_permissions (FK → roles)
-    createAccountModel, // 3️⃣ accounts (FK → roles)
-    createSessionModel, // 4️⃣ sessions (FK → accounts)
-    createResetTokenModel, // 5️⃣ reset_tokens (FK → accounts)
-  ],
+  models: [createRoleModel, createRolePermissionModel, createAccountModel, createSessionModel, createResetTokenModel],
   associations: setupAuthAssociations,
 };
 
+console.log('   ✅ AuthModuleConfig creato con placeholder router');
+
 // ============================================================================
-// AVVIO SERVER
+// CREAZIONE SERVER (senza route ancora)
 // ============================================================================
 
+console.log('\n🔧 [APP] Fase 2: Creazione server');
 const server = createServer({
   config,
   modules: [AuthModuleConfig],
 });
+console.log('   ✅ Server creato (route non ancora registrate)');
 
-// Funzione che gestisce l'inizializzazione dei service e l'avvio finale
+// ============================================================================
+// AVVIO SERVER CON INIZIALIZZAZIONE CORRETTA
+// ============================================================================
+
 const startServer = async () => {
   try {
-    console.log(`Avvio ${config.serviceName}...`);
+    console.log(`\n🚀 [APP] Avvio ${config.serviceName}...`);
 
     // 1. INIZIALIZZA DATABASE
+    console.log('\n🔧 [APP] Fase 3: Inizializzazione database');
     const dbReady = await server.initializeDatabase();
     if (!dbReady) {
-      console.error('Impossibile avviare il servizio senza database');
+      console.error('❌ [APP] Impossibile avviare il servizio senza database');
       process.exit(1);
     }
+    console.log('   ✅ Database inizializzato');
 
     // 2. RECUPERA i modelli Sequelize inizializzati
+    console.log('\n🔧 [APP] Fase 4: Recupero modelli dal database');
     const databaseManager: DatabaseManager = server.getDatabase();
     const models = databaseManager.getModels();
 
-    // Trova i modelli necessari
     const Account = models.find((m: any) => m.name === 'Account');
     const Session = models.find((m: any) => m.name === 'Session');
     const ResetToken = models.find((m: any) => m.name === 'ResetToken');
     const Role = models.find((m: any) => m.name === 'Role');
-    const RolePermission = models.find((m: any) => m.name === 'RolePermission'); // ✅ AGGIUNTO
+    const RolePermission = models.find((m: any) => m.name === 'RolePermission');
 
-    // ✅ FIXED: Verifica che tutti i modelli siano stati trovati
     if (!Account || !Session || !ResetToken || !Role || !RolePermission) {
       throw new Error('Errore: modelli richiesti non trovati dopo inizializzazione');
     }
+    console.log('   ✅ Tutti i modelli trovati');
 
     // 3. INIZIALIZZA la logica di business (Service e Controller)
-    // ✅ FIXED: Aggiunto RolePermission come quinto parametro
+    console.log('\n🔧 [APP] Fase 5: Creazione Service e Controller');
     const authService = new AuthService(Account, Session, ResetToken, Role, RolePermission);
+    console.log('   ✅ AuthService creato');
+
     const authController = new AuthController(authService);
+    console.log('   ✅ AuthController creato');
+
+    console.log('\n🔧 [APP] Fase 6: Creazione router VERO con tutte le route');
     const authRouter = createAuthRouter(authController);
+    console.log('   ✅ Router vero creato');
 
-    // 4. REGISTRA IL ROUTER REALE nell'applicazione Express
+    // Debug: Verifica che il router abbia le route
+    console.log('\n🔍 [APP] DEBUG: Verifica route nel router appena creato');
+    const routerStack = (authRouter as any).stack;
+    console.log(`   📊 Numero di route nel router: ${routerStack ? routerStack.length : 0}`);
+    if (routerStack && routerStack.length > 0) {
+      console.log('   📋 Route presenti nel router:');
+      routerStack.forEach((layer: any, index: number) => {
+        if (layer.route) {
+          const methods = Object.keys(layer.route.methods).join(', ').toUpperCase();
+          console.log(`      ${index + 1}. ${methods} ${layer.route.path}`);
+        }
+      });
+    } else {
+      console.log('   ⚠️  ATTENZIONE: Il router sembra vuoto!');
+    }
+
+    // 4. SOSTITUISCI il router placeholder con quello VERO
+    console.log('\n🔧 [APP] Fase 7: Sostituzione placeholder con router vero');
+    console.log(`   📍 Router PRIMA: ${AuthModuleConfig.router === placeholderRouter ? 'PLACEHOLDER' : 'VERO'}`);
+    AuthModuleConfig.router = authRouter;
+    console.log(`   📍 Router DOPO: ${AuthModuleConfig.router === authRouter ? 'VERO' : 'PLACEHOLDER'}`);
+    console.log('   ✅ Router sostituito nel modulo');
+
+    // 5. REGISTRA LE ROUTE
+    console.log('\n🔧 [APP] Fase 8: Registrazione route nel server Express');
+    server.registerModuleRoutes();
+
+    console.log('   ✅ Route registrate con successo!');
+
+    // 6. ✅ CRITICO: Registra error handlers DOPO le route!
+    console.log('\n🔧 [APP] Fase 9: Registrazione error handlers (404, 500)');
+    server.setupErrorHandlers();
+
+    console.log('   ✅ Error handlers registrati!');
+
+    // 7. Avvia server HTTP
+    console.log('\n🔧 [APP] Fase 10: Avvio server HTTP');
     const app = server.getApp();
-    app.use(AuthModuleConfig.path, authRouter);
-    console.log(`✅ Modulo auth registrato → ${AuthModuleConfig.path}`);
-
-    // 5. Avvia server HTTP
     app.listen(config.port, () => {
       console.log(`\n✅ ${config.serviceName} avviato con successo!`);
       console.log(`🌐 Server: http://localhost:${config.port}`);
       console.log(`📊 Database: ${config.database.name}@${config.database.host}`);
       console.log(`📦 Moduli: auth`);
       console.log(`🚀 Pronto per ricevere richieste!\n`);
+
+      console.log('💡 Test suggeriti:');
+      console.log('   curl http://localhost:3001/');
+      console.log('   curl http://localhost:3001/health');
+      console.log(
+        '   curl -X POST http://localhost:3001/auth/register -H "Content-Type: application/json" -d \'{"email":"test@edg.com"}\''
+      );
+      console.log('');
     });
 
     // Graceful shutdown handlers
@@ -124,7 +173,7 @@ const startServer = async () => {
     process.on('SIGTERM', () => handleShutdown('SIGTERM'));
     process.on('SIGINT', () => handleShutdown('SIGINT'));
   } catch (error) {
-    console.error("❌ Errore durante l'avvio:", error);
+    console.error("❌ [APP] Errore durante l'avvio:", error);
     process.exit(1);
   }
 };

@@ -1,10 +1,10 @@
-// src/core/server.ts - EDG Server Core
-import express, { Application, Request, Response, Router } from "express";
-import cors from "cors";
-import helmet from "helmet";
-import rateLimit from "express-rate-limit";
-import { ServiceConfig, isDevelopment } from "./config/environment";
-import { DatabaseManager } from "./config/database";
+// src/core/server.ts - EDG Server Core (con logging dettagliato)
+import express, { Application, Request, Response, Router } from 'express';
+import cors from 'cors';
+import helmet from 'helmet';
+import rateLimit from 'express-rate-limit';
+import { ServiceConfig, isDevelopment } from './config/environment';
+import { DatabaseManager } from './config/database';
 
 export interface ServerModule {
   name: string;
@@ -32,13 +32,15 @@ export class EDGServer {
     this.database = new DatabaseManager(this.config);
     this.modules = options.modules || [];
 
+    console.log('🔧 [SERVER] Constructor: Setup middleware e endpoint base');
     this.setupMiddleware();
-    this.setupRoutes();
-    this.setupErrorHandling();
+    this.setupHealthAndRoot();
+    // ⚠️ NON chiamiamo setupErrorHandling qui - deve essere DOPO le route!
+    console.log('   ✅ Middleware e endpoint base configurati');
 
     // Custom middleware per servizi specifici
     if (options.customMiddleware) {
-      options.customMiddleware.forEach((middleware) => {
+      options.customMiddleware.forEach(middleware => {
         middleware(this.app);
       });
     }
@@ -62,12 +64,12 @@ export class EDGServer {
             callback(null, true);
           } else {
             console.warn(`🚫 CORS: Origine non consentita: ${origin}`);
-            callback(new Error("Non consentito da CORS"));
+            callback(new Error('Non consentito da CORS'));
           }
         },
-        methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
+        methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
         credentials: true,
-        allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With"],
+        allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
       })
     );
 
@@ -77,7 +79,7 @@ export class EDGServer {
       max: this.config.security.rateLimitMaxAttempts,
       message: {
         success: false,
-        error: "Troppe richieste da questo IP, riprova più tardi",
+        error: 'Troppe richieste da questo IP, riprova più tardi',
         retryAfter: this.config.security.rateLimitWindow * 60,
       },
       standardHeaders: true,
@@ -87,35 +89,33 @@ export class EDGServer {
     this.app.use(globalLimiter);
 
     // Body parsing
-    this.app.use(express.json({ limit: "10mb" }));
-    this.app.use(express.urlencoded({ extended: true, limit: "10mb" }));
+    this.app.use(express.json({ limit: '10mb' }));
+    this.app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
     // Request logging in development
     if (isDevelopment(this.config)) {
       this.app.use((req, res, next) => {
-        console.log(`📝 ${req.method} ${req.path}`);
+        console.log(`🔍 ${req.method} ${req.path}`);
         next();
       });
     }
   }
 
-  private setupRoutes(): void {
-    // PRIMA: Registra moduli del servizio
-    this.modules.forEach((module) => {
-      console.log(`📦 Registrando modulo: ${module.name} → ${module.path}`);
-      this.app.use(module.path, module.router);
-    });
-
-    // DOPO: Root endpoint
-    this.app.get("/", (req: Request, res: Response) => {
+  /**
+   * Setup endpoint base (/, /health)
+   * Questi vengono registrati subito nel constructor
+   */
+  private setupHealthAndRoot(): void {
+    // Root endpoint
+    this.app.get('/', (req: Request, res: Response) => {
       res.json({
         success: true,
         data: {
           message: `${this.config.serviceName} - Ready`,
           service: this.config.serviceName,
-          version: "1.0.0",
+          version: '1.0.0',
           environment: this.config.nodeEnv,
-          modules: this.modules.map((m) => ({
+          modules: this.modules.map(m => ({
             name: m.name,
             path: m.path,
           })),
@@ -125,12 +125,12 @@ export class EDGServer {
     });
 
     // Health check
-    this.app.get("/health", async (req: Request, res: Response) => {
+    this.app.get('/health', async (req: Request, res: Response) => {
       try {
         const dbHealth = await this.database.healthCheck();
 
         const response = {
-          success: dbHealth.status === "healthy",
+          success: dbHealth.status === 'healthy',
           data: {
             status: dbHealth.status,
             service: this.config.serviceName,
@@ -140,14 +140,14 @@ export class EDGServer {
           },
         };
 
-        res.status(dbHealth.status === "healthy" ? 200 : 503).json(response);
+        res.status(dbHealth.status === 'healthy' ? 200 : 503).json(response);
       } catch (error) {
         res.status(503).json({
           success: false,
           data: {
-            status: "error",
+            status: 'error',
             service: this.config.serviceName,
-            error: "Health check fallito",
+            error: 'Health check fallito',
             timestamp: new Date().toISOString(),
           },
         });
@@ -155,27 +155,77 @@ export class EDGServer {
     });
   }
 
+  /**
+   * ✅ NUOVO: Registra le route dei moduli
+   * Questo metodo viene chiamato DOPO l'inizializzazione del database
+   * quando i router reali sono pronti
+   */
+  public registerModuleRoutes(): void {
+    console.log('\n📦 [SERVER] Registrazione route moduli...');
+
+    this.modules.forEach(module => {
+      console.log(`\n   🔧 Modulo: ${module.name}`);
+      console.log(`      Path: ${module.path}`);
+
+      // Debug: Verifica il router prima di registrarlo
+      const routerStack = (module.router as any).stack;
+      console.log(`      Router stack length: ${routerStack ? routerStack.length : 'undefined'}`);
+
+      if (routerStack && routerStack.length > 0) {
+        console.log(`      ✅ Router ha ${routerStack.length} route`);
+        routerStack.forEach((layer: any, index: number) => {
+          if (layer.route) {
+            const methods = Object.keys(layer.route.methods).join(', ').toUpperCase();
+            console.log(`         ${index + 1}. ${methods} ${layer.route.path}`);
+          }
+        });
+      } else {
+        console.log(`      ⚠️  ATTENZIONE: Router vuoto!`);
+      }
+
+      // Registra il router in Express
+      console.log(`      🔗 Registrando: app.use('${module.path}', router)`);
+      this.app.use(module.path, module.router);
+      console.log(`      ✅ Registrato`);
+    });
+
+    console.log('\n✅ [SERVER] Route moduli registrate\n');
+  }
+
+  /**
+   * ✅ NUOVO: Registra error handlers
+   * Questo metodo DEVE essere chiamato DOPO registerModuleRoutes()
+   * perché in Express l'ordine è critico: le route devono essere registrate
+   * PRIMA degli error handlers, altrimenti il 404 handler cattura tutto!
+   */
+  public setupErrorHandlers(): void {
+    console.log('🔧 [SERVER] Registrazione error handlers (404 e 500)...');
+    this.setupErrorHandling();
+    console.log('   ✅ Error handlers registrati\n');
+  }
+
   private setupErrorHandling(): void {
     // 404 handler
     this.app.use((req: Request, res: Response) => {
+      console.log(`⚠️  [SERVER] 404: ${req.method} ${req.originalUrl}`);
       res.status(404).json({
         success: false,
         error: `Endpoint ${req.method} ${req.originalUrl} non trovato`,
         service: this.config.serviceName,
-        availableEndpoints: ["GET /", "GET /health", ...this.modules.map((m) => `${m.path}/*`)],
+        availableEndpoints: ['GET /', 'GET /health', ...this.modules.map(m => `${m.path}/*`)],
         timestamp: new Date().toISOString(),
       });
     });
 
     // Global error handler
     this.app.use((error: any, req: Request, res: Response, next: any) => {
-      console.error("❌ Errore non gestito:", error);
+      console.error('❌ [SERVER] Errore non gestito:', error);
 
       const isDev = isDevelopment(this.config);
 
       res.status(error.status || 500).json({
         success: false,
-        error: isDev ? error.message : "Errore interno del server",
+        error: isDev ? error.message : 'Errore interno del server',
         service: this.config.serviceName,
         ...(isDev && { stack: error.stack }),
         timestamp: new Date().toISOString(),
@@ -189,31 +239,31 @@ export class EDGServer {
     if (!connected) return false;
 
     // Registra modelli dei moduli
-    this.modules.forEach((module) => {
+    this.modules.forEach(module => {
       if (module.models) {
-        module.models.forEach((modelInit) => {
+        module.models.forEach(modelInit => {
           this.database.registerModel(modelInit);
         });
       }
     });
 
     // Registra associazioni dei moduli
-    this.modules.forEach((module) => {
+    this.modules.forEach(module => {
       if (module.associations) {
         this.database.registerAssociations(module.associations);
       }
     });
 
     // Sync se richiesto
-    if (process.env.DB_SYNC === "true") {
-      console.log("🔄 Sincronizzazione database richiesta...");
+    if (process.env.DB_SYNC === 'true') {
+      console.log('🔄 Sincronizzazione database richiesta...');
       const synced = await this.database.syncDatabase();
       if (synced) {
-        console.log("✅ Database sincronizzato");
+        console.log('✅ Database sincronizzato');
       }
       return synced;
     } else {
-      console.log("⏭️  Sync database saltata (aggiungi DB_SYNC=true per sincronizzare)");
+      console.log('⏭️  Sync database saltata (aggiungi DB_SYNC=true per sincronizzare)');
       return true;
     }
   }
@@ -225,7 +275,7 @@ export class EDGServer {
       // Inizializza database
       const dbReady = await this.initializeDatabase();
       if (!dbReady) {
-        console.error("❌ Impossibile avviare il servizio senza database");
+        console.error('❌ Impossibile avviare il servizio senza database');
         process.exit(1);
       }
 
@@ -234,13 +284,13 @@ export class EDGServer {
         console.log(`\n✅ ${this.config.serviceName} avviato con successo!`);
         console.log(`🌐 Server: http://localhost:${this.config.port}`);
         console.log(`📊 Database: ${this.config.database.name}@${this.config.database.host}`);
-        console.log(`📦 Moduli: ${this.modules.map((m) => m.name).join(", ") || "nessuno"}`);
-        console.log(`🏁 Pronto per ricevere richieste!\n`);
+        console.log(`📦 Moduli: ${this.modules.map(m => m.name).join(', ') || 'nessuno'}`);
+        console.log(`🚀 Pronto per ricevere richieste!\n`);
       });
 
       // Graceful shutdown
-      process.on("SIGTERM", () => this.shutdown("SIGTERM"));
-      process.on("SIGINT", () => this.shutdown("SIGINT"));
+      process.on('SIGTERM', () => this.shutdown('SIGTERM'));
+      process.on('SIGINT', () => this.shutdown('SIGINT'));
     } catch (error) {
       console.error("❌ Errore durante l'avvio:", error);
       process.exit(1);
@@ -252,10 +302,10 @@ export class EDGServer {
 
     try {
       await this.database.close();
-      console.log("✅ Servizio terminato correttamente");
+      console.log('✅ Servizio terminato correttamente');
       process.exit(0);
     } catch (error) {
-      console.error("❌ Errore durante shutdown:", error);
+      console.error('❌ Errore durante shutdown:', error);
       process.exit(1);
     }
   }

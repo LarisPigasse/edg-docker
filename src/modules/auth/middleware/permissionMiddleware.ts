@@ -88,6 +88,14 @@ export class PermissionChecker {
    * (Nessuna modifica necessaria)
    */
   static hasModuleAccess(userPermissions: string[], module: string): boolean {
+    const denyWildcardModule = `!${module}.*`;
+
+    // FASE 1: Verifica negazione esplicita del modulo
+    if (userPermissions.includes(denyWildcardModule)) {
+      return false;
+    }
+
+    // FASE 2: Verifica permessi positivi
     return userPermissions.includes('*') || userPermissions.includes(`${module}.*`);
   }
 }
