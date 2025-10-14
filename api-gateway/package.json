@@ -1,0 +1,13 @@
+{
+  "name": "edg-api-gateway",
+  "version": "1.0.0",
+  "description": "API Gateway for EDG Microservices, running Express Gateway.",
+  "main": "server.conf.yml",
+  "scripts": {
+    "start": "eg run",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "dependencies": {
+    "express-gateway": "^1.16.11"
+  }
+}

@@ -1,0 +1,65 @@
+# ----------------------------------------------------------------------------
+# EXPRESS GATEWAY: CONFIGURAZIONE BASE
+# ----------------------------------------------------------------------------
+
+http:
+  port: 8080 # Porta esposta del Gateway
+
+serviceEndpoints:
+  # Definizione dell'endpoint interno del tuo microservizio
+  authService:
+    url: http://auth-service:3001 # Usa il nome del servizio Docker/Kubernetes e la porta interna (3001)
+
+apiEndpoints:
+  auth:
+    path: /auth/* # Tutte le rotte che iniziano con /auth
+  system:
+    path: /system/*
+    # Aggiungerai qui gli altri endpoint futuri (es. /spedizioni/*, /gestione/*)
+
+pipelines:
+  # ----------------------------------------------------------------------------
+  # PIPELINE AUTENTICAZIONE (Auth Service)
+  # Le richieste passano direttamente a auth-service per produrre/rinnovare il token
+  # ----------------------------------------------------------------------------
+  authPipeline:
+    apiEndpoints:
+      - auth
+    policies:
+      # Nessuna autenticazione o rate-limit necessario su login/register:
+      # Lasciamo il rate-limit di base nel microservizio per i tentativi di brute force.
+      - proxy:
+          service: authService
+
+  # ----------------------------------------------------------------------------
+  # PIPELINE PROTETTA (Richiede JWT)
+  # Questa pipeline sarà usata per tutti gli altri microservizi futuri.
+  # ----------------------------------------------------------------------------
+  protectedPipeline:
+    apiEndpoints:
+      - system
+    policies:
+      - jwt: # 1. Validazione del JWT
+          action:
+            secretOrPublicKey: your-super-secret-key-change-in-production # Usa lo stesso JWT_SECRET del tuo auth-service!
+            checkCredentialExistence: false
+      - expression: # 2. Estrarre i dati del JWT e passarli al backend (Autorizzazione Centralizzata)
+          action:
+            # Estrarre il payload e inserirlo in un header che l'auth-service leggerà.
+            # Esempio: Inietta l'array 'permissions' e l'identità dell'utente.
+            # Il payload del tuo token (JWT) deve contenere i campi 'uuid', 'roleId', 'permissions'
+            jmespath:
+              # Questo è l'header che il tuo AuthController e i tuoi futuri controller leggeranno.
+              target: req.headers['x-user-data']
+              expression: '{uuid: claims.uuid, roleId: claims.roleId, permissions: claims.permissions}'
+      - proxy:
+          service: systemService # Un servizio futuro (es. http://system-service:3002)
+
+# ----------------------------------------------------------------------------
+# SECURITY: RATE LIMIT E CORS (Centralizzati)
+# ----------------------------------------------------------------------------
+policies:
+  jwt:
+    -  # Aggiungerai qui la configurazione del plugin JWT
+  rate-limit:
+    -  # Aggiungerai qui la configurazione del plugin Rate Limit se lo togli dal backend.
