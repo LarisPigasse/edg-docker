@@ -10,3 +10,7 @@
 # Build artifacts (se i servizi non usano Docker per il build)
 */dist/
 */build/
+
+# Tutte le cartelle dei micro servizi
+auth-service/
+api-gateway/

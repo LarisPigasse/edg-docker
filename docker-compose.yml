@@ -1,33 +1,193 @@
-# edg-docker/docker-compose.yml
 version: '3.8'
 
-services:
-  mysql:
-    image: mysql:8.0
-    container_name: auth-mysql
-    restart: unless-stopped
-    environment:
-      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
-      MYSQL_DATABASE: ${MYSQL_DATABASE}
-      MYSQL_USER: ${MYSQL_USER}
-      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
-    ports:
-      - '3306:3306'
-    volumes:
-      - mysql_data:/var/lib/mysql
-    command: --default-authentication-plugin=mysql_native_password
-    healthcheck:
-      test: ['CMD', 'mysqladmin', 'ping', '-h', 'localhost', '-u', 'root', '-proot_password_change_in_prod']
-      timeout: 5s
-      retries: 10
-      interval: 10s
-    networks:
-      - edg-network
+# =============================================================================
+# EDG MICROSERVICES - DOCKER COMPOSE CONFIGURATION
+# =============================================================================
 
 networks:
-  edg-network:
+  # Rete interna per comunicazione tra microservizi
+  # Nessun accesso dall'esterno
+  internal:
+    driver: bridge
+    internal: true
+
+  # Rete esterna per gateway (accesso pubblico)
+  external:
     driver: bridge
 
+services:
+  # ===========================================================================
+  # DATABASE (MySQL)
+  # ===========================================================================
+  mysql:
+    image: mysql:8.0
+    container_name: edg-mysql
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      MYSQL_DATABASE: edg_auth
+      MYSQL_USER: edg_auth_admin
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+    volumes:
+      - mysql-data:/var/lib/mysql
+    networks:
+      - internal
+    healthcheck:
+      test: ['CMD', 'mysqladmin', 'ping', '-h', 'localhost']
+      timeout: 20s
+      retries: 10
+
+  # ===========================================================================
+  # AUTH SERVICE (Microservizio Autenticazione)
+  # ===========================================================================
+  auth-service:
+    build:
+      context: ./auth-service
+      dockerfile: Dockerfile
+    container_name: edg-auth-service
+    restart: always
+    depends_on:
+      mysql:
+        condition: service_healthy
+    environment:
+      # Mode Configuration
+      NODE_ENV: production
+      GATEWAY_MODE: 'true' # ✅ Gateway mode in production
+
+      # Gateway Secret (DEVE essere uguale in tutti i servizi!)
+      GATEWAY_SECRET: ${GATEWAY_SECRET}
+
+      # Database
+      DB_NAME: edg_auth
+      DB_USER: edg_auth_admin
+      DB_PASSWORD: ${MYSQL_PASSWORD}
+      DB_HOST: mysql
+      DB_PORT: 3306
+      DB_SYNC: 'false' # No sync in production
+
+      # JWT (DEVE essere uguale nel gateway!)
+      JWT_SECRET: ${JWT_SECRET}
+      JWT_ACCESS_EXPIRY: 16m
+      JWT_REFRESH_EXPIRY: 7d
+
+      # Service
+      SERVICE_NAME: EDG Auth Service
+      PORT: 3001
+
+      # Rate Limiting Specifico (business logic)
+      LOGIN_RATE_LIMIT_WINDOW: 16
+      LOGIN_RATE_LIMIT_MAX_ATTEMPTS: 4
+      RESET_PASSWORD_RATE_LIMIT_WINDOW: 60
+      RESET_PASSWORD_RATE_LIMIT_MAX_ATTEMPTS: 3
+      REGISTER_RATE_LIMIT_WINDOW: 60
+      REGISTER_RATE_LIMIT_MAX_ATTEMPTS: 10
+
+      # Logging
+      LOG_LEVEL: info
+    expose:
+      - '3001' # ✅ Solo rete interna (NO accesso esterno diretto)
+    networks:
+      - internal
+    healthcheck:
+      test: ['CMD', 'curl', '-f', 'http://localhost:3001/health']
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # ===========================================================================
+  # API GATEWAY (Express Gateway)
+  # ===========================================================================
+  api-gateway:
+    build:
+      context: ./api-gateway
+      dockerfile: Dockerfile
+    container_name: edg-api-gateway
+    restart: always
+    depends_on:
+      auth-service:
+        condition: service_healthy
+    environment:
+      # Gateway Configuration
+      NODE_ENV: production
+
+      # JWT Secret (DEVE essere uguale nell'auth-service!)
+      JWT_SECRET: ${JWT_SECRET}
+
+      # Gateway Secret per comunicazione interna
+      GATEWAY_SECRET: ${GATEWAY_SECRET}
+
+      # CORS Origins (separati da virgola)
+      CORS_ORIGINS: ${CORS_ORIGINS}
+
+      # Rate Limiting Generale
+      RATE_LIMIT_WINDOW: 15
+      RATE_LIMIT_MAX_ATTEMPTS: 100
+    ports:
+      - '80:8080' # ✅ Espone porta 80 esterna → 8080 container
+    networks:
+      - internal # Accesso ai microservizi
+      - external # Accesso pubblico
+    healthcheck:
+      test: ['CMD', 'curl', '-f', 'http://localhost:8080/health']
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # ===========================================================================
+  # FUTURE MICROSERVICES (Template)
+  # ===========================================================================
+  # sales-service:
+  #   build:
+  #     context: ./sales-service
+  #     dockerfile: Dockerfile
+  #   container_name: edg-sales-service
+  #   restart: always
+  #   depends_on:
+  #     - mysql
+  #   environment:
+  #     NODE_ENV: production
+  #     GATEWAY_MODE: 'true'
+  #     GATEWAY_SECRET: ${GATEWAY_SECRET}
+  #     DB_HOST: mysql
+  #     PORT: 3002
+  #   expose:
+  #     - '3002'
+  #   networks:
+  #     - internal
+
 volumes:
-  mysql_data:
+  mysql-data:
     driver: local
+# =============================================================================
+# NETWORK ARCHITECTURE
+# =============================================================================
+#
+# ┌──────────────────────────────────────────────────────────────┐
+# │                      EXTERNAL NETWORK                        │
+# │  (accesso pubblico - solo API Gateway)                       │
+# └──────────────────────┬───────────────────────────────────────┘
+#                        │
+#                   ┌────▼────┐
+#                   │ Gateway │ :80 → :8080
+#                   │  (EG)   │
+#                   └────┬────┘
+#                        │
+# ┌──────────────────────┴───────────────────────────────────────┐
+# │                    INTERNAL NETWORK                          │
+# │  (isolata - NO accesso esterno diretto)                      │
+# │                                                               │
+# │  ┌──────────────┐    ┌──────────────┐    ┌──────────────┐  │
+# │  │ Auth Service │    │Sales Service │    │    MySQL     │  │
+# │  │    :3001     │    │    :3002     │    │    :3306     │  │
+# │  └──────────────┘    └──────────────┘    └──────────────┘  │
+# └───────────────────────────────────────────────────────────────┘
+#
+# SICUREZZA:
+# ✅ Microservizi NON esposti all'esterno (solo expose, no ports)
+# ✅ Comunicazione interna via rete isolata
+# ✅ Gateway verifica X-Gateway-Secret su ogni richiesta
+# ✅ CORS gestito dal gateway
+# ✅ Rate limiting generale gestito dal gateway
+# ✅ JWT validazione centralizzata nel gateway
+#
+# =============================================================================
