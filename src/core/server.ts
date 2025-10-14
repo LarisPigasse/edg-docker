@@ -47,55 +47,71 @@ export class EDGServer {
   }
 
   private setupMiddleware(): void {
-    // Security headers
+    const isGatewayMode = process.env.GATEWAY_MODE === 'true';
+
+    if (isGatewayMode) {
+      console.log('🌐 [SERVER] Gateway mode: CORS e rate limiting generale disattivati');
+    } else {
+      console.log('💻 [SERVER] Standalone mode: CORS e rate limiting generale attivi');
+    }
+
+    // Security headers (sempre attivo)
     this.app.use(
       helmet({
         contentSecurityPolicy: isDevelopment(this.config) ? false : undefined,
       })
     );
 
-    // CORS configuration
-    this.app.use(
-      cors({
-        origin: (origin, callback) => {
-          if (!origin) return callback(null, true);
+    // CORS configuration (solo in standalone mode)
+    // In gateway mode, CORS è gestito dal gateway
+    if (!isGatewayMode) {
+      this.app.use(
+        cors({
+          origin: (origin, callback) => {
+            if (!origin) return callback(null, true);
 
-          if (this.config.cors.origins.includes(origin)) {
-            callback(null, true);
-          } else {
-            console.warn(`🚫 CORS: Origine non consentita: ${origin}`);
-            callback(new Error('Non consentito da CORS'));
-          }
+            if (this.config.cors.origins.includes(origin)) {
+              callback(null, true);
+            } else {
+              console.warn(`🚫 CORS: Origine non consentita: ${origin}`);
+              callback(new Error('Non consentito da CORS'));
+            }
+          },
+          methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
+          credentials: true,
+          allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+        })
+      );
+    }
+
+    // Rate limiting GENERALE (solo in standalone mode)
+    // In gateway mode, rate limiting generale è gestito dal gateway
+    // Il rate limiting SPECIFICO (login attempts, etc.) rimane nelle route
+    if (!isGatewayMode) {
+      const globalLimiter = rateLimit({
+        windowMs: this.config.security.rateLimitWindow * 60 * 1000,
+        max: this.config.security.rateLimitMaxAttempts,
+        message: {
+          success: false,
+          error: 'Troppe richieste da questo IP, riprova più tardi',
+          retryAfter: this.config.security.rateLimitWindow * 60,
         },
-        methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
-        credentials: true,
-        allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
-      })
-    );
+        standardHeaders: true,
+        legacyHeaders: false,
+      });
 
-    // Rate limiting globale
-    const globalLimiter = rateLimit({
-      windowMs: this.config.security.rateLimitWindow * 60 * 1000,
-      max: this.config.security.rateLimitMaxAttempts,
-      message: {
-        success: false,
-        error: 'Troppe richieste da questo IP, riprova più tardi',
-        retryAfter: this.config.security.rateLimitWindow * 60,
-      },
-      standardHeaders: true,
-      legacyHeaders: false,
-    });
+      this.app.use(globalLimiter);
+    }
 
-    this.app.use(globalLimiter);
-
-    // Body parsing
+    // Body parsing (sempre attivo)
     this.app.use(express.json({ limit: '10mb' }));
     this.app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
     // Request logging in development
     if (isDevelopment(this.config)) {
       this.app.use((req, res, next) => {
-        console.log(`🔍 ${req.method} ${req.path}`);
+        const mode = isGatewayMode ? '[GATEWAY]' : '[STANDALONE]';
+        console.log(`🔍 ${mode} ${req.method} ${req.path}`);
         next();
       });
     }
