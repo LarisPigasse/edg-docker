@@ -1,13 +1,14 @@
 {
-  "name": "edg-api-gateway",
+  "name": "edg-api-gateway-simple",
   "version": "1.0.0",
-  "description": "API Gateway for EDG Microservices, running Express Gateway.",
-  "main": "server.conf.yml",
+  "description": "Simple API Gateway with manual proxy",
+  "main": "gateway.js",
   "scripts": {
-    "start": "eg run",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "start": "node gateway.js"
   },
   "dependencies": {
-    "express-gateway": "^1.16.11"
+    "express": "^4.18.2",
+    "axios": "^1.6.0",
+    "cors": "^2.8.5"
   }
 }
