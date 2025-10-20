@@ -13,3 +13,4 @@
 
 # Tutte le cartelle dei micro servizi
 auth-service/
+log-service

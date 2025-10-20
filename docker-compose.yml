@@ -18,7 +18,7 @@ services:
   # ===========================================================================
   mysql:
     image: mysql:8.0
-    container_name: edg-mysql
+    container_name: auth-mysql
     restart: always
     environment:
       MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
@@ -37,13 +37,36 @@ services:
       retries: 10
 
   # ===========================================================================
+  # 3. DATABASE LOGGER (MongoDB)
+  # ===========================================================================
+  logger-mongo:
+    image: mongo:7.0
+    container_name: log-mongo
+    restart: always
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_LOG_USER}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_LOG_PASSWORD}
+      MONGO_INITDB_DATABASE: ${MONGO_LOG_DATABASE}
+    volumes:
+      - mongo_data:/data/db
+    networks:
+      - internal
+    ports:
+      - '27017:27017'
+    healthcheck:
+      test: ['CMD', 'mongosh', '--eval', "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 50
+
+  # ===========================================================================
   # AUTH SERVICE (Microservizio Autenticazione)
   # ===========================================================================
   auth-service:
     build:
       context: ./auth-service
       dockerfile: Dockerfile
-    container_name: edg-auth-service
+    container_name: auth-service
     restart: always
     depends_on:
       mysql:
@@ -95,13 +118,28 @@ services:
       start_period: 40s
 
   # ===========================================================================
+  # 2. LOG SERVICE (Microservizio Node.js/Express per i Log)
+  # ===========================================================================
+  log-service:
+    # IL PERCORSO QUI DEVE ESSERE CORRETTO:
+    build:
+      context: ./log-service
+      dockerfile: Dockerfile
+    container_name: log-service
+    restart: unless-stopped
+    # ... (altre configurazioni di logger-service)
+    # ...
+    networks:
+      - internal
+
+  # ===========================================================================
   # API GATEWAY (Express Gateway)
   # ===========================================================================
   api-gateway:
     build:
       context: ./api-gateway
       dockerfile: Dockerfile
-    container_name: edg-api-gateway
+    container_name: api-gateway
     restart: always
     depends_on:
       auth-service:
@@ -136,6 +174,8 @@ services:
 
 volumes:
   mysql-data:
+    driver: local
+  mongo_data:
     driver: local
 # =============================================================================
 # NETWORK ARCHITECTURE
