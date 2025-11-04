@@ -1,0 +1,190 @@
+/* globals.css */
+
+/* Definizioni per la modalità Light (default) */
+:root {
+  /* Sfondi */
+  --bg-base: #f6f8fa; /* Lo sfondo principale dell'applicazione */
+  --bg-primary: #ffffff; /* sfondo delle aree per contenuti */
+  --bg-secondary: #ecedef; /* sfondo delle aree secondarie */
+  --bg-modal: #fafbfc; /* sfondo delle finestre modali */
+  --bg-info: #e7f4ff; /* sfondo per gli elementi informativi es. alert */
+  --bg-contrast: #1e1f24; /* sfondo per gli elementi a contrasto es. tooltip */
+  --bg-hover: #edecef; /* sfondo al passaggio del mouse */
+  --bg-selected: #d6eeff; /* sfondo per elementi selezionati o attivi */
+
+  /* Testo */
+  --text-primary: #111827; /* Quasi nero */
+  --text-secondary: #4b5563; /* Grigio medio-scuro */
+  --text-placeholder: #9ca3af;
+  --text-disabled: #d1d5db;
+  --text-label: #a8a29e; /* stone-400 in Tailwind */
+  --text-contrast: #ffffff; /* Bianco per testi su sfondi scuri */
+  --text-link: #6e56cf; /* Viola medio per link */
+  --text-link-hover: #8e4ec6; /* Tomato medio */
+  --text-info: #0284c7; /* Sky-600 in Tailwind */
+  --text-error: #ef4444; /* red-500 in Tailwind */
+
+  /* Bordi e linee */
+  --border-default: #e5e7eb; /* Grigio chiaro */
+  --border-thin: #e0e2e4; /* Grigio molto chiaro */
+  --border-strong: #d1d5db; /* Grigio */
+  --border-contrast: #bcb7f7; /* viola chiaro */
+  --underline-default: #e4e6e8; /* Grigio chiaro */
+  --underline-primary: #6e56cf; /* Viola medio*/
+  --underline-focus: #a2a4a8; /* Grigio scuro */
+  --underline-error: #ef4444; /* red-500 in Tailwind */
+
+  /* Ombre */
+  --shadow-none: none;
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05);
+  --shadow-default: 0 1px 3px rgba(0, 0, 0, 0.1), 0 1px 2px rgba(0, 0, 0, 0.06);
+  --shadow-md: 0 4px 6px rgba(0, 0, 0, 0.1), 0 2px 4px rgba(0, 0, 0, 0.06);
+  --shadow-lg: 0 10px 15px rgba(0, 0, 0, 0.1), 0 4px 6px rgba(0, 0, 0, 0.05);
+  --shadow-xl: 0 20px 25px rgba(0, 0, 0, 0.1), 0 10px 10px rgba(0, 0, 0, 0.04);
+  --shadow-inner: inset 0 2px 4px rgba(0, 0, 0, 0.06);
+
+  /* Component Categories */
+  --category-ui: #7dd3fc; /* Sky 300 - UI components */
+  --category-form: #86efac; /* Green 300 - Form components */
+  --category-navigation: #f0abfc; /* Fuchsia 300 - Navigation */
+  --category-feedback: #fdba74; /* Orange 300 - Modals, Toast */
+  --category-data: #fcd34d; /* Amber-300 - Tables, Lists */
+  --category-layout: #d4d4d8; /* Stone-300 - Layout components */
+
+  /* Modal variants - Light mode */
+  --modal-success-bg: #f0fdf4; /* Green 50 */
+  --modal-success-text: #166534; /* Green 800 */
+  --modal-warning-bg: #fffbeb; /* Amber 50 */
+  --modal-warning-text: #92400e; /* Amber 800 */
+  --modal-danger-bg: #fef2f2; /* Red 50 */
+  --modal-danger-text: #991b1b; /* Red 800 */
+  --modal-info-bg: #eff6ff; /* Blue 50 */
+  --modal-info-text: #1e40af; /* Blue 800 */
+}
+
+/* Definizioni per la modalità Dark (sovrascrivono quelle light) */
+.dark {
+  /* Sfondi */
+  --bg-base: #0f1419; /* Nero-blu molto scuro per lo sfondo principale */
+  --bg-primary: #1a1f2e; /* Grigio scuro per contenuti principali */
+  --bg-secondary: #232936; /* Grigio leggermente più chiaro per aree secondarie */
+  --bg-modal: #1e2330; /* Sfondo modale leggermente diverso per distinguere */
+  --bg-info: #1e3a5f; /* Blu scuro per elementi informativi */
+  --bg-contrast: #f1f5f9; /* Sfondo chiaro per elementi a contrasto (tooltip) */
+  --bg-hover: #2d3748; /* Grigio medio per hover */
+  --bg-selected: #1e40af; /* Blu per elementi selezionati */
+
+  /* Testo */
+  --text-primary: #f8fafc; /* Quasi bianco per testo principale */
+  --text-secondary: #cbd5e1; /* Grigio chiaro per testo secondario */
+  --text-placeholder: #64748b; /* Grigio medio per placeholder */
+  --text-disabled: #475569; /* Grigio scuro per testo disabilitato */
+  --text-label: #a8a29e; /* stone-400 in Tailwind */
+  --text-contrast: #0f172a; /* Nero per testi su sfondi chiari */
+  --text-link: #6e56cf; /* Viola medio per link */
+  --text-link-hover: #be93e4; /* purple più chiaro per hover sui link */
+  --text-info: #38bdf8; /* Sky-400 in Tailwind */
+  --text-error: #ef4444; /* red-500 in Tailwind */
+
+  /* Bordi e linee */
+  --border-default: #374151; /* Grigio medio-scuro */
+  --border-thin: #4b5563; /* Grigio leggermente più chiaro */
+  --border-strong: #6b7280; /* Grigio più visibile per bordi importanti */
+  --border-contrast: #614cb5; /* viola */
+  --underline-default: #4b5563; /* Grigio chiaro */
+  --underline-primary: #6e56cf; /* Viola medio*/
+  --underline-focus: #c2c4c8; /* Grigio scuro */
+  --underline-error: #ef4444; /* red-500 in Tailwind */
+
+  /* Ombre - In dark mode sono più sottili e spesso con toni più chiari */
+  --shadow-none: none;
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
+  --shadow-default: 0 1px 3px rgba(0, 0, 0, 0.4), 0 1px 2px rgba(0, 0, 0, 0.2);
+  --shadow-md: 0 4px 6px rgba(0, 0, 0, 0.4), 0 2px 4px rgba(0, 0, 0, 0.2);
+  --shadow-lg: 0 10px 15px rgba(0, 0, 0, 0.5), 0 4px 6px rgba(0, 0, 0, 0.2);
+  --shadow-xl: 0 20px 25px rgba(0, 0, 0, 0.6), 0 10px 10px rgba(0, 0, 0, 0.3);
+  --shadow-inner: inset 0 2px 4px rgba(0, 0, 0, 0.3);
+
+  /* Dark mode - Component Categories */
+  --category-ui: #075985; /* Sky 800 */
+  --category-form: #166534; /* Green 800 */
+  --category-navigation: #a21caf; /* Fuchsia 800 */
+  --category-feedback: #9a3412; /* Orange 800 */
+  --category-data: #92400e; /* Amber 800 */
+  --category-layout: #42424a; /* Stone 800 */
+
+  --modal-success-bg: #166534; /* Green 00 */
+  --modal-success-text: #cbd5e1; /* Grigio chiaro */
+  --modal-warning-bg: #92400e; /* Amber 800 */
+  --modal-warning-text: #fcd34d; /* Amber 300 */
+  --modal-danger-bg: #7f1d1d; /* Red 900 */
+  --modal-danger-text: #f8fafc; /* quasi bianco */
+  --modal-info-bg: #1e3a8a; /* Blue 900 */
+  --modal-info-text: #93c5fd; /* Blue 300 */
+}
+
+/* Disable autofill background */
+input:-webkit-autofill,
+input:-webkit-autofill:hover,
+input:-webkit-autofill:focus {
+  -webkit-box-shadow: inset 0 0 0px 1000px var(--bg-primary) !important;
+  box-shadow: inset 0 0 0px 1000px var(--bg-primary) !important;
+  -webkit-text-fill-color: var(--text-primary) !important;
+}
+
+/* Spinner dots animation */
+@keyframes spinnerPulse {
+  0%,
+  80%,
+  100% {
+    transform: scale(0.8);
+    opacity: 0.6;
+  }
+  40% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+/* Accordion animations */
+@keyframes accordion-down {
+  from {
+    height: 0;
+  }
+  to {
+    height: var(--radix-accordion-content-height);
+  }
+}
+
+@keyframes accordion-up {
+  from {
+    height: var(--radix-accordion-content-height);
+  }
+  to {
+    height: 0;
+  }
+}
+
+/* Progress shimmer animation */
+@keyframes shimmer {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+/* Tabs utilities */
+.scrollbar-hide {
+  /* IE and Edge */
+  -ms-overflow-style: none;
+
+  /* Firefox */
+  scrollbar-width: none;
+
+  /* Safari and Chrome */
+  &::-webkit-scrollbar {
+    display: none;
+  }
+}

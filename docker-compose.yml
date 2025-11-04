@@ -121,19 +121,108 @@ services:
   # 2. LOG SERVICE (Microservizio Node.js/Express per i Log)
   # ===========================================================================
   log-service:
-    # IL PERCORSO QUI DEVE ESSERE CORRETTO:
-    build:
-      context: ./log-service
-      dockerfile: Dockerfile
+    image: edg-docker-log-service
     container_name: log-service
-    restart: unless-stopped
-    # ... (altre configurazioni di logger-service)
-    # ...
+    environment:
+      - NODE_ENV=production
+      - MONGODB_URI=mongodb://logger-mongo:27017/edglogger
+      # oppure se usi altre variabili:
+      - MONGO_HOST=log-mongo
+      - MONGO_PORT=27017
+      - MONGO_DATABASE=edglogger
+    depends_on:
+      - logger-mongo
     networks:
       - internal
+    restart: unless-stopped
 
   # ===========================================================================
-  # API GATEWAY (Express Gateway)
+  # FRONTEND PRO (Operatori)
+  # ===========================================================================
+  pro-frontend:
+    build:
+      context: ./pro-frontend
+      dockerfile: Dockerfile
+      target: frontend-dev
+    container_name: pro-frontend
+    restart: unless-stopped
+    volumes:
+      # Mount codice per hot reload
+      - ./pro-frontend:/app
+      # Escludi node_modules (usa quelli del container)
+      - /app/node_modules
+      # Escludi dist (se presente localmente)
+      - /app/dist
+    environment:
+      - NODE_ENV=development
+      # Vite carica automaticamente .env.development
+    networks:
+      - internal # Comunicazione con gateway
+    ports:
+      - '5173:5173' # Esponi porta per debug diretto (opzionale)
+    stdin_open: true # Mantiene stdin aperto
+    tty: true # Alloca pseudo-TTY
+    healthcheck:
+      test: ['CMD', 'wget', '--quiet', '--tries=1', '--spider', 'http://localhost:5173']
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # =========================================================================
+  # FRONTEND APP (Clienti)
+  # =========================================================================
+  app-frontend:
+    build:
+      context: ./app-frontend
+      dockerfile: Dockerfile
+      target: frontend-dev
+    container_name: app-frontend
+    restart: unless-stopped
+    volumes:
+      - ./app-frontend:/app
+      - /app/node_modules
+      - /app/dist
+    environment:
+      - NODE_ENV=development
+      - VITE_FRONTEND_TYPE=app
+    networks:
+      - internal
+    healthcheck:
+      test: ['CMD', 'wget', '--quiet', '--tries=1', '--spider', 'http://localhost:5174']
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # =========================================================================
+  # FRONTEND EDG (Partner)
+  # =========================================================================
+  edg-frontend:
+    build:
+      context: ./edg-frontend
+      dockerfile: Dockerfile
+      target: frontend-dev
+    container_name: edg-frontend
+    restart: unless-stopped
+    volumes:
+      - ./edg-frontend:/app
+      - /app/node_modules
+      - /app/dist
+    environment:
+      - NODE_ENV=development
+      - VITE_FRONTEND_TYPE=edg
+    networks:
+      - internal
+    healthcheck:
+      test: ['CMD', 'wget', '--quiet', '--tries=1', '--spider', 'http://localhost:5175']
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # ===========================================================================
+  # API GATEWAY (Express.js con Frontend Proxy)
   # ===========================================================================
   api-gateway:
     build:
@@ -144,9 +233,22 @@ services:
     depends_on:
       auth-service:
         condition: service_healthy
+      pro-frontend:
+        condition: service_healthy # ✅ Aggiungi dipendenza frontend
+      app-frontend:
+        condition: service_healthy
+      edg-frontend:
+        condition: service_healthy
     environment:
       # Gateway Configuration
       NODE_ENV: production
+      PORT: 8080
+
+      # Service URLs
+      AUTH_SERVICE_URL: http://auth-service:3001 # ✅ Esplicita
+      FRONTEND_PRO_URL: http://pro-frontend:5173 # ✅ NUOVO
+      FRONTEND_APP_URL: http://app-frontend:5174 # ← NUOVO
+      FRONTEND_EDG_URL: http://edg-frontend:5175 # ← NUOVO
 
       # JWT Secret (DEVE essere uguale nell'auth-service!)
       JWT_SECRET: ${JWT_SECRET}
@@ -166,7 +268,7 @@ services:
       - internal # Accesso ai microservizi
       - external # Accesso pubblico
     healthcheck:
-      test: ['CMD-SHELL', 'wget --no-verbose --tries=1 --spider http://localhost:8080/health || exit 1']
+      test: ['CMD-SHELL', 'wget --no-verbose --tries=1 --spider http://127.0.0.1:8080/health || exit 1']
       interval: 30s
       timeout: 10s
       retries: 3

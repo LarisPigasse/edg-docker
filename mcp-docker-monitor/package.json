@@ -1,0 +1,33 @@
+{
+  "name": "mcp-docker-monitor",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "type": "module",
+  "bin": {
+    "docker-monitor": "./build/index.js"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "build": "tsc",
+    "start": "node build/index.js",
+    "dev": "tsc --watch",
+    "debug": "npx @modelcontextprotocol/inspector node build/index.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.20.2",
+    "dockerode": "^4.0.9",
+    "node-cron": "^4.2.1",
+    "nodemailer": "^7.0.10",
+    "zod": "^3.25.76"
+  },
+  "devDependencies": {
+    "@types/dockerode": "^3.3.45",
+    "@types/node": "^24.9.2",
+    "@types/nodemailer": "^7.0.3",
+    "typescript": "^5.9.3"
+  }
+}

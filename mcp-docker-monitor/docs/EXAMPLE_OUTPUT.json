@@ -1,0 +1,148 @@
+{
+  "timestamp": "2025-11-03T10:30:45.123Z",
+  "summary": {
+    "total_containers": 8,
+    "running": 8,
+    "stopped": 0,
+    "healthy": 8,
+    "unhealthy": 0
+  },
+  "api_gateway": {
+    "id": "2541f65b678f",
+    "name": "api-gateway",
+    "image": "edg-docker-api-gateway",
+    "state": "running",
+    "status": "Up 3 days (healthy)",
+    "healthy": true,
+    "uptime": "Up 3 days (healthy)",
+    "ports": [
+      {
+        "IP": "0.0.0.0",
+        "PrivatePort": 8080,
+        "PublicPort": 80,
+        "Type": "tcp"
+      }
+    ]
+  },
+  "frontends": [
+    {
+      "id": "01f8a0e73fa7",
+      "name": "app-frontend",
+      "image": "edg-docker-app-frontend",
+      "state": "running",
+      "status": "Up 3 days (healthy)",
+      "healthy": true,
+      "uptime": "Up 3 days (healthy)",
+      "ports": [
+        {
+          "IP": "0.0.0.0",
+          "PrivatePort": 5174,
+          "Type": "tcp"
+        }
+      ]
+    },
+    {
+      "id": "fe5374eb70c0",
+      "name": "edg-frontend",
+      "image": "edg-docker-edg-frontend",
+      "state": "running",
+      "status": "Up 3 days (healthy)",
+      "healthy": true,
+      "uptime": "Up 3 days (healthy)",
+      "ports": [
+        {
+          "IP": "0.0.0.0",
+          "PrivatePort": 5175,
+          "Type": "tcp"
+        }
+      ]
+    },
+    {
+      "id": "3cf62465455d",
+      "name": "pro-frontend",
+      "image": "edg-docker-pro-frontend",
+      "state": "running",
+      "status": "Up 3 days (healthy)",
+      "healthy": true,
+      "uptime": "Up 3 days (healthy)",
+      "ports": [
+        {
+          "IP": "0.0.0.0",
+          "PrivatePort": 5173,
+          "Type": "tcp"
+        }
+      ]
+    }
+  ],
+  "microservices": [
+    {
+      "id": "5b5a6be6cf8d",
+      "name": "auth-service",
+      "image": "edg-docker-auth-service",
+      "state": "running",
+      "status": "Up 3 days (healthy)",
+      "healthy": true,
+      "uptime": "Up 3 days (healthy)",
+      "ports": [
+        {
+          "IP": "0.0.0.0",
+          "PrivatePort": 3001,
+          "Type": "tcp"
+        }
+      ]
+    },
+    {
+      "id": "b085601e4fb7",
+      "name": "log-service",
+      "image": "edg-docker-log-service",
+      "state": "running",
+      "status": "Up 5 minutes",
+      "healthy": true,
+      "uptime": "Up 5 minutes",
+      "ports": [
+        {
+          "IP": "0.0.0.0",
+          "PrivatePort": 3002,
+          "Type": "tcp"
+        }
+      ]
+    }
+  ],
+  "databases": [
+    {
+      "id": "279143b76d75",
+      "name": "auth-mysql",
+      "image": "mysql:8.0",
+      "state": "running",
+      "status": "Up 3 days (healthy)",
+      "healthy": true,
+      "uptime": "Up 3 days (healthy)",
+      "ports": [
+        {
+          "IP": "0.0.0.0",
+          "PrivatePort": 3306,
+          "PublicPort": 3306,
+          "Type": "tcp"
+        }
+      ]
+    },
+    {
+      "id": "6b52317825d3",
+      "name": "log-mongo",
+      "image": "mongo:7.0",
+      "state": "running",
+      "status": "Up 3 days (healthy)",
+      "healthy": true,
+      "uptime": "Up 3 days (healthy)",
+      "ports": [
+        {
+          "IP": "0.0.0.0",
+          "PrivatePort": 27017,
+          "PublicPort": 27017,
+          "Type": "tcp"
+        }
+      ]
+    }
+  ],
+  "other": []
+}
