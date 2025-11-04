@@ -13,4 +13,7 @@
 
 # Tutte le cartelle dei micro servizi
 auth-service/
-log-service
+log-service/
+app-frontend/
+pro-frontend/
+edg-frontend
