@@ -184,7 +184,7 @@ async function main() {
     console.error('New intelligent diagnostics tools available');
 
     // Avvia monitoring in background
-    startMonitoring();
+    // startMonitoring();
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     console.error('Failed to start server:', errorMessage);
