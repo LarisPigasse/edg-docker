@@ -14,7 +14,8 @@
     "lint:fix": "eslint . --ext .ts --fix",
     "db:sync": "DB_SYNC=true npm run dev",
     "seed:roles": "ts-node src/modules/auth/seed/roles.seed.ts",
-    "seed:all": "npm run seed:roles",
+    "seed:root": "ts-node src/modules/auth/seed/root-account.seed.ts",
+    "seed:all": "npm run seed:roles && npm run seed:root",
     "clean": "rm -rf dist",
     "create-service": "node scripts/create-service.js"
   },

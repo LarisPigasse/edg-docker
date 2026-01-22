@@ -92,7 +92,6 @@ export interface RegisterRequest {
 export interface LoginRequest {
   email: string;
   password: string;
-  accountType: AccountType;
 }
 
 export interface LoginResponseAccount {
@@ -116,7 +115,6 @@ export interface RefreshTokenRequest {
 
 export interface ResetPasswordRequest {
   email: string;
-  accountType: AccountType;
 }
 
 export interface ConfirmResetPasswordRequest {

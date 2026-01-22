@@ -21,6 +21,7 @@ Il sistema di autenticazione è ora completamente operativo con tutti gli endpoi
 **Status:** ✅ RISOLTO
 
 #### Sintomo
+
 ```json
 {
   "error": "Endpoint POST /auth/register non trovato",
@@ -35,13 +36,15 @@ Tutti gli endpoint `/auth/*` restituivano 404 anche se i log mostravano che le r
 **Ordine errato di registrazione middleware in Express.**
 
 Nel `constructor` di `server.ts`:
+
 ```typescript
-this.setupMiddleware();      // 1️⃣
-this.setupHealthAndRoot();   // 2️⃣
-this.setupErrorHandling();   // 3️⃣ ⚠️ 404 handler registrato QUI!
+this.setupMiddleware(); // 1️⃣
+this.setupHealthAndRoot(); // 2️⃣
+this.setupErrorHandling(); // 3️⃣ ⚠️ 404 handler registrato QUI!
 ```
 
 Poi in `app.ts`:
+
 ```typescript
 server.registerModuleRoutes(); // 4️⃣ Route registrate DOPO il 404!
 ```
@@ -70,11 +73,12 @@ public setupErrorHandlers(): void {
 
 ```typescript
 // Ordine corretto
-server.registerModuleRoutes();  // PRIMA: Registra route
-server.setupErrorHandlers();    // DOPO: Registra error handlers
+server.registerModuleRoutes(); // PRIMA: Registra route
+server.setupErrorHandlers(); // DOPO: Registra error handlers
 ```
 
 **Ordine corretto finale:**
+
 ```
 1. Middleware (security, parsing, logging)
 2. Endpoint base (/, /health)
@@ -271,6 +275,7 @@ Il logging dettagliato può essere rimosso in produzione per output più puliti,
 ### Database
 
 **Tabelle create:**
+
 - ✅ `roles` - Ruoli del sistema
 - ✅ `role_permissions` - Permessi dei ruoli
 - ✅ `accounts` - Account utenti
@@ -278,6 +283,7 @@ Il logging dettagliato può essere rimosso in produzione per output più puliti,
 - ✅ `reset_tokens` - Token reset password
 
 **Pattern Dual Key:**
+
 - ID interno: `id` INTEGER AUTO_INCREMENT (performance)
 - ID pubblico: `uuid` UUID v4 (sicurezza)
 - Foreign keys: sempre INTEGER
@@ -285,6 +291,7 @@ Il logging dettagliato può essere rimosso in produzione per output più puliti,
 ### Modelli
 
 **Creati/Aggiornati:**
+
 - ✅ `Role.ts` - Nuovo modello con id + uuid
 - ✅ `RolePermission.ts` - Nuovo modello per permessi
 - ✅ `Account.ts` - Aggiunto `roleId` FK
@@ -295,6 +302,7 @@ Il logging dettagliato può essere rimosso in produzione per output più puliti,
 ### Core Framework
 
 **Modifiche Principali:**
+
 - ✅ `server.ts` - Error handling separato
 - ✅ `app.ts` - Ordine inizializzazione corretto
 - ✅ Metodi pubblici per registrazione route ed error handlers
@@ -331,17 +339,20 @@ Il logging dettagliato può essere rimosso in produzione per output più puliti,
 ## Metriche Sistema
 
 ### Performance
+
 - ⚡ Server avvio: < 2 secondi
 - ⚡ Response time: < 50ms (locale)
 - ⚡ Database query: < 10ms (media)
 
 ### Security
+
 - 🔒 BCrypt rounds: 12
 - 🔒 JWT expiry: 15min (access), 7d (refresh)
 - 🔒 Rate limit: 100 req/15min per IP
 - 🔒 Password policy: min 8 caratteri, 1 maiuscola, 1 numero, 1 speciale
 
 ### Database
+
 - 📊 Tabelle: 5
 - 📊 Indici: 25+
 - 📊 Foreign keys: 6
@@ -352,12 +363,14 @@ Il logging dettagliato può essere rimosso in produzione per output più puliti,
 ## Prossime Features (Roadmap)
 
 ### Fase 1: RBAC Avanzato
+
 - [ ] PermissionService per verifica permessi
 - [ ] Middleware `requirePermission(module, action)`
 - [ ] RoleService per CRUD ruoli
 - [ ] API admin per gestione ruoli
 
 ### Fase 2: Production Ready
+
 - [ ] Email service (reset password)
 - [ ] Redis cache per permissions
 - [ ] Logging avanzato (Winston)
@@ -366,6 +379,7 @@ Il logging dettagliato può essere rimosso in produzione per output più puliti,
 - [ ] CI/CD pipeline
 
 ### Fase 3: Features Avanzate
+
 - [ ] 2FA (Two-Factor Authentication)
 - [ ] OAuth2 providers (Google, Microsoft)
 - [ ] Account verification via email

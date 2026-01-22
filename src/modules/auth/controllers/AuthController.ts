@@ -154,12 +154,12 @@ export class AuthController {
    */
   requestPasswordReset = async (req: Request, res: Response): Promise<void> => {
     try {
-      const { email, accountType }: ResetPasswordRequest = req.body;
+      const { email }: ResetPasswordRequest = req.body;
 
-      if (!email || !accountType) {
+      if (!email) {
         res.status(400).json({
           success: false,
-          error: 'Email e accountType richiesti',
+          error: 'Email richiesta',
         });
         return;
       }
@@ -167,7 +167,7 @@ export class AuthController {
       const ipAddress = req.ip;
       const userAgent = req.headers['user-agent'];
 
-      await this.authService.requestPasswordReset(email, accountType, ipAddress, userAgent);
+      await this.authService.requestPasswordReset(email, ipAddress, userAgent);
 
       res.json({
         success: true,

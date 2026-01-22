@@ -97,7 +97,6 @@ export class AuthService {
     const account = await this.accountModel.findOne({
       where: {
         email: data.email,
-        accountType: data.accountType,
       },
       include: [
         {
@@ -272,9 +271,9 @@ export class AuthService {
   /**
    * Richiesta reset password
    */
-  async requestPasswordReset(email: string, accountType: AccountType, ipAddress?: string, userAgent?: string): Promise<string> {
+  async requestPasswordReset(email: string, ipAddress?: string, userAgent?: string): Promise<string> {
     const account = await this.accountModel.findOne({
-      where: { email, accountType },
+      where: { email },
     });
 
     if (!account) {
