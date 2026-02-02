@@ -55,7 +55,6 @@ const authenticateFromGateway = (req: Request, res: Response, next: NextFunction
       (req as any).accountId = user.accountId;
       (req as any).account = {
         accountId: user.accountId,
-        uuid: user.uuid,
         email: user.email,
         accountType: user.accountType,
         roleId: user.roleId,

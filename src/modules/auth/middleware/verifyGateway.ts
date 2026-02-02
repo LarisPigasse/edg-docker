@@ -86,7 +86,7 @@ export const extractUserData = (req: Request, res: Response, next: NextFunction)
     const userData = JSON.parse(userDataHeader);
 
     // Validazione base
-    if (!userData.accountId || !userData.uuid) {
+    if (!userData.accountId || !userData.email) {
       res.status(401).json({
         success: false,
         error: 'Dati utente non validi',
@@ -98,7 +98,6 @@ export const extractUserData = (req: Request, res: Response, next: NextFunction)
     // Inietta in req.user per uso nei controller
     (req as any).user = {
       accountId: userData.accountId,
-      uuid: userData.uuid,
       email: userData.email,
       accountType: userData.accountType,
       roleId: userData.roleId,

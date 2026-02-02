@@ -10,6 +10,7 @@ import {
 } from '../types/auth.types';
 import { PasswordUtils, ValidationUtils, TokenUtils } from '../utils';
 import { TokenService } from './TokenService';
+import { emailService } from '../../../services/EmailService';
 
 export class AuthService {
   private tokenService: TokenService;
@@ -297,10 +298,16 @@ export class AuthService {
       userAgent,
     });
 
-    // TODO: Invia email con token
-    // EmailService.sendResetPassword(account.email, token);
+    // Invia email con token
+    try {
+      await emailService.sendPasswordReset(account.email, token);
+    } catch (error) {
+      console.error('[AUTH] Errore invio email reset password:', error);
+      // Non blocchiamo l'operazione se l'invio email fallisce
+      // Il token è comunque stato salvato
+    }
 
-    return token; // In production, non restituire il token direttamente
+    return "Se l'account esiste, riceverai un'email con il link di reset";
   }
 
   /**
