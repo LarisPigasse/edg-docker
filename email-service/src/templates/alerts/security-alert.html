@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Security Alert</title>
+  <style>
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      line-height: 1.6;
+      color: #333;
+      max-width: 600px;
+      margin: 0 auto;
+      padding: 20px;
+      background-color: #f4f4f4;
+    }
+    .container {
+      background: white;
+      padding: 30px;
+      border-radius: 8px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    .header {
+      text-align: center;
+      padding-bottom: 20px;
+      border-bottom: 3px solid {{severityColor}};
+    }
+    .header h1 {
+      color: {{severityColor}};
+      margin: 0;
+      font-size: 24px;
+    }
+    .severity-badge {
+      display: inline-block;
+      padding: 5px 15px;
+      background-color: {{severityColor}};
+      color: white;
+      border-radius: 20px;
+      font-weight: bold;
+      font-size: 12px;
+      text-transform: uppercase;
+      margin-top: 10px;
+    }
+    .content {
+      padding: 30px 0;
+    }
+    .alert-box {
+      background-color: {{severityColor}}15;
+      border-left: 4px solid {{severityColor}};
+      padding: 15px;
+      margin: 20px 0;
+    }
+    .footer {
+      text-align: center;
+      padding-top: 20px;
+      border-top: 1px solid #ddd;
+      font-size: 12px;
+      color: #666;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 20px;
+      background-color: #f8f9fa;
+      border-radius: 4px;
+    }
+    td {
+      padding: 10px;
+      border-bottom: 1px solid #dee2e6;
+    }
+    td:first-child {
+      font-weight: bold;
+      color: #555;
+      width: 30%;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>🚨 Security Alert</h1>
+      <span class="severity-badge">{{severity}}</span>
+    </div>
+    
+    <div class="content">
+      <h2 style="color: {{severityColor}}; margin-top: 0;">{{title}}</h2>
+      
+      <div class="alert-box">
+        <p style="margin: 0; font-size: 16px;"><strong>Messaggio:</strong></p>
+        <p style="margin: 10px 0 0 0;">{{message}}</p>
+      </div>
+      
+      <p><strong>Data/Ora:</strong> {{timestamp}}</p>
+      
+      {{#if metadata}}
+      <div style="background-color: #f8f9fa; padding: 15px; border-radius: 4px; margin-top: 20px;">
+        <h3 style="margin: 0 0 10px 0; font-size: 16px; color: #333;">Dettagli Tecnici:</h3>
+        <table>
+          {{#each metadata}}
+          <tr>
+            <td>{{@key}}:</td>
+            <td>{{this}}</td>
+          </tr>
+          {{/each}}
+        </table>
+      </div>
+      {{/if}}
+    </div>
+    
+    <div class="footer">
+      <p>Questa è una notifica automatica del sistema EDG Platform.</p>
+      <p>© {{year}} EDG Platform. Tutti i diritti riservati.</p>
+    </div>
+  </div>
+</body>
+</html>

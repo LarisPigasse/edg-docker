@@ -1,0 +1,12 @@
+Benvenuto su EDG Platform!
+
+Ciao {{userName}},
+
+Siamo felici di averti con noi!
+
+Il tuo account è stato creato con successo.
+Accedi qui: {{loginUrl}}
+
+Se hai domande o hai bisogno di assistenza, il nostro team è sempre a tua disposizione.
+
+© {{year}} EDG Platform. Tutti i diritti riservati.

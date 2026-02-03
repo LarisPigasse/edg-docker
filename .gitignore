@@ -1,19 +1,90 @@
 # .gitignore nella root edg-docker/
 
-# Cartelle Node_modules di tutti i servizi
+# ===========================================================================
+# NODE MODULES
+# ===========================================================================
 */node_modules/
+node_modules/
 
-# File di configurazione locale
+# ===========================================================================
+# ENVIRONMENT FILES (SECRETS)
+# ===========================================================================
 .env
 .env.*.local
+*.env.local
 
-# Build artifacts (se i servizi non usano Docker per il build)
+# ===========================================================================
+# BUILD ARTIFACTS
+# ===========================================================================
 */dist/
 */build/
+dist/
+build/
 
-# Tutte le cartelle dei micro servizi
+# ===========================================================================
+# DOCKER
+# ===========================================================================
+.dockerignore
+
+# ===========================================================================
+# IDE / EDITOR
+# ===========================================================================
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# ===========================================================================
+# LOGS
+# ===========================================================================
+*.log
+logs/
+npm-debug.log*
+
+# ===========================================================================
+# OS FILES
+# ===========================================================================
+.DS_Store
+Thumbs.db
+
+# ===========================================================================
+# MICROSERVIZI CON REPOSITORY SEPARATI (esclusi da questo repo)
+# ===========================================================================
 auth-service/
 log-service/
 app-frontend/
 pro-frontend/
-edg-frontend
+edg-frontend/
+
+# ===========================================================================
+# MICROSERVIZI INCLUSI IN QUESTO REPO (NON escludere)
+# ===========================================================================
+# email-service/      ← NON escludere, è parte di questo repo
+# api-gateway/        ← NON escludere, è parte di questo repo
+```
+
+---
+
+## 📦 Struttura Repository EDG Platform
+```
+┌─────────────────────────────────────────────────────────┐
+│                   EDG PLATFORM                          │
+└─────────────────────────────────────────────────────────┘
+
+Repository Separati:
+├── edg-auth-service          (repo indipendente)
+├── edg-log-service           (repo indipendente)
+├── edg-app-frontend          (repo indipendente)
+├── edg-pro-frontend          (repo indipendente)
+└── edg-edg-frontend          (repo indipendente)
+
+Repository Principale (edg-docker):
+└── edg-docker/
+    ├── docker-compose.yml    (orchestration)
+    ├── .env.example          (configurazione)
+    ├── .gitignore
+    ├── email-service/        ✅ Incluso qui
+    ├── api-gateway/          ✅ Incluso qui
+    ├── traefik/              (configurazione)
+    └── README.md

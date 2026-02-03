@@ -42,12 +42,12 @@ import {
   getAlertHistory,
   clearAlertHistory,
 } from './services/automation.service.js';
-
+import { execInContainer, readFileFromContainer, listDirectoryInContainer } from './services/filesystem.service.js';
 // Crea il server
 const server = new Server(
   {
     name: 'docker-monitor-mcp',
-    version: '2.5.0', // Aggiornato con Automazione (FASE 3)
+    version: '2.6.0', // Aggiornato con Automazione (FASE 3)
   },
   {
     capabilities: {
@@ -887,7 +887,7 @@ const automationTools = {
       required: [],
     },
     handler: async (args: { volumeNames?: string[] }) => {
-  const result = await backupDockerVolumes(args.volumeNames);
+      const result = await backupDockerVolumes(args.volumeNames);
       return { content: [{ type: 'text', text: result }] };
     },
   },
@@ -1099,6 +1099,172 @@ const automationTools = {
   },
 };
 
+const filesystemTools = {
+  'exec-in-container': {
+    description: 'Esegue un comando shell in un container Docker',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        containerId: {
+          type: 'string',
+          description: 'Nome o ID del container',
+        },
+        command: {
+          type: 'string',
+          description: 'Comando shell da eseguire (es: "ls -la /app/src")',
+        },
+        workDir: {
+          type: 'string',
+          description: 'Directory di lavoro (default: /app)',
+          default: '/app',
+        },
+      },
+      required: ['containerId', 'command'],
+    },
+    handler: async (args: { containerId: string; command: string; workDir?: string }) => {
+      const { execInContainer } = await import('./services/filesystem.service.js');
+      const result = await execInContainer(args.containerId, args.command, args.workDir);
+
+      // Formatta output
+      let output = `=== Exec in ${args.containerId} ===\n`;
+      output += `Command: ${args.command}\n`;
+      output += `Work Dir: ${args.workDir || '/app'}\n`;
+      output += `Exit Code: ${result.exitCode}\n`;
+      output += `Execution Time: ${result.executionTime}ms\n`;
+      if (result.truncated) {
+        output += `⚠️ Output truncated (exceeded max size)\n`;
+      }
+      output += `${'='.repeat(50)}\n\n`;
+
+      if (result.stdout) {
+        output += `STDOUT:\n${result.stdout}\n`;
+      }
+      if (result.stderr) {
+        output += `\nSTDERR:\n${result.stderr}\n`;
+      }
+
+      return {
+        content: [{ type: 'text', text: output }],
+        isError: !result.success,
+      };
+    },
+  },
+
+  'read-file-from-container': {
+    description: 'Legge il contenuto di un file da un container Docker',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        containerId: {
+          type: 'string',
+          description: 'Nome o ID del container',
+        },
+        filePath: {
+          type: 'string',
+          description: 'Path assoluto del file (es: /app/src/components/Button.tsx)',
+        },
+        maxLines: {
+          type: 'number',
+          description: 'Numero massimo di righe da leggere (opzionale, default: tutte)',
+        },
+      },
+      required: ['containerId', 'filePath'],
+    },
+    handler: async (args: { containerId: string; filePath: string; maxLines?: number }) => {
+      const { readFileFromContainer } = await import('./services/filesystem.service.js');
+      const result = await readFileFromContainer(args.containerId, args.filePath, args.maxLines);
+
+      // Formatta output
+      let output = `=== File: ${result.filePath} ===\n`;
+      output += `Container: ${args.containerId}\n`;
+      output += `Size: ${(result.size / 1024).toFixed(2)} KB\n`;
+      output += `Encoding: ${result.encoding}\n`;
+      if (result.truncated) {
+        output += `⚠️ Content truncated\n`;
+      }
+      if (result.error) {
+        output += `⚠️ ${result.error}\n`;
+      }
+      output += `${'='.repeat(50)}\n\n`;
+
+      if (result.success) {
+        output += result.content;
+      } else {
+        output += `Error: ${result.error}`;
+      }
+
+      return {
+        content: [{ type: 'text', text: output }],
+        isError: !result.success,
+      };
+    },
+  },
+
+  'list-directory-in-container': {
+    description: 'Lista il contenuto di una directory in un container Docker',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        containerId: {
+          type: 'string',
+          description: 'Nome o ID del container',
+        },
+        dirPath: {
+          type: 'string',
+          description: 'Path della directory (default: /app)',
+          default: '/app',
+        },
+        recursive: {
+          type: 'boolean',
+          description: 'Lista ricorsiva fino a 2 livelli (default: false)',
+          default: false,
+        },
+      },
+      required: ['containerId'],
+    },
+    handler: async (args: { containerId: string; dirPath?: string; recursive?: boolean }) => {
+      const { listDirectoryInContainer } = await import('./services/filesystem.service.js');
+      const result = await listDirectoryInContainer(args.containerId, args.dirPath || '/app', args.recursive || false);
+
+      // Formatta output
+      let output = `=== Directory: ${result.path} ===\n`;
+      output += `Container: ${args.containerId}\n`;
+      output += `Mode: ${args.recursive ? 'Recursive (max 2 levels)' : 'Single level'}\n`;
+      output += `Files: ${result.totalFiles} | Directories: ${result.totalDirectories}\n`;
+      output += `${'='.repeat(50)}\n\n`;
+
+      if (result.success) {
+        // Raggruppa per tipo
+        const directories = result.entries.filter(e => e.type === 'directory');
+        const files = result.entries.filter(e => e.type !== 'directory');
+
+        if (directories.length > 0) {
+          output += `📁 DIRECTORIES:\n`;
+          for (const dir of directories) {
+            output += `  ${dir.name}/\n`;
+          }
+          output += '\n';
+        }
+
+        if (files.length > 0) {
+          output += `📄 FILES:\n`;
+          for (const file of files) {
+            const sizeStr = file.size > 1024 ? `${(file.size / 1024).toFixed(1)}KB` : `${file.size}B`;
+            output += `  ${file.name} (${sizeStr})\n`;
+          }
+        }
+      } else {
+        output += `Error: ${result.error}`;
+      }
+
+      return {
+        content: [{ type: 'text', text: output }],
+        isError: !result.success,
+      };
+    },
+  },
+};
+
 // ============================================================================
 // REGISTRAZIONE TOOL
 // ============================================================================
@@ -1110,7 +1276,8 @@ Object.entries({
   ...controlTools, // TOOL CONTROL (Step 4 - FASE 2)
   ...metricsTools, // TOOL METRICS (Step 2)
   ...networkTools, // TOOL NETWORK & VOLUMES (Step 3)
-  ...automationTools, // TOOL AUTOMATION (FASE 3) ✨ NEW
+  ...automationTools, // TOOL AUTOMATION (FASE 3)
+  ...filesystemTools, // TOOL FILESYSTEM (Step 4)
 }).forEach(([name, tool]: [string, any]) => {
   // `tool` viene da Object.entries su oggetti letterali eterogenei;
   // tipizziamo come `any` qui per consentire l'accesso alle proprietà.
@@ -1153,8 +1320,8 @@ async function main() {
     const transport = new StdioServerTransport();
     await server.connect(transport);
 
-    console.error('Docker Monitor MCP Server v2.5.0 running on stdio');
-    console.error('Features: Full Automation - 59 tools (Logs+Metrics+Network+Control+Automation)');
+    console.error('Docker Monitor MCP Server v2.6.0 running on stdio');
+    console.error('Features: Full Automation - 62 tools (Logs+Metrics+Network+Control+Automation+Filesystem)');
     console.error('Intelligent diagnostics, orchestration, backup, and auto-healing available');
 
     // Avvia monitoring in background

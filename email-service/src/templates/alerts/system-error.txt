@@ -1,0 +1,16 @@
+SYSTEM ERROR - EDG Platform
+
+ERRORE:
+{{errorMessage}}
+
+Servizio: {{service}}
+Data/Ora: {{timestamp}}
+
+{{#if stackTrace}}
+STACK TRACE:
+{{stackTrace}}
+{{/if}}
+
+Questa è una notifica automatica del sistema EDG Platform.
+
+© {{year}} EDG Platform. Tutti i diritti riservati.

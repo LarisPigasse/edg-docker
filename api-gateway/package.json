@@ -1,7 +1,7 @@
 {
   "name": "edg-api-gateway-simple",
-  "version": "1.0.0",
-  "description": "Simple API Gateway with manual proxy",
+  "version": "2.0.0",
+  "description": "EDG API Gateway with JWT validation and header injection",
   "main": "gateway.js",
   "scripts": {
     "start": "node gateway.js"
@@ -12,6 +12,7 @@
     "cors": "^2.8.5",
     "http-proxy-middleware": "^3.0.0",
     "helmet": "^7.1.0",
-    "express-rate-limit": "^7.1.0"
+    "express-rate-limit": "^7.1.0",
+    "jsonwebtoken": "^9.0.2"
   }
 }

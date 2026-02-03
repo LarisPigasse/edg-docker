@@ -165,6 +165,8 @@ services:
     depends_on:
       mysql:
         condition: service_healthy
+      email-service:
+        condition: service_healthy
     environment:
       # Mode Configuration
       NODE_ENV: production
@@ -186,6 +188,10 @@ services:
       JWT_ACCESS_EXPIRY: 15m
       JWT_REFRESH_EXPIRY: 7d
 
+      # Email Service (microservizio)
+      EMAIL_SERVICE_URL: http://email-service:3002
+      FRONTEND_URL: ${FRONTEND_URL:-http://localhost:5173}
+
       # Service
       SERVICE_NAME: EDG Auth Service
       PORT: 3001
@@ -202,6 +208,8 @@ services:
       LOG_LEVEL: info
     expose:
       - '3001'
+    labels:
+      - 'traefik.enable=false'
     networks:
       - internal
     healthcheck:
@@ -240,12 +248,65 @@ services:
     restart: unless-stopped
 
   # ===========================================================================
+  # EMAIL SERVICE (Microservizio Email)
+  # ===========================================================================
+  email-service:
+    build:
+      context: ./email-service
+      dockerfile: Dockerfile
+      target: production
+    container_name: email-service
+    deploy:
+      resources:
+        limits:
+          cpus: '0.50'
+          memory: 512M
+        reservations:
+          cpus: '0.10'
+          memory: 128M
+    restart: unless-stopped
+    environment:
+      # Service Configuration
+      NODE_ENV: production
+      PORT: 3002
+
+      # SMTP Configuration
+      EMAIL_HOST: ${EMAIL_HOST:-}
+      EMAIL_PORT: ${EMAIL_PORT:-587}
+      EMAIL_USER: ${EMAIL_USER:-}
+      EMAIL_PASS: ${EMAIL_PASS:-}
+
+      # Email Addresses
+      EMAIL_NOREPLY_FROM: ${EMAIL_NOREPLY_FROM:-noreply@edg.local}
+      EMAIL_ALERTS_FROM: ${EMAIL_ALERTS_FROM:-alerts@edg.local}
+      EMAIL_ALERTS_TO: ${EMAIL_ALERTS_TO:-}
+
+      # Frontend URL (per link nelle email)
+      FRONTEND_URL: ${FRONTEND_URL:-http://localhost:5173}
+
+      # CORS (permetti chiamate da microservizi interni)
+      CORS_ORIGINS: http://auth-service:3001,http://log-service:3003
+
+    expose:
+      - '3002'
+    labels:
+      - 'traefik.enable=false'
+    networks:
+      - internal
+    healthcheck:
+      test: ['CMD-SHELL', 'wget --no-verbose --tries=1 --spider http://localhost:3002/health || exit 1']
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # ===========================================================================
   # FRONTEND PRO (Operatori)
   # ===========================================================================
   pro-frontend:
     build:
       context: ./pro-frontend
-      dockerfile: Dockerfile
+      dockerfile: /docker/Dockerfile
       target: frontend-dev
     container_name: pro-frontend
     deploy:
@@ -548,12 +609,17 @@ volumes:
 #                 │                               │
 #                 └───────────────┬───────────────┘
 #                                 │
-#        ┌────────────────────────┼────────────────────────┐
-#        │                        │                        │
-#   ┌────▼─────┐         ┌────────▼────────┐      ┌──────▼──────┐
-#   │Auth Svc  │         │   3 Frontends   │      │  Databases  │
-#   │  :3001   │         │ :5173/:5174/:5175│     │ MySQL/Mongo │
-#   └──────────┘         └─────────────────┘      └─────────────┘
+#        ┌────────────────────────┼─────────────────────────┐
+#        │                        │                         │
+#   ┌────▼─────┐         ┌────────▼────────┐      ┌────────▼────────┐
+#   │Auth Svc  │◄────────┤  Email Service  │      │   3 Frontends   │
+#   │  :3001   │         │     :3002       │      │ :5173/:5174/:5175│
+#   └────┬─────┘         └─────────────────┘      └─────────────────┘
+#        │                                                   │
+#   ┌────▼─────┐                                    ┌───────▼───────┐
+#   │Log Svc   │                                    │   Databases   │
+#   │  :3003   │                                    │ MySQL / Mongo │
+#   └──────────┘                                    └───────────────┘
 #
 # =============================================================================
 # COMANDI PRINCIPALI
@@ -593,6 +659,7 @@ volumes:
 # • Pro Frontend (direct):    http://localhost:5173
 # • App Frontend (direct):    http://localhost:5174
 # • EDG Frontend (direct):    http://localhost:5175
+# • Email Service (internal): http://email-service:3002
 # • MySQL:                    localhost:3306
 # • MongoDB:                  localhost:27017
 #

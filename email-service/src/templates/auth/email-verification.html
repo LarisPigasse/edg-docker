@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Verifica Email</title>
+  <style>
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      line-height: 1.6;
+      color: #333;
+      max-width: 600px;
+      margin: 0 auto;
+      padding: 20px;
+      background-color: #f4f4f4;
+    }
+    .container {
+      background: white;
+      padding: 30px;
+      border-radius: 8px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    .header {
+      text-align: center;
+      padding-bottom: 20px;
+      border-bottom: 2px solid #28a745;
+    }
+    .header h1 {
+      color: #28a745;
+      margin: 0;
+      font-size: 24px;
+    }
+    .content {
+      padding: 30px 0;
+    }
+    .button {
+      display: inline-block;
+      padding: 12px 30px;
+      background-color: #28a745;
+      color: white !important;
+      text-decoration: none;
+      border-radius: 4px;
+      font-weight: bold;
+      margin: 20px 0;
+    }
+    .button:hover {
+      background-color: #218838;
+    }
+    .footer {
+      text-align: center;
+      padding-top: 20px;
+      border-top: 1px solid #ddd;
+      font-size: 12px;
+      color: #666;
+    }
+    .code {
+      background-color: #f8f9fa;
+      padding: 2px 6px;
+      border-radius: 3px;
+      font-family: monospace;
+      font-size: 14px;
+      word-break: break-all;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>✉️ Verifica la tua Email</h1>
+    </div>
+    
+    <div class="content">
+      <p>Ciao {{userName}},</p>
+      
+      <p>Grazie per esserti registrato su EDG Platform!</p>
+      
+      <p>Clicca sul pulsante qui sotto per verificare il tuo indirizzo email:</p>
+      
+      <div style="text-align: center;">
+        <a href="{{verificationUrl}}" class="button">Verifica Email</a>
+      </div>
+      
+      <p>Oppure copia e incolla questo link nel tuo browser:</p>
+      <p class="code">{{verificationUrl}}</p>
+    </div>
+    
+    <div class="footer">
+      <p>Questa è una email automatica, non rispondere a questo messaggio.</p>
+      <p>© {{year}} EDG Platform. Tutti i diritti riservati.</p>
+    </div>
+  </div>
+</body>
+</html>

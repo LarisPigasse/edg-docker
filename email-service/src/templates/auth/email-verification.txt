@@ -1,0 +1,12 @@
+Verifica Email - EDG Platform
+
+Ciao {{userName}},
+
+Grazie per esserti registrato su EDG Platform!
+
+Clicca sul link qui sotto per verificare il tuo indirizzo email:
+{{verificationUrl}}
+
+Questa è una email automatica, non rispondere a questo messaggio.
+
+© {{year}} EDG Platform. Tutti i diritti riservati.

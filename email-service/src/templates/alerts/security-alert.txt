@@ -1,0 +1,21 @@
+SECURITY ALERT - EDG Platform
+
+Severità: {{severity}}
+
+Titolo: {{title}}
+
+Messaggio:
+{{message}}
+
+Data/Ora: {{timestamp}}
+
+{{#if metadata}}
+Dettagli Tecnici:
+{{#each metadata}}
+- {{@key}}: {{this}}
+{{/each}}
+{{/if}}
+
+Questa è una notifica automatica del sistema EDG Platform.
+
+© {{year}} EDG Platform. Tutti i diritti riservati.

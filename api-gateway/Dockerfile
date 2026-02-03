@@ -1,8 +1,8 @@
 # =============================================================================
-# SIMPLE API GATEWAY - Dockerfile
+# EDG API GATEWAY v2.0 - Dockerfile
 # =============================================================================
-# Gateway semplice con Express.js puro
-# Alternativa garantita funzionante a Express Gateway
+# Gateway con JWT validation e header injection
+# Include middleware personalizzati
 # =============================================================================
 
 FROM node:20-alpine
@@ -15,8 +15,8 @@ COPY package*.json ./
 # Installa dipendenze
 RUN npm install --production
 
-# Copia codice gateway
-COPY gateway.js ./
+# Copia tutto il codice gateway (gateway.js + middleware/)
+COPY . .
 
 # Espone porta
 EXPOSE 8080
