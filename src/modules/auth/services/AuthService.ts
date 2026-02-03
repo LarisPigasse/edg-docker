@@ -10,7 +10,7 @@ import {
 } from '../types/auth.types';
 import { PasswordUtils, ValidationUtils, TokenUtils } from '../utils';
 import { TokenService } from './TokenService';
-import { emailService } from '../../../services/EmailService';
+import { emailServiceClient } from '../../../clients/EmailServiceClient';
 
 export class AuthService {
   private tokenService: TokenService;
@@ -300,7 +300,7 @@ export class AuthService {
 
     // Invia email con token
     try {
-      await emailService.sendPasswordReset(account.email, token);
+      await emailServiceClient.sendPasswordReset(account.email, token);
     } catch (error) {
       console.error('[AUTH] Errore invio email reset password:', error);
       // Non blocchiamo l'operazione se l'invio email fallisce
