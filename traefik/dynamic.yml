@@ -1,0 +1,77 @@
+# =============================================================================
+# TRAEFIK DYNAMIC CONFIGURATION
+# =============================================================================
+# Configurazione statica per Windows (File Provider)
+# Il provider Docker non funziona bene su Windows, quindi configuriamo
+# manualmente i router e i servizi.
+# =============================================================================
+
+http:
+  # ===========================================================================
+  # ROUTERS
+  # ===========================================================================
+  routers:
+    # Router principale - tutto il traffico va agli API Gateway
+    api-gateway:
+      rule: "PathPrefix(`/`)"
+      entryPoints:
+        - web
+      service: api-gateway-service
+      priority: 1
+
+  # ===========================================================================
+  # SERVICES
+  # ===========================================================================
+  services:
+    # Service con load balancing tra i due API Gateway
+    api-gateway-service:
+      loadBalancer:
+        servers:
+          - url: "http://api-gateway-1:8080"
+          - url: "http://api-gateway-2:8080"
+        
+        # Health check per rimuovere automaticamente gateway non healthy
+        healthCheck:
+          path: /health
+          interval: "10s"
+          timeout: "5s"
+          scheme: http
+
+  # ===========================================================================
+  # MIDDLEWARES (opzionale - per CORS, rate limiting, ecc.)
+  # ===========================================================================
+  middlewares:
+    # CORS middleware (se necessario in futuro)
+    cors-headers:
+      headers:
+        accessControlAllowMethods:
+          - "GET"
+          - "POST"
+          - "PUT"
+          - "DELETE"
+          - "PATCH"
+          - "OPTIONS"
+        accessControlAllowOriginList:
+          - "http://localhost:5173"
+          - "http://localhost:5174"
+          - "http://localhost:5175"
+        accessControlAllowHeaders:
+          - "*"
+        accessControlMaxAge: 100
+        addVaryHeader: true
+
+# =============================================================================
+# NOTE
+# =============================================================================
+# 
+# Questa configurazione:
+# - Instrada tutto il traffico HTTP (PathPrefix `/`) ai gateway
+# - Bilancia il carico tra api-gateway-1 e api-gateway-2
+# - Fa health check ogni 10s su /health
+# - Rimuove automaticamente gateway non healthy dal pool
+#
+# Per aggiungere CORS, aggiungi alla route:
+#   middlewares:
+#     - cors-headers
+#
+# =============================================================================

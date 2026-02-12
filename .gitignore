@@ -9,9 +9,13 @@ node_modules/
 # ===========================================================================
 # ENVIRONMENT FILES (SECRETS)
 # ===========================================================================
+# .env contiene secrets reali → NON committare!
 .env
 .env.*.local
 *.env.local
+
+# IMPORTANTE: .env.production è un TEMPLATE (no secrets) → SI committa!
+# !.env.production  # Non serve escluderlo esplicitamente
 
 # ===========================================================================
 # BUILD ARTIFACTS
@@ -69,7 +73,7 @@ edg-frontend/
 ## 📦 Struttura Repository EDG Platform
 ```
 ┌─────────────────────────────────────────────────────────┐
-│                   EDG PLATFORM                          │
+│                   EDG SYSTEM                            │
 └─────────────────────────────────────────────────────────┘
 
 Repository Separati:

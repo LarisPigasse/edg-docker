@@ -25,14 +25,18 @@ services:
     image: traefik:v2.10
     container_name: traefik
     command:
-      # API e Dashboard (Secure Mode)
+      # API e Dashboard
       - '--api.dashboard=true'
-      - '--api.insecure=false'
+      - '--api.insecure=${TRAEFIK_INSECURE:-false}'
 
-      # Provider Docker
-      - '--providers.docker=true'
+      # Provider Docker (PRODUCTION - Linux)
+      - '--providers.docker=${TRAEFIK_USE_DOCKER:-false}'
       - '--providers.docker.exposedbydefault=false'
       - '--providers.docker.network=edg-external'
+      
+      # Provider File (DEVELOPMENT - Windows)
+      - '--providers.file.filename=/etc/traefik/dynamic.yml'
+      - '--providers.file.watch=true'
 
       # Entrypoints
       - '--entrypoints.web.address=:80'
@@ -54,6 +58,8 @@ services:
       - '8888:8080' # Dashboard Traefik
 
     volumes:
+      - ./traefik/dynamic.yml:/etc/traefik/dynamic.yml:ro
+      # Docker socket - only needed for Docker provider (Linux/Production)
       - /var/run/docker.sock:/var/run/docker.sock:ro
 
     networks:
@@ -76,12 +82,9 @@ services:
       retries: 3
       start_period: 10s
 
-    labels:
-      - 'traefik.enable=true'
-      # Dashboard
-      - 'traefik.http.routers.traefik-dashboard.rule=Host(`traefik.localhost`)'
-      - 'traefik.http.routers.traefik-dashboard.service=api@internal'
-      - 'traefik.http.routers.traefik-dashboard.entrypoints=web'
+    # Labels not needed with file provider and insecure API
+    # labels:
+    #   - 'traefik.enable=true'
 
   # ===========================================================================
   # DATABASE (MySQL)
@@ -169,7 +172,7 @@ services:
         condition: service_healthy
     environment:
       # Mode Configuration
-      NODE_ENV: production
+      NODE_ENV: development
       GATEWAY_MODE: 'true'
 
       # Gateway Secret
@@ -228,15 +231,22 @@ services:
       dockerfile: Dockerfile
     container_name: log-service
     environment:
-      - NODE_ENV=production
-      - MONGODB_URI=mongodb://logger-mongo:27017/edglogger
+      - NODE_ENV=development
+      - PORT=4000
+      # MongoDB con autenticazione
+      - MONGODB_URI=mongodb://${MONGO_LOG_USER}:${MONGO_LOG_PASSWORD}@logger-mongo:27017/${MONGO_LOG_DATABASE}?authSource=admin
       - MONGO_HOST=logger-mongo
       - MONGO_PORT=27017
-      - MONGO_DATABASE=edglogger
+      - MONGO_DATABASE=${MONGO_LOG_DATABASE}
+      - MONGO_USER=${MONGO_LOG_USER}
+      - MONGO_PASSWORD=${MONGO_LOG_PASSWORD}
     depends_on:
       - logger-mongo
     networks:
       - internal
+      - external
+    ports:
+      - '4001:4000'  # Porta esterna 4001, interna 4000
     deploy:
       resources:
         limits:
@@ -246,6 +256,12 @@ services:
           cpus: '0.10'
           memory: 128M
     restart: unless-stopped
+    healthcheck:
+      test: ['CMD-SHELL', 'wget --no-verbose --tries=1 --spider http://localhost:4000/health || exit 1']
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
 
   # ===========================================================================
   # EMAIL SERVICE (Microservizio Email)
@@ -267,7 +283,7 @@ services:
     restart: unless-stopped
     environment:
       # Service Configuration
-      NODE_ENV: production
+      NODE_ENV: development
       PORT: 3002
 
       # SMTP Configuration
@@ -324,6 +340,10 @@ services:
       - /app/dist
     environment:
       - NODE_ENV=development
+      # VITE_LOG_SERVICE_URL viene letto da .env.development
+    depends_on:
+      log-service:
+        condition: service_healthy
     networks:
       - internal
       - external
@@ -441,7 +461,7 @@ services:
         condition: service_healthy
     environment:
       # Gateway Configuration
-      NODE_ENV: production
+      NODE_ENV: development
       PORT: 8080
 
       # Service URLs
@@ -475,6 +495,9 @@ services:
       - internal
       - external
 
+    ports:
+      - '8080:8080'  # TEMPORARY: Expose for debugging CORS issue
+
     healthcheck:
       test: ['CMD-SHELL', 'wget --no-verbose --tries=1 --spider http://127.0.0.1:8080/health || exit 1']
       interval: 10s
@@ -483,21 +506,14 @@ services:
       start_period: 20s
 
     labels:
+      # Labels for Docker provider (used in PRODUCTION)
       - 'traefik.enable=true'
-
-      # Router HTTP
       - 'traefik.http.routers.api-gateway.rule=PathPrefix(`/`)'
       - 'traefik.http.routers.api-gateway.entrypoints=web'
       - 'traefik.http.routers.api-gateway.service=api-gateway'
-
-      # Service con Load Balancing
       - 'traefik.http.services.api-gateway.loadbalancer.server.port=8080'
-      - 'traefik.http.services.api-gateway.loadbalancer.server.scheme=http'
-
-      # Health Check per Load Balancer
       - 'traefik.http.services.api-gateway.loadbalancer.healthcheck.path=/health'
       - 'traefik.http.services.api-gateway.loadbalancer.healthcheck.interval=10s'
-      - 'traefik.http.services.api-gateway.loadbalancer.healthcheck.timeout=5s'
 
   #############################################################################
   # API GATEWAY - Istanza 2 (Secondary)
@@ -528,7 +544,7 @@ services:
         condition: service_healthy
     environment:
       # Gateway Configuration
-      NODE_ENV: production
+      NODE_ENV: development
       PORT: 8080
 
       # Service URLs (identici a gateway-1)
@@ -570,21 +586,14 @@ services:
       start_period: 20s
 
     labels:
+      # Labels for Docker provider (used in PRODUCTION)
       - 'traefik.enable=true'
-
-      # Stesso router di gateway-1 (load balancing automatico)
       - 'traefik.http.routers.api-gateway.rule=PathPrefix(`/`)'
       - 'traefik.http.routers.api-gateway.entrypoints=web'
       - 'traefik.http.routers.api-gateway.service=api-gateway'
-
-      # Service
       - 'traefik.http.services.api-gateway.loadbalancer.server.port=8080'
-      - 'traefik.http.services.api-gateway.loadbalancer.server.scheme=http'
-
-      # Health Check
       - 'traefik.http.services.api-gateway.loadbalancer.healthcheck.path=/health'
       - 'traefik.http.services.api-gateway.loadbalancer.healthcheck.interval=10s'
-      - 'traefik.http.services.api-gateway.loadbalancer.healthcheck.timeout=5s'
 
 volumes:
   mysql-data:
