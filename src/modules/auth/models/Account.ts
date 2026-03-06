@@ -32,14 +32,15 @@ export const createAccountModel = (sequelize: Sequelize) => {
         comment: 'Hash BCrypt della password',
       },
       accountType: {
-        type: DataTypes.ENUM('operatore', 'partner', 'cliente', 'agente'),
-        allowNull: false,
+        type: DataTypes.STRING(64),
+        allowNull: true,
         field: 'accountType',
+        defaultValue: 'indefinito',
         comment: "Tipo di account nell'ecosistema EDG",
       },
       entityId: {
         type: DataTypes.UUID,
-        allowNull: false,
+        allowNull: true,
         field: 'entityId',
         comment: "UUID dell'entità specifica (operatore_id, partner_id, etc.)",
       },
@@ -75,6 +76,18 @@ export const createAccountModel = (sequelize: Sequelize) => {
         field: 'lastLogin',
         comment: 'Timestamp ultimo login',
       },
+      blockedUntil: {
+        type: DataTypes.DATE,
+        allowNull: true,
+        field: 'blockedUntil',
+        comment: 'Data scadenza blocco temporaneo (null = permanente)',
+      },
+      blockReason: {
+        type: DataTypes.TEXT,
+        allowNull: true,
+        field: 'blockReason',
+        comment: 'Motivo del blocco',
+      },
     },
     {
       tableName: 'accounts',
@@ -87,7 +100,7 @@ export const createAccountModel = (sequelize: Sequelize) => {
         },
         {
           unique: true,
-          fields: ['email', 'accountType'],
+          fields: ['email'],
           name: 'unique_email_account_type',
         },
         { fields: ['accountType'], name: 'idx_account_type' },

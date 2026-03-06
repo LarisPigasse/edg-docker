@@ -11,6 +11,8 @@ import {
 import { PasswordUtils, ValidationUtils, TokenUtils } from '../utils';
 import { TokenService } from './TokenService';
 import { emailServiceClient } from '../../../clients/EmailServiceClient';
+import { parseUserAgent } from '../utils/deviceDetection';
+import { geolocateIP } from '../utils/geolocation';
 
 export class AuthService {
   private tokenService: TokenService;
@@ -34,11 +36,7 @@ export class AuthService {
       throw new Error('Email non valida');
     }
 
-    if (!ValidationUtils.isValidAccountType(data.accountType)) {
-      throw new Error('Tipo account non valido');
-    }
-
-    if (!ValidationUtils.isValidUUID(data.entityId)) {
+    if (data.entityId && !ValidationUtils.isValidUUID(data.entityId)) {
       throw new Error('EntityId non valido');
     }
 
@@ -58,16 +56,14 @@ export class AuthService {
       throw new Error('Ruolo non trovato');
     }
 
-    // Verifica email univoca per accountType
+    // Verifica email univoca per account
     const existing = await this.accountModel.findOne({
       where: {
         email: data.email,
-        accountType: data.accountType,
       },
     });
-
     if (existing) {
-      throw new Error('Account già esistente con questa email e tipo');
+      throw new Error('Account già esistente con questa email');
     }
 
     // Hash password
@@ -77,8 +73,8 @@ export class AuthService {
     const account = await this.accountModel.create({
       email: data.email,
       password: passwordHash,
-      accountType: data.accountType,
-      entityId: data.entityId,
+      accountType: data.accountType || 'indefinito',
+      entityId: data.entityId || null,
       roleId: data.roleId,
       isActive: true,
       isVerified: false,
@@ -143,13 +139,25 @@ export class AuthService {
 
     const refreshToken = this.tokenService.generateRefreshToken();
 
-    // Crea sessione
+    // Device detection e geolocation
+    const deviceInfo = parseUserAgent(userAgent);
+    const geoInfo = await geolocateIP(ipAddress);
+
+    // Crea sessione con info estese
     const session = await this.sessionModel.create({
       accountId: account.id,
       refreshToken,
       expiresAt: this.tokenService.getRefreshTokenExpiry(),
       ipAddress,
       userAgent,
+      device: deviceInfo.device,
+      os: deviceInfo.os,
+      browser: deviceInfo.browser,
+      geoCountry: geoInfo.country,
+      geoRegion: geoInfo.region,
+      geoCity: geoInfo.city,
+      geoTimezone: geoInfo.timezone,
+      lastActivityAt: new Date(),
       isRevoked: false,
     });
 
@@ -229,10 +237,11 @@ export class AuthService {
       sessionId: session.id,
     });
 
-    // Aggiorna ultima attività sessione
+    // Aggiorna ultima attività e IP/UA se cambiati
     await session.update({
       ipAddress: ipAddress || session.ipAddress,
       userAgent: userAgent || session.userAgent,
+      lastActivityAt: new Date(),
     });
 
     return {

@@ -48,6 +48,54 @@ export const createSessionModel = (sequelize: Sequelize) => {
         field: 'userAgent',
         comment: 'User Agent del browser/app',
       },
+      device: {
+        type: DataTypes.STRING(50),
+        allowNull: true,
+        field: 'device',
+        comment: 'Tipo dispositivo: Desktop, Mobile, Tablet',
+      },
+      os: {
+        type: DataTypes.STRING(100),
+        allowNull: true,
+        field: 'os',
+        comment: 'Sistema operativo (es. Windows 11, macOS 14)',
+      },
+      browser: {
+        type: DataTypes.STRING(100),
+        allowNull: true,
+        field: 'browser',
+        comment: 'Browser e versione (es. Chrome 120)',
+      },
+      geoCountry: {
+        type: DataTypes.STRING(100),
+        allowNull: true,
+        field: 'geoCountry',
+        comment: 'Paese (es. Italy)',
+      },
+      geoRegion: {
+        type: DataTypes.STRING(100),
+        allowNull: true,
+        field: 'geoRegion',
+        comment: 'Regione (es. Abruzzo)',
+      },
+      geoCity: {
+        type: DataTypes.STRING(100),
+        allowNull: true,
+        field: 'geoCity',
+        comment: 'Città (es. Pescara)',
+      },
+      geoTimezone: {
+        type: DataTypes.STRING(50),
+        allowNull: true,
+        field: 'geoTimezone',
+        comment: 'Timezone (es. Europe/Rome)',
+      },
+      lastActivityAt: {
+        type: DataTypes.DATE,
+        allowNull: true,
+        field: 'lastActivityAt',
+        comment: 'Ultimo accesso/attività',
+      },
       isRevoked: {
         type: DataTypes.BOOLEAN,
         allowNull: false,
@@ -59,7 +107,7 @@ export const createSessionModel = (sequelize: Sequelize) => {
     {
       tableName: 'sessions',
       timestamps: true,
-      updatedAt: false, // Solo createdAt
+      updatedAt: true, // Abilitato per tracciare modifiche
       indexes: [
         {
           unique: true,

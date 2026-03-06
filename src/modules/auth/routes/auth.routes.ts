@@ -2,7 +2,9 @@
 import { Router } from 'express';
 import rateLimit from 'express-rate-limit';
 import { AuthController } from '../controllers/AuthController';
+import { SessionController } from '../controllers/SessionController';
 import { authenticate } from '../middleware/authMiddleware';
+import { requireRoot } from '../middleware/permissionMiddleware';
 
 /**
  * Rate Limiters SPECIFICI per business logic
@@ -63,7 +65,7 @@ const registerLimiter = rateLimit({
 /**
  * Crea router per modulo Auth
  */
-export const createAuthRouter = (authController: AuthController): Router => {
+export const createAuthRouter = (authController: AuthController, sessionController: SessionController): Router => {
   console.log('\n🔧 [AUTH.ROUTES] Creazione router auth...');
 
   const router = Router();
@@ -116,6 +118,32 @@ export const createAuthRouter = (authController: AuthController): Router => {
   // Get current account - richiede autenticazione
   router.get('/me', authenticate, authController.getCurrentAccount);
   console.log('      ✅ GET /me (+ authenticate)');
+
+  // ============================================================================
+  // ENDPOINT PROTETTI - ADMIN ONLY (root)
+  // ============================================================================
+
+  console.log('   🔒 Registrando endpoint admin (solo root)...');
+
+  // Lista sessioni attive - solo root
+  router.get('/sessions', authenticate, requireRoot(), sessionController.listSessions.bind(sessionController));
+  console.log('      ✅ GET /sessions (+ authenticate + requireRoot)');
+
+  // Revoca sessione - solo root
+  router.delete('/sessions/:sessionId', authenticate, requireRoot(), sessionController.revokeSession.bind(sessionController));
+  console.log('      ✅ DELETE /sessions/:sessionId (+ authenticate + requireRoot)');
+
+  // Blocca utente - solo root
+  router.post('/users/:userId/block', authenticate, requireRoot(), sessionController.blockUser.bind(sessionController));
+  console.log('      ✅ POST /users/:userId/block (+ authenticate + requireRoot)');
+
+  // Sblocca utente - solo root
+  router.delete('/users/:userId/unblock', authenticate, requireRoot(), sessionController.unblockUser.bind(sessionController));
+  console.log('      ✅ DELETE /users/:userId/unblock (+ authenticate + requireRoot)');
+
+  // Lista utenti bloccati - solo root
+  router.get('/blocked-users', authenticate, requireRoot(), sessionController.listBlockedUsers.bind(sessionController));
+  console.log('      ✅ GET /blocked-users (+ authenticate + requireRoot)');
 
   // Debug finale
   const routeCount = (router as any).stack.length;

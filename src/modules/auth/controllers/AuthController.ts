@@ -1,6 +1,7 @@
 // src/modules/auth/controllers/AuthController.ts
 import { Request, Response } from 'express';
 import { AuthService } from '../services/AuthService';
+import { extractClientIp } from '../utils/ipExtractor';
 import {
   RegisterRequest,
   LoginRequest,
@@ -40,7 +41,7 @@ export class AuthController {
   login = async (req: Request, res: Response): Promise<void> => {
     try {
       const data: LoginRequest = req.body;
-      const ipAddress = req.ip;
+      const ipAddress = extractClientIp(req);
       const userAgent = req.headers['user-agent'];
 
       const result = await this.authService.login(data, ipAddress, userAgent);
@@ -73,7 +74,7 @@ export class AuthController {
         return;
       }
 
-      const ipAddress = req.ip;
+      const ipAddress = extractClientIp(req);
       const userAgent = req.headers['user-agent'];
 
       const result = await this.authService.refreshToken(refreshToken, ipAddress, userAgent);
@@ -164,7 +165,7 @@ export class AuthController {
         return;
       }
 
-      const ipAddress = req.ip;
+      const ipAddress = extractClientIp(req);
       const userAgent = req.headers['user-agent'];
 
       await this.authService.requestPasswordReset(email, ipAddress, userAgent);
