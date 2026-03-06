@@ -21,14 +21,15 @@ const PORT = parseInt(process.env.PORT || '8080', 10);
 const AUTH_SERVICE = process.env.AUTH_SERVICE_URL || 'http://auth-service:3001';
 
 // Route protette che richiedono JWT validation + gateway headers
-const PROTECTED_AUTH_ROUTES = [
-  '/change-password',
-  '/logout-all', 
-  '/me',
-];
+const PROTECTED_AUTH_ROUTES = ['/change-password', '/logout-all', '/me', '/sessions', '/blocked-users', '/users', '/accounts'];
+
+// Helper per check route admin (wildcard match)
+function isAdminRoute(path) {
+  return path.match(/^\/sessions/) || path.match(/^\/users\/\d+\/(block|unblock)/);
+}
 
 function isProtectedRoute(path) {
-  return PROTECTED_AUTH_ROUTES.some(route => path === route);
+  return PROTECTED_AUTH_ROUTES.some(route => path === route || path.startsWith(route + '/'));
 }
 
 // Configurazione Frontend
@@ -199,6 +200,12 @@ const authProxy = createProxyMiddleware({
   target: AUTH_SERVICE,
   changeOrigin: true,
   logLevel: 'silent',
+  onProxyReq: (proxyReq, req) => {
+    // Inoltra IP reale del client
+    const clientIp = req.headers['x-forwarded-for'] || req.ip || req.connection.remoteAddress;
+    proxyReq.setHeader('x-forwarded-for', clientIp);
+    proxyReq.setHeader('x-real-ip', clientIp);
+  },
   onError: (err, req, res) => {
     console.error(`❌ Auth proxy error: ${err.message}`);
     if (!res.headersSent) {
@@ -210,22 +217,27 @@ const authProxy = createProxyMiddleware({
 // Gestione route /auth con intercettazione route protette
 app.use('/auth', async (req, res, next) => {
   const path = req.path; // es: /login, /change-password
-  
-  // Se è una route protetta, parsa il body e usa axios
-  if (isProtectedRoute(path)) {
+
+  // DEBUG: Log path detection
+  console.log(`🔍 [GATEWAY] Path: ${path}`);
+  console.log(`   isProtected: ${isProtectedRoute(path)}`);
+  console.log(`   isAdmin: ${isAdminRoute(path)}`);
+
+  // Se è una route protetta O admin, parsa il body e usa axios
+  if (isProtectedRoute(path) || isAdminRoute(path)) {
     // Parsa il body SOLO per route protette
-    await new Promise((resolve) => {
+    await new Promise(resolve => {
       express.json({ limit: '10mb' })(req, res, resolve);
     });
-    
+
     // Valida JWT
-    return jwtValidatorMiddleware(req, res, async (err) => {
+    return jwtValidatorMiddleware(req, res, async err => {
       if (err || res.headersSent) return;
-      
+
       // Inietta header
-      injectGatewayHeaders(req, res, async (err) => {
+      injectGatewayHeaders(req, res, async err => {
         if (err || res.headersSent) return;
-        
+
         try {
           // Trasforma currentPassword -> oldPassword per compatibilità backend
           const requestData = { ...req.body };
@@ -233,19 +245,24 @@ app.use('/auth', async (req, res, next) => {
             requestData.oldPassword = requestData.currentPassword;
             delete requestData.currentPassword;
           }
-          
+
+          // Ottieni IP reale del client
+          const clientIp = req.headers['x-forwarded-for'] || req.ip || req.connection.remoteAddress;
+
           // Inoltra con axios includendo body e header
           const response = await axios({
             method: req.method,
-            url: `${AUTH_SERVICE}/auth${path}`,
+            url: `${AUTH_SERVICE}/auth${req.url}`,
             data: requestData,
             headers: {
               'Content-Type': 'application/json',
               'x-gateway-secret': req.headers['x-gateway-secret'],
               'x-user-data': req.headers['x-user-data'],
+              'x-forwarded-for': clientIp,
+              'x-real-ip': clientIp,
             },
           });
-          
+
           res.status(response.status).json(response.data);
         } catch (error) {
           if (error.response) {
@@ -258,7 +275,7 @@ app.use('/auth', async (req, res, next) => {
       });
     });
   }
-  
+
   // Route pubblica: proxy diretto (NO body parsing - lo stream è intatto)
   req.url = '/auth' + req.url;
   authProxy(req, res, next);

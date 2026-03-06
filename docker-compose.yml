@@ -240,6 +240,13 @@ services:
       - MONGO_DATABASE=${MONGO_LOG_DATABASE}
       - MONGO_USER=${MONGO_LOG_USER}
       - MONGO_PASSWORD=${MONGO_LOG_PASSWORD}
+      # API Key per protezione endpoint di scrittura
+      - API_KEY_SECRET=${LOG_API_KEY_SECRET}
+      # Alerting
+      - EMAIL_SERVICE_URL=http://email-service:3002
+      - ALERT_RECIPIENT=${EMAIL_ALERTS_TO}
+      # System health check
+      - AUTH_SERVICE_URL=http://auth-service:3001
     depends_on:
       - logger-mongo
     networks:
