@@ -33,7 +33,7 @@ services:
       - '--providers.docker=${TRAEFIK_USE_DOCKER:-false}'
       - '--providers.docker.exposedbydefault=false'
       - '--providers.docker.network=edg-external'
-      
+
       # Provider File (DEVELOPMENT - Windows)
       - '--providers.file.filename=/etc/traefik/dynamic.yml'
       - '--providers.file.watch=true'
@@ -149,6 +149,43 @@ services:
       retries: 50
 
   # ===========================================================================
+  # DATABASE POSTGRESQL
+  # ===========================================================================
+  postgres:
+    image: postgres:16-alpine
+    container_name: edg-postgres
+    deploy:
+      resources:
+        limits:
+          cpus: '0.50'
+          memory: 512M
+        reservations:
+          cpus: '0.10'
+          memory: 128M
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: edg_vehicles
+      POSTGRES_VEHICLE_USER: ${POSTGRES_VEHICLE_USER}
+      POSTGRES_VEHICLE_PASSWORD: ${POSTGRES_VEHICLE_PASSWORD}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./postgres/init:/docker-entrypoint-initdb.d
+    expose:
+      - '5432'
+    ports:
+      - '5432:5432'
+    networks:
+      - internal
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U ${POSTGRES_USER} -d edg_vehicles']
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+
+  # ===========================================================================
   # AUTH SERVICE (Microservizio Autenticazione)
   # ===========================================================================
   auth-service:
@@ -253,7 +290,7 @@ services:
       - internal
       - external
     ports:
-      - '4001:4000'  # Porta esterna 4001, interna 4000
+      - '4001:4000' # Porta esterna 4001, interna 4000
     deploy:
       resources:
         limits:
@@ -439,6 +476,57 @@ services:
       retries: 3
       start_period: 40s
 
+  # ===========================================================================
+  # VEHICLE SERVICE (Microservizio Gestione Mezzi)
+  # ===========================================================================
+  vehicle-service:
+    build:
+      context: ./vehicle-service
+      dockerfile: Dockerfile
+      target: production
+    container_name: vehicle-service
+    deploy:
+      resources:
+        limits:
+          cpus: '0.50'
+          memory: 512M
+        reservations:
+          cpus: '0.10'
+          memory: 128M
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      SERVICE_NAME: EDG Vehicle Service
+      PORT: 3003
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: edg_vehicles
+      DB_USER: ${POSTGRES_VEHICLE_USER}
+      DB_PASSWORD: ${POSTGRES_VEHICLE_PASSWORD}
+      DB_SSL: 'false'
+      GATEWAY_SECRET: ${GATEWAY_SECRET}
+      LOG_SERVICE_URL: http://log-service:4000
+      LOG_API_KEY_SECRET: ${LOG_API_KEY_SECRET}
+      EMAIL_SERVICE_URL: http://email-service:3002
+      UPLOAD_PATH: /uploads/vehicles
+    volumes:
+      - vehicle-uploads:/uploads/vehicles
+    expose:
+      - '3003'
+    labels:
+      - 'traefik.enable=false'
+    networks:
+      - internal
+    healthcheck:
+      test: ['CMD-SHELL', 'wget --no-verbose --tries=1 --spider http://localhost:3003/health || exit 1']
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
   #############################################################################
   # API GATEWAY - Istanza 1 (Primary)
   #############################################################################
@@ -460,6 +548,8 @@ services:
     depends_on:
       auth-service:
         condition: service_healthy
+      vehicle-service:
+        condition: service_healthy
       pro-frontend:
         condition: service_healthy
       app-frontend:
@@ -473,6 +563,7 @@ services:
 
       # Service URLs
       AUTH_SERVICE_URL: http://auth-service:3001
+      VEHICLE_SERVICE_URL: http://vehicle-service:3003
       FRONTEND_PRO_URL: http://pro-frontend:5173
       FRONTEND_APP_URL: http://app-frontend:5174
       FRONTEND_EDG_URL: http://edg-frontend:5175
@@ -503,7 +594,7 @@ services:
       - external
 
     ports:
-      - '8080:8080'  # TEMPORARY: Expose for debugging CORS issue
+      - '8080:8080' # TEMPORARY: Expose for debugging CORS issue
 
     healthcheck:
       test: ['CMD-SHELL', 'wget --no-verbose --tries=1 --spider http://127.0.0.1:8080/health || exit 1']
@@ -543,6 +634,8 @@ services:
     depends_on:
       auth-service:
         condition: service_healthy
+      vehicle-service:
+        condition: service_healthy
       pro-frontend:
         condition: service_healthy
       app-frontend:
@@ -556,6 +649,7 @@ services:
 
       # Service URLs (identici a gateway-1)
       AUTH_SERVICE_URL: http://auth-service:3001
+      VEHICLE_SERVICE_URL: http://vehicle-service:3003
       FRONTEND_PRO_URL: http://pro-frontend:5173
       FRONTEND_APP_URL: http://app-frontend:5174
       FRONTEND_EDG_URL: http://edg-frontend:5175
@@ -606,6 +700,10 @@ volumes:
   mysql-data:
     driver: local
   mongo-data:
+    driver: local
+  postgres-data:
+    driver: local
+  vehicle-uploads:
     driver: local
 # =============================================================================
 # ARCHITETTURA HIGH AVAILABILITY

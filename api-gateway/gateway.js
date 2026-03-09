@@ -19,6 +19,7 @@ const PORT = parseInt(process.env.PORT || '8080', 10);
 // CONFIGURAZIONE SERVIZI
 // =============================================================================
 const AUTH_SERVICE = process.env.AUTH_SERVICE_URL || 'http://auth-service:3001';
+const VEHICLE_SERVICE = process.env.VEHICLE_SERVICE_URL || 'http://vehicle-service:3003';
 
 // Route protette che richiedono JWT validation + gateway headers
 const PROTECTED_AUTH_ROUTES = ['/change-password', '/logout-all', '/me', '/sessions', '/blocked-users', '/users', '/accounts'];
@@ -151,6 +152,7 @@ app.get('/health', (req, res) => {
     },
     services: {
       auth: AUTH_SERVICE,
+      vehicle: VEHICLE_SERVICE,
       frontends: {
         pro: FRONTENDS.pro.url,
         app: FRONTENDS.app.url,
@@ -279,6 +281,49 @@ app.use('/auth', async (req, res, next) => {
   // Route pubblica: proxy diretto (NO body parsing - lo stream è intatto)
   req.url = '/auth' + req.url;
   authProxy(req, res, next);
+});
+
+// =============================================================================
+// PROXY VERSO VEHICLE-SERVICE
+// Route protette: richiedono JWT validation + gateway headers
+// =============================================================================
+app.use('/api/vehicles', async (req, res, next) => {
+  // Valida JWT
+  return jwtValidatorMiddleware(req, res, async err => {
+    if (err || res.headersSent) return;
+
+    // Inietta gateway headers (x-gateway-secret, x-user-data)
+    injectGatewayHeaders(req, res, async err => {
+      if (err || res.headersSent) return;
+
+      try {
+        const clientIp = req.headers['x-forwarded-for'] || req.ip || req.connection.remoteAddress;
+
+        const response = await axios({
+          method: req.method,
+          url: `${VEHICLE_SERVICE}/api/vehicles${req.url}`,
+          data: ['GET', 'DELETE'].includes(req.method) ? undefined : req.body,
+          params: req.query,
+          headers: {
+            'Content-Type': 'application/json',
+            'x-gateway-secret': req.headers['x-gateway-secret'],
+            'x-user-data': req.headers['x-user-data'],
+            'x-forwarded-for': clientIp,
+            'x-real-ip': clientIp,
+          },
+        });
+
+        res.status(response.status).json(response.data);
+      } catch (error) {
+        if (error.response) {
+          res.status(error.response.status).json(error.response.data);
+        } else {
+          console.error(`❌ [GATEWAY] Error forwarding to vehicle-service:`, error.message);
+          res.status(503).json({ error: 'Vehicle Service Unavailable' });
+        }
+      }
+    });
+  });
 });
 
 // =============================================================================
