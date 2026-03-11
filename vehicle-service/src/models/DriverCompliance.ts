@@ -1,5 +1,7 @@
 import { DataTypes, Model, Optional } from 'sequelize';
 import { sequelize } from '../config/database';
+import type DriverComplianceType from './DriverComplianceType';
+import type Driver from './Driver';
 
 export type ComplianceStatus = 'valid' | 'expiring' | 'expired' | 'not_applicable';
 
@@ -16,8 +18,10 @@ interface DriverComplianceAttributes {
   updatedAt?: Date;
 }
 
-interface DriverComplianceCreationAttributes
-  extends Optional<DriverComplianceAttributes, 'id' | 'issuedAt' | 'expiresAt' | 'issuingBody' | 'status' | 'notes'> {}
+interface DriverComplianceCreationAttributes extends Optional<
+  DriverComplianceAttributes,
+  'id' | 'issuedAt' | 'expiresAt' | 'issuingBody' | 'status' | 'notes'
+> {}
 
 class DriverCompliance
   extends Model<DriverComplianceAttributes, DriverComplianceCreationAttributes>
@@ -33,6 +37,10 @@ class DriverCompliance
   declare notes: string | null;
   declare createdAt: Date;
   declare updatedAt: Date;
+
+  // Associations (populated by include)
+  declare complianceType?: DriverComplianceType;
+  declare driver?: Driver;
 }
 
 DriverCompliance.init(
@@ -81,9 +89,7 @@ DriverCompliance.init(
     sequelize,
     tableName: 'driver_compliances',
     timestamps: true,
-    indexes: [
-      { unique: true, fields: ['driver_id', 'type_id'] },
-    ],
+    indexes: [{ unique: true, fields: ['driver_id', 'type_id'] }],
   }
 );
 

@@ -1,5 +1,7 @@
 import { DataTypes, Model, Optional } from 'sequelize';
 import { sequelize } from '../config/database';
+import type DeadlineType from './DeadlineType';
+import type Vehicle from './Vehicle';
 
 export type DeadlineStatus = 'valid' | 'expiring' | 'expired';
 
@@ -15,8 +17,10 @@ interface VehicleDeadlineAttributes {
   updatedAt?: Date;
 }
 
-interface VehicleDeadlineCreationAttributes
-  extends Optional<VehicleDeadlineAttributes, 'id' | 'lastRenewalDate' | 'status' | 'notes'> {}
+interface VehicleDeadlineCreationAttributes extends Optional<
+  VehicleDeadlineAttributes,
+  'id' | 'lastRenewalDate' | 'status' | 'notes'
+> {}
 
 class VehicleDeadline
   extends Model<VehicleDeadlineAttributes, VehicleDeadlineCreationAttributes>
@@ -31,6 +35,10 @@ class VehicleDeadline
   declare notes: string | null;
   declare createdAt: Date;
   declare updatedAt: Date;
+
+  // Associations (populated by include)
+  declare deadlineType?: DeadlineType;
+  declare vehicle?: Vehicle;
 }
 
 VehicleDeadline.init(
@@ -75,9 +83,7 @@ VehicleDeadline.init(
     sequelize,
     tableName: 'vehicle_deadlines',
     timestamps: true,
-    indexes: [
-      { unique: true, fields: ['vehicle_id', 'deadline_type_id'] },
-    ],
+    indexes: [{ unique: true, fields: ['vehicle_id', 'deadline_type_id'] }],
   }
 );
 

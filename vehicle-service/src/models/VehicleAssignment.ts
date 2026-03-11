@@ -1,5 +1,7 @@
 import { DataTypes, Model, Optional } from 'sequelize';
 import { sequelize } from '../config/database';
+import type Vehicle from './Vehicle';
+import type Driver from './Driver';
 
 interface VehicleAssignmentAttributes {
   id: number;
@@ -12,8 +14,7 @@ interface VehicleAssignmentAttributes {
   updatedAt?: Date;
 }
 
-interface VehicleAssignmentCreationAttributes
-  extends Optional<VehicleAssignmentAttributes, 'id' | 'endedAt' | 'notes'> {}
+interface VehicleAssignmentCreationAttributes extends Optional<VehicleAssignmentAttributes, 'id' | 'endedAt' | 'notes'> {}
 
 class VehicleAssignment
   extends Model<VehicleAssignmentAttributes, VehicleAssignmentCreationAttributes>
@@ -31,6 +32,10 @@ class VehicleAssignment
   get isActive(): boolean {
     return this.endedAt === null;
   }
+
+  // Associations (populated by include)
+  declare vehicle?: Vehicle;
+  declare driver?: Driver;
 }
 
 VehicleAssignment.init(

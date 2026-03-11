@@ -512,6 +512,8 @@ services:
       LOG_API_KEY_SECRET: ${LOG_API_KEY_SECRET}
       EMAIL_SERVICE_URL: http://email-service:3002
       UPLOAD_PATH: /uploads/vehicles
+      TZ: Europe/Rome
+      CRON_RUN_ON_START: 'true' # solo in dev/test, in prod mettere "false"
     volumes:
       - vehicle-uploads:/uploads/vehicles
     expose:

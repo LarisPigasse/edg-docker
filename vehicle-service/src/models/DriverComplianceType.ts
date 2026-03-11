@@ -19,8 +19,20 @@ interface DriverComplianceTypeAttributes {
   updatedAt?: Date;
 }
 
-interface DriverComplianceTypeCreationAttributes
-  extends Optional<DriverComplianceTypeAttributes, 'id' | 'category' | 'description' | 'alertDays1' | 'alertDays2' | 'alertDays3' | 'isRenewable' | 'hasExpiry' | 'issuingBody' | 'isActive' | 'sortOrder'> {}
+interface DriverComplianceTypeCreationAttributes extends Optional<
+  DriverComplianceTypeAttributes,
+  | 'id'
+  | 'category'
+  | 'description'
+  | 'alertDays1'
+  | 'alertDays2'
+  | 'alertDays3'
+  | 'isRenewable'
+  | 'hasExpiry'
+  | 'issuingBody'
+  | 'isActive'
+  | 'sortOrder'
+> {}
 
 class DriverComplianceType
   extends Model<DriverComplianceTypeAttributes, DriverComplianceTypeCreationAttributes>
@@ -75,16 +87,19 @@ DriverComplianceType.init(
       type: DataTypes.INTEGER,
       allowNull: false,
       defaultValue: 60,
+      field: 'alert_days_1',
     },
     alertDays2: {
       type: DataTypes.INTEGER,
       allowNull: false,
       defaultValue: 30,
+      field: 'alert_days_2',
     },
     alertDays3: {
       type: DataTypes.INTEGER,
       allowNull: false,
       defaultValue: 15,
+      field: 'alert_days_3',
     },
     isRenewable: {
       type: DataTypes.BOOLEAN,

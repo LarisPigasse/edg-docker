@@ -18,13 +18,21 @@ interface DeadlineTypeAttributes {
   updatedAt?: Date;
 }
 
-interface DeadlineTypeCreationAttributes
-  extends Optional<DeadlineTypeAttributes, 'id' | 'description' | 'appliesToCategories' | 'alertDays1' | 'alertDays2' | 'alertDays3' | 'isRecurring' | 'recurrenceMonths' | 'isActive' | 'sortOrder'> {}
+interface DeadlineTypeCreationAttributes extends Optional<
+  DeadlineTypeAttributes,
+  | 'id'
+  | 'description'
+  | 'appliesToCategories'
+  | 'alertDays1'
+  | 'alertDays2'
+  | 'alertDays3'
+  | 'isRecurring'
+  | 'recurrenceMonths'
+  | 'isActive'
+  | 'sortOrder'
+> {}
 
-class DeadlineType
-  extends Model<DeadlineTypeAttributes, DeadlineTypeCreationAttributes>
-  implements DeadlineTypeAttributes
-{
+class DeadlineType extends Model<DeadlineTypeAttributes, DeadlineTypeCreationAttributes> implements DeadlineTypeAttributes {
   declare id: number;
   declare name: string;
   declare label: string;
@@ -69,16 +77,19 @@ DeadlineType.init(
       type: DataTypes.INTEGER,
       allowNull: false,
       defaultValue: 30,
+      field: 'alert_days_1',
     },
     alertDays2: {
       type: DataTypes.INTEGER,
       allowNull: false,
       defaultValue: 15,
+      field: 'alert_days_2',
     },
     alertDays3: {
       type: DataTypes.INTEGER,
       allowNull: false,
       defaultValue: 7,
+      field: 'alert_days_3',
     },
     isRecurring: {
       type: DataTypes.BOOLEAN,

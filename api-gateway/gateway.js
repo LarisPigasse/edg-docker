@@ -303,7 +303,6 @@ app.use('/api/vehicles', async (req, res, next) => {
           method: req.method,
           url: `${VEHICLE_SERVICE}/api/vehicles${req.url}`,
           data: ['GET', 'DELETE'].includes(req.method) ? undefined : req.body,
-          params: req.query,
           headers: {
             'Content-Type': 'application/json',
             'x-gateway-secret': req.headers['x-gateway-secret'],

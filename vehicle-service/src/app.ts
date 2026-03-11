@@ -6,6 +6,7 @@ import * as dotenv from 'dotenv';
 import { connectDatabase, sequelize } from './config/database';
 import { errorHandler, notFoundHandler } from './middleware/errorHandler';
 import { logger } from './services/logger';
+import { startCronJobs } from './services/cronJobs';
 import apiRoutes from './routes';
 
 dotenv.config();
@@ -89,6 +90,7 @@ app.use(errorHandler);
 
 const start = async (): Promise<void> => {
   await connectDatabase();
+  startCronJobs();
 
   app.listen(PORT, () => {
     console.log(`[${SERVICE_NAME}] in ascolto sulla porta ${PORT}`);
