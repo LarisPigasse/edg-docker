@@ -104,6 +104,7 @@ const corsMiddleware = cors({
 });
 
 app.use('/auth', corsMiddleware);
+app.use('/api/vehicles', corsMiddleware);
 
 // 4. Rate Limiting (SOLO per /auth)
 const limiter = rateLimit({
@@ -287,6 +288,10 @@ app.use('/auth', async (req, res, next) => {
 // PROXY VERSO VEHICLE-SERVICE
 // Route protette: richiedono JWT validation + gateway headers
 // =============================================================================
+
+app.options('/api/vehicles/*', corsMiddleware); // ← preflight OPTIONS
+app.use('/api/vehicles', corsMiddleware); // ← CORS headers su ogni risposta
+
 app.use('/api/vehicles', async (req, res, next) => {
   // Valida JWT
   return jwtValidatorMiddleware(req, res, async err => {

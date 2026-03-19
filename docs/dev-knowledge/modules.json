@@ -1,0 +1,55 @@
+{
+  "lastUpdated": "2026-03-16",
+  "modules": {
+    "auth-service": {
+      "status": "stable",
+      "notes": "RBAC completo, JWT, sessioni, reset password. Nessun volume mount — modifiche richiedono rebuild Docker.",
+      "lastUpdated": "2026-03-16"
+    },
+    "log-service": {
+      "status": "stable",
+      "notes": "MongoDB, query con filtri, paginazione, statistiche. EDGLogger disponibile per tutti i servizi.",
+      "lastUpdated": "2026-03-16"
+    },
+    "email-service": {
+      "status": "stable",
+      "notes": "3 modalità: SMTP/Ethereal/Console. Template Handlebars. Integrazione Aruba SMTP.",
+      "lastUpdated": "2026-03-16"
+    },
+    "api-gateway (x2 HA)": {
+      "status": "stable",
+      "notes": "Dual instance load balanced, Traefik, rate limiting 1024req/16min. GATEWAY-ARCHITECTURE.md disponibile.",
+      "lastUpdated": "2026-03-16"
+    },
+    "vehicle-service (backend)": {
+      "status": "stable",
+      "notes": "4 blocchi + cron completati e committati. Da validare integrazione con frontend.",
+      "lastUpdated": "2026-03-16"
+    },
+    "control-tower-mcp": {
+      "status": "stable",
+      "notes": "v2.6.0, 62 tool. Aggiunta categoria dev-knowledge (4 tool) in questa sessione.",
+      "lastUpdated": "2026-03-16"
+    },
+    "pro-frontend (core/template)": {
+      "status": "stable",
+      "notes": "React 19 + Tailwind 4 + 52 componenti. Sistema tema light/dark. Base per tutti i moduli.",
+      "lastUpdated": "2026-03-16"
+    },
+    "pro-frontend (auth module)": {
+      "status": "review",
+      "notes": "Funzionale ma da rivedere. Verificare setAuthToken() all'init e flusso token refresh.",
+      "lastUpdated": "2026-03-16"
+    },
+    "pro-frontend (accounts module)": {
+      "status": "review",
+      "notes": "CRUD completo funzionale. Review generale componenti e gestione errori.",
+      "lastUpdated": "2026-03-16"
+    },
+    "pro-frontend (vehicle module)": {
+      "status": "in-progress",
+      "notes": "Blocco B (Autisti) in sviluppo. Bug attivo: res.data.map — fix: usare res.data.data.",
+      "lastUpdated": "2026-03-16"
+    }
+  }
+}

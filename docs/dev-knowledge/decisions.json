@@ -1,0 +1,77 @@
+{
+  "lastUpdated": "2026-03-16",
+  "decisions": [
+    {
+      "id": "ADR001",
+      "date": "2025-10-01",
+      "title": "Architettura microservizi con API Gateway unico punto di accesso",
+      "context": "Necessità di separare i bounded context (auth, log, spedizioni) mantenendo sicurezza e scalabilità.",
+      "decision": "Tutti i servizi esposti solo internamente (expose, non ports). Solo l'API Gateway ha ports verso l'esterno. Tutto il traffico passa per il gateway.",
+      "rationale": "Centralizza sicurezza, CORS, rate limiting e logging. Permette scaling indipendente dei servizi.",
+      "status": "accepted"
+    },
+    {
+      "id": "ADR002",
+      "date": "2025-10-15",
+      "title": "Dual API Gateway per High Availability",
+      "context": "Il gateway è single point of failure. Un crash blocca tutta l'applicazione.",
+      "decision": "Due istanze API Gateway dietro Traefik load balancer. Rate limiting 1024 req/16min per istanza.",
+      "rationale": "Elimina SPOF sul gateway mantenendo semplicità (Docker Compose, no Kubernetes).",
+      "status": "accepted"
+    },
+    {
+      "id": "ADR003",
+      "date": "2025-10-20",
+      "title": "RBAC con sistema permessi espliciti e negazione con prefisso !",
+      "context": "Necessità di controllo accessi granulare per operatori con permessi diversi per modulo.",
+      "decision": "Permission system con notazione module.action (es: spedizioni.read). Negazione esplicita con ! prefix (es: !spedizioni.delete). Deny First policy.",
+      "rationale": "Segue standard AWS IAM/Kubernetes RBAC. Flessibile, estendibile, auto-documentante.",
+      "status": "accepted"
+    },
+    {
+      "id": "ADR004",
+      "date": "2025-11-01",
+      "title": "Redux solo per Auth e UI settings, local state per tutti gli altri moduli",
+      "context": "Tentazione di usare Redux per tutti i moduli causa complessità senza benefici reali.",
+      "decision": "Redux gestisce: auth (globale), UI settings (darkMode, sidebar, footer). Tutto il resto usa local state nei custom hooks.",
+      "rationale": "Riduce boilerplate, ogni modulo è autonomo, più semplice da testare e mantenere.",
+      "status": "accepted"
+    },
+    {
+      "id": "ADR005",
+      "date": "2026-01-10",
+      "title": "email-service nel repo principale edg-docker invece di repo separato",
+      "context": "email-service è infrastruttura condivisa usata da auth-service e potenzialmente altri servizi.",
+      "decision": "email-service vive in edg-docker/ come gli altri microservizi, non in repository separato.",
+      "rationale": "Semplifica deployment (un solo docker-compose), evita dependency management tra repo, facilita aggiornamenti coordinati.",
+      "status": "accepted"
+    },
+    {
+      "id": "ADR006",
+      "date": "2026-02-01",
+      "title": "accountType come VARCHAR(50) invece di ENUM",
+      "context": "accountType inizialmente definito come ENUM causava problemi di migrazione e rigidità nell'aggiunta di nuovi valori.",
+      "decision": "accountType è VARCHAR(50) con default 'indefinito'. Valori: operatore, partner, cliente, agente, indefinito.",
+      "rationale": "ENUM richiedono ALTER TABLE per nuovi valori (problematico in produzione). VARCHAR più flessibile con validazione a livello applicativo.",
+      "status": "accepted"
+    },
+    {
+      "id": "ADR007",
+      "date": "2026-02-05",
+      "title": "Sistema tema light/dark con CSS custom properties + Tailwind mapping",
+      "context": "Necessità di tema coerente su 52+ componenti senza duplicazione di codice colore.",
+      "decision": "Due livelli: CSS vars in globals.css (:root light / .dark dark), mappate in classi Tailwind custom in index.css (@theme). Toggle via classe .dark su document.documentElement.",
+      "rationale": "Un solo punto di definizione colori. Classi semantiche (bg-bg-primary, text-text-secondary) anziché hardcoded. Tailwind gestisce il cambio tema automaticamente.",
+      "status": "accepted"
+    },
+    {
+      "id": "ADR008",
+      "date": "2026-03-16",
+      "title": "Dev knowledge store in docs/dev-knowledge/ versionato con il codice",
+      "context": "Problema di amnesia contestuale tra sessioni: errori ripetuti, stato moduli sconosciuto, decisioni dimenticate.",
+      "decision": "Tre file JSON (modules.json, lessons.json, decisions.json) in edg-docker/docs/dev-knowledge/. Gestiti via tool MCP get-dev-briefing, update-module-status, log-lesson-learned, log-architecture-decision.",
+      "rationale": "La conoscenza del progetto vive nel repo del progetto, è versionata con Git, accessibile programmaticamente dal Control Tower MCP.",
+      "status": "accepted"
+    }
+  ]
+}

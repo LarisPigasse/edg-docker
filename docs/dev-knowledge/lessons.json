@@ -1,0 +1,113 @@
+{
+  "lastUpdated": "2026-03-16",
+  "lessons": [
+    {
+      "id": "L001",
+      "date": "2026-02-01",
+      "category": "sequelize",
+      "severity": "high",
+      "title": "Import modelli sempre da index, mai da file singoli",
+      "problem": "Importare modelli da file singoli (es: '../models/Vehicle') causa associazioni non inizializzate e comportamenti imprevedibili.",
+      "solution": "Usare SEMPRE 'import { Model } from ../models' — l'index gestisce le associazioni. Vale per tutti i 16+ modelli del vehicle-service."
+    },
+    {
+      "id": "L002",
+      "date": "2026-02-10",
+      "category": "sequelize",
+      "severity": "high",
+      "title": "ORDER BY con findAndCountAll + include richiede sequelize.literal",
+      "problem": "order: [['fieldName', 'ASC']] fallisce silenziosamente quando si usa include con findAndCountAll — Sequelize genera una subquery.",
+      "solution": "Usare sequelize.literal('table_name.column_name') con il nome tabella esatto qualificato."
+    },
+    {
+      "id": "L003",
+      "date": "2026-02-10",
+      "category": "sequelize",
+      "severity": "medium",
+      "title": "Association properties TypeScript richiedono keyword 'declare'",
+      "problem": "TypeScript non riconosce le association properties Sequelize senza 'declare'. Errori di tipo a runtime.",
+      "solution": "Dichiarare con 'declare vehicle?: Vehicle' (keyword declare obbligatorio) su tutti i modelli con belongsTo/hasMany/hasOne."
+    },
+    {
+      "id": "L004",
+      "date": "2026-02-15",
+      "category": "gateway",
+      "severity": "high",
+      "title": "Usare req.url nel proxy gateway, mai req.path",
+      "problem": "req.path stripping i query params (es: ?page=1&limit=10 scompaiono). Le API paginat restituiscono sempre la prima pagina.",
+      "solution": "Usare SEMPRE req.url nel proxy. req.url contiene path + query string completi."
+    },
+    {
+      "id": "L005",
+      "date": "2026-02-15",
+      "category": "gateway",
+      "severity": "medium",
+      "title": "isProtectedRoute deve usare startsWith, non ===",
+      "problem": "Confronto con === su path con parametri dinamici (es: /api/users/123) non funziona mai.",
+      "solution": "Usare path.startsWith('/api/users') invece di path === '/api/users'."
+    },
+    {
+      "id": "L006",
+      "date": "2026-02-20",
+      "category": "frontend-auth",
+      "severity": "critical",
+      "title": "apiService.setAuthToken() deve essere chiamato all'init",
+      "problem": "Tutte le richieste API ricevono 401 perché il token non viene mai impostato nel client HTTP dopo il login o al reload della pagina.",
+      "solution": "In authSlice.ts extraReducers per loginUser.fulfilled: aggiungere apiService.setAuthToken(token). Richiamare anche all'init per token salvato in localStorage."
+    },
+    {
+      "id": "L007",
+      "date": "2026-03-01",
+      "category": "frontend-api",
+      "severity": "high",
+      "title": "Endpoint paginati restituiscono res.data.data, non res.data",
+      "problem": "Chiamare .map() su res.data causa 'res.data.map is not a function' perché res.data è { data: [], total, page, limit }.",
+      "solution": "Per endpoint paginati usare SEMPRE res.data.data per l'array. Definire interfaccia PaginatedResponse<T>."
+    },
+    {
+      "id": "L008",
+      "date": "2026-03-05",
+      "category": "ui-components",
+      "severity": "medium",
+      "title": "ConfirmModal accetta solo variant 'danger' e 'default'",
+      "problem": "Usare variant='primary' o variant='warning' causa TypeScript error o comportamento undefined.",
+      "solution": "Solo 'danger' (azioni distruttive come delete) e 'default' (azioni reversibili). Nessun'altra variante esiste."
+    },
+    {
+      "id": "L009",
+      "date": "2026-03-05",
+      "category": "ui-components",
+      "severity": "medium",
+      "title": "Radix Dialog + Select: conflict focus trap",
+      "problem": "Aprire un Select dentro un Dialog causa chiusura immediata del dropdown per conflict del focus trap di Radix UI.",
+      "solution": "Workaround two-click pattern. Bug noto Radix UI, soluzione definitiva richiede upgrade o implementazione custom."
+    },
+    {
+      "id": "L010",
+      "date": "2026-03-10",
+      "category": "sequelize",
+      "severity": "medium",
+      "title": "Campi numerici con underscored:true richiedono field esplicito",
+      "problem": "Campi come tipo_01, tipo_02 non vengono mappati correttamente con underscored:true — il DB non li trova.",
+      "solution": "Aggiungere field: 'tipo_01' esplicito nella definizione del campo nel modello Sequelize."
+    },
+    {
+      "id": "L011",
+      "date": "2026-03-10",
+      "category": "gateway",
+      "severity": "medium",
+      "title": "Params duplication passando req.url e params: req.query insieme",
+      "problem": "Passare sia req.url (che già contiene ?params) che params: req.query al proxy causa query string duplicata.",
+      "solution": "Se si usa req.url, non passare params: req.query. req.url è autosufficiente."
+    },
+    {
+      "id": "L012",
+      "date": "2026-03-10",
+      "category": "docker",
+      "severity": "high",
+      "title": "auth-service senza volume mount richiede rebuild per ogni modifica",
+      "problem": "Modificare file nell'auth-service non ha effetto senza rebuild — il servizio non ha volume mount per sicurezza.",
+      "solution": "Editare TypeScript in auth-service/src/, poi: docker compose build auth-service && docker compose up -d auth-service."
+    }
+  ]
+}

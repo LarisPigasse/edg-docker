@@ -47,7 +47,7 @@ import { execInContainer, readFileFromContainer, listDirectoryInContainer } from
 const server = new Server(
   {
     name: 'docker-monitor-mcp',
-    version: '2.6.0', // Aggiornato con Automazione (FASE 3)
+    version: '2.7.0', // Aggiornato con Automazione (FASE 3)
   },
   {
     capabilities: {
@@ -1266,6 +1266,186 @@ const filesystemTools = {
 };
 
 // ============================================================================
+// PATCH PER index.ts — DEV KNOWLEDGE TOOLS
+// ============================================================================
+//
+// ISTRUZIONI DI INSTALLAZIONE:
+//
+// 1. Copia dev-knowledge.service.ts in:
+//      control-tower/src/services/dev-knowledge.service.ts
+//
+// 2. In index.ts, AGGIUNGI il blocco `devKnowledgeTools` (qui sotto)
+//    PRIMA della sezione "REGISTRAZIONE TOOL"
+//
+// 3. In index.ts, nella sezione "REGISTRAZIONE TOOL", aggiungi
+//    `...devKnowledgeTools,` allo spread:
+//
+//      Object.entries({
+//        ...diagnosticsTools,
+//        ...orchestrationTools,
+//        ...logsTools,
+//        ...controlTools,
+//        ...metricsTools,
+//        ...networkTools,
+//        ...automationTools,
+//        ...filesystemTools,
+//        ...devKnowledgeTools,   // ← AGGIUNGERE QUI
+//      }).forEach(...)
+//
+// 4. Aggiorna la versione server (es. 2.7.0) e il messaggio di avvio
+//
+// 5. Crea la cartella docs/dev-knowledge/ e copia i file JSON iniziali
+//
+// 6. npm run build && npm start
+//
+// ============================================================================
+
+// ============================================================================
+// TOOL: DEV KNOWLEDGE (METODOLOGIA)
+// ============================================================================
+const devKnowledgeTools = {
+  'get-dev-briefing': {
+    description:
+      'Restituisce il briefing completo dello stato del progetto EDG: moduli, ' +
+      'decisioni architetturali recenti e lezioni apprese recenti. ' +
+      "Da chiamare all'inizio di ogni sessione di sviluppo.",
+    inputSchema: {
+      type: 'object',
+      properties: {},
+      required: [],
+    },
+    handler: async () => {
+      const { getDevBriefing } = await import('./services/dev-knowledge.service.js');
+      const briefing = await getDevBriefing();
+      return { content: [{ type: 'text', text: briefing }] };
+    },
+  },
+
+  'update-module-status': {
+    description:
+      'Aggiorna lo stato di un modulo nel progetto EDG. ' +
+      'Usare al termine di ogni sessione di sviluppo per documentare i progressi.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        moduleName: {
+          type: 'string',
+          description: 'Nome del modulo (es: "auth-service", "pro-frontend (vehicle module)")',
+        },
+        status: {
+          type: 'string',
+          enum: ['stable', 'review', 'in-progress', 'planned', 'blocked'],
+          description:
+            'Stato del modulo: ' +
+            'stable=stabile e testato, ' +
+            'review=da rivedere, ' +
+            'in-progress=in sviluppo attivo, ' +
+            'planned=pianificato, ' +
+            'blocked=bloccato',
+        },
+        notes: {
+          type: 'string',
+          description: 'Note sullo stato attuale, cosa è stato fatto, cosa manca (max 200 caratteri)',
+        },
+      },
+      required: ['moduleName', 'status', 'notes'],
+    },
+    handler: async (args: { moduleName: string; status: string; notes: string }) => {
+      const { updateModuleStatus } = await import('./services/dev-knowledge.service.js');
+      const result = await updateModuleStatus(
+        args.moduleName,
+        args.status as 'stable' | 'review' | 'in-progress' | 'planned' | 'blocked',
+        args.notes
+      );
+      return { content: [{ type: 'text', text: result }] };
+    },
+  },
+
+  'log-lesson-learned': {
+    description:
+      'Registra una nuova lezione appresa (bug, gotcha, pattern da evitare) ' + 'nella knowledge base del progetto EDG.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        category: {
+          type: 'string',
+          description:
+            'Categoria tecnica della lezione ' +
+            '(es: "sequelize", "gateway", "frontend-auth", "typescript", "docker", "ui-components")',
+        },
+        severity: {
+          type: 'string',
+          enum: ['low', 'medium', 'high', 'critical'],
+          description:
+            "Impatto dell'errore: " +
+            'low=minore, ' +
+            'medium=causa bug non ovvio, ' +
+            'high=causa malfunzionamento visibile, ' +
+            'critical=blocca il sistema',
+        },
+        title: {
+          type: 'string',
+          description: 'Titolo sintetico della lezione (max 80 caratteri)',
+        },
+        problem: {
+          type: 'string',
+          description: "Descrizione del problema o dell'errore (cosa succede di sbagliato)",
+        },
+        solution: {
+          type: 'string',
+          description: 'Soluzione corretta o workaround da applicare',
+        },
+      },
+      required: ['category', 'severity', 'title', 'problem', 'solution'],
+    },
+    handler: async (args: { category: string; severity: string; title: string; problem: string; solution: string }) => {
+      const { logLessonLearned } = await import('./services/dev-knowledge.service.js');
+      const result = await logLessonLearned(
+        args.category,
+        args.severity as 'low' | 'medium' | 'high' | 'critical',
+        args.title,
+        args.problem,
+        args.solution
+      );
+      return { content: [{ type: 'text', text: result }] };
+    },
+  },
+
+  'log-architecture-decision': {
+    description:
+      'Registra una decisione architetturale (ADR) nella knowledge base del progetto EDG. ' +
+      'Da usare quando si prende una decisione tecnica significativa.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        title: {
+          type: 'string',
+          description: 'Titolo della decisione (es: "accountType come VARCHAR invece di ENUM")',
+        },
+        context: {
+          type: 'string',
+          description: 'Contesto: perché si è presentata la necessità di questa decisione',
+        },
+        decision: {
+          type: 'string',
+          description: 'La decisione presa, in modo chiaro e conciso',
+        },
+        rationale: {
+          type: 'string',
+          description: 'Motivazione: perché questa decisione è stata preferita ad alternative',
+        },
+      },
+      required: ['title', 'context', 'decision', 'rationale'],
+    },
+    handler: async (args: { title: string; context: string; decision: string; rationale: string }) => {
+      const { logArchitectureDecision } = await import('./services/dev-knowledge.service.js');
+      const result = await logArchitectureDecision(args.title, args.context, args.decision, args.rationale);
+      return { content: [{ type: 'text', text: result }] };
+    },
+  },
+};
+
+// ============================================================================
 // REGISTRAZIONE TOOL
 // ============================================================================
 // Aggiungi tutti i tool alla mappa
@@ -1278,6 +1458,7 @@ Object.entries({
   ...networkTools, // TOOL NETWORK & VOLUMES (Step 3)
   ...automationTools, // TOOL AUTOMATION (FASE 3)
   ...filesystemTools, // TOOL FILESYSTEM (Step 4)
+  ...devKnowledgeTools, // TOOL DEV KNOWLEDGE (METODOLOGIA)
 }).forEach(([name, tool]: [string, any]) => {
   // `tool` viene da Object.entries su oggetti letterali eterogenei;
   // tipizziamo come `any` qui per consentire l'accesso alle proprietà.
@@ -1320,8 +1501,8 @@ async function main() {
     const transport = new StdioServerTransport();
     await server.connect(transport);
 
-    console.error('Docker Monitor MCP Server v2.6.0 running on stdio');
-    console.error('Features: Full Automation - 62 tools (Logs+Metrics+Network+Control+Automation+Filesystem)');
+    console.error('Docker Monitor MCP Server v2.7.0 running on stdio');
+    console.error('Features: Full Automation + Dev Knowledge - 66 tools (Logs+Metrics+Network+Control+Automation+Filesystem)');
     console.error('Intelligent diagnostics, orchestration, backup, and auto-healing available');
 
     // Avvia monitoring in background
