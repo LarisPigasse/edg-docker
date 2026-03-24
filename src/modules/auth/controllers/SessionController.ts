@@ -2,6 +2,7 @@
 
 import { Request, Response } from 'express';
 import { Op } from 'sequelize';
+import { redisService } from '../../../core/services/RedisService';
 
 export class SessionController {
   constructor(
@@ -106,6 +107,9 @@ export class SessionController {
 
       await session.update({ isRevoked: true });
 
+      // Blacklist Redis → blocco immediato dell'access token ancora valido
+      await redisService.blockSession(session.id);
+
       res.json({
         success: true,
         message: 'Sessione revocata',
@@ -168,16 +172,14 @@ export class SessionController {
       });
 
       // Revoca tutte le sessioni attive
-      await this.sessionModel.update(
-        { isRevoked: true },
-        { where: { accountId: account.id, isRevoked: false } }
-      );
+      await this.sessionModel.update({ isRevoked: true }, { where: { accountId: account.id, isRevoked: false } });
+
+      // Blacklist Redis → blocco immediato degli access token ancora validi
+      await redisService.blockAccount(account.id);
 
       res.json({
         success: true,
-        message: blockedUntil
-          ? `Utente bloccato fino a ${blockedUntil.toISOString()}`
-          : 'Utente bloccato permanentemente',
+        message: blockedUntil ? `Utente bloccato fino a ${blockedUntil.toISOString()}` : 'Utente bloccato permanentemente',
       });
     } catch (error: any) {
       console.error('[SessionController] blockUser error:', error);
@@ -234,10 +236,7 @@ export class SessionController {
       const blockedAccounts = await this.accountModel.findAll({
         where: {
           isActive: false,
-          [Op.or]: [
-            { blockedUntil: { [Op.ne]: null } },
-            { blockReason: { [Op.ne]: null } },
-          ],
+          [Op.or]: [{ blockedUntil: { [Op.ne]: null } }, { blockReason: { [Op.ne]: null } }],
         },
         include: [
           {

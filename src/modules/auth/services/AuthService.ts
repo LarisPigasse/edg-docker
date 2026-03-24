@@ -128,15 +128,6 @@ export class AuthService {
     // Estrai permessi dal ruolo
     const permissions = await this.loadAccountPermissions(account.id);
 
-    // Genera token con permissions
-    const accessToken = this.tokenService.generateAccessToken({
-      accountId: account.id,
-      email: account.email,
-      accountType: account.accountType,
-      roleId: account.roleId,
-      permissions,
-    });
-
     const refreshToken = this.tokenService.generateRefreshToken();
 
     // Device detection e geolocation
@@ -159,6 +150,16 @@ export class AuthService {
       geoTimezone: geoInfo.timezone,
       lastActivityAt: new Date(),
       isRevoked: false,
+    });
+
+    // Genera token con permissions e sessionId
+    const accessToken = this.tokenService.generateAccessToken({
+      accountId: account.id,
+      email: account.email,
+      accountType: account.accountType,
+      roleId: account.roleId,
+      permissions,
+      sessionId: session.id,
     });
 
     // Aggiorna ultimo login

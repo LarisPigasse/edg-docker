@@ -9,14 +9,17 @@ const router = Router();
 /**
  * NOTA: Questa route factory deve essere chiamata DOPO l'inizializzazione
  * dei modelli, passando Account e Role al controller.
- * 
+ *
  * Vedi app.ts per esempio di utilizzo.
  */
-export const createAccountRouter = (Account: any, Role: any): Router => {
-  const accountController = new AccountController(Account, Role);
+export const createAccountRouter = (Account: any, Role: any, Session?: any): Router => {
+  const accountController = new AccountController(Account, Role, Session);
 
   // Tutte le route richiedono autenticazione + permesso root
-  
+
+  // GET /auth/accounts/roles - Lista tutti i ruoli disponibili
+  router.get('/roles', authenticate, requireRoot(), accountController.getRoles.bind(accountController));
+
   // GET /auth/accounts/stats - Statistiche overview
   router.get('/stats', authenticate, requireRoot(), accountController.getAccountStats.bind(accountController));
 
@@ -28,6 +31,9 @@ export const createAccountRouter = (Account: any, Role: any): Router => {
 
   // PUT /auth/accounts/:id - Aggiorna account
   router.put('/:id', authenticate, requireRoot(), accountController.updateAccount.bind(accountController));
+
+  // DELETE /auth/accounts/:id/hard - Eliminazione fisica (solo se mai loggato)
+  router.delete('/:id/hard', authenticate, requireRoot(), accountController.hardDeleteAccount.bind(accountController));
 
   // DELETE /auth/accounts/:id - Soft delete (isActive = false)
   router.delete('/:id', authenticate, requireRoot(), accountController.deleteAccount.bind(accountController));

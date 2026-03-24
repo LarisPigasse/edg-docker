@@ -3,6 +3,7 @@ import { Request, Response, NextFunction } from 'express';
 import { TokenService } from '../services/TokenService';
 import { AccountType } from '../types/auth.types';
 import { verifyGateway, extractUserData } from './verifyGateway';
+import { redisService } from '../../../core/services/RedisService';
 
 // Istanza TokenService per standalone mode
 const tokenService = new TokenService();
@@ -90,6 +91,16 @@ const authenticateFromJWT = async (req: Request, res: Response, next: NextFuncti
       res.status(401).json({
         success: false,
         error: 'Token non valido o scaduto',
+      });
+      return;
+    }
+
+    // Controllo blacklist Redis — account disattivato di recente
+    const isBlocked = await redisService.isAccountBlocked(payload.accountId);
+    if (isBlocked) {
+      res.status(401).json({
+        success: false,
+        error: 'Account disattivato',
       });
       return;
     }

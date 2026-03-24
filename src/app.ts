@@ -2,6 +2,7 @@
 import { createServiceConfig } from './core/config/environment';
 import { createServer, ServerModule } from './core/server';
 import { DatabaseManager } from './core/config/database';
+import cron from 'node-cron';
 
 // Import modelli e associazioni
 import {
@@ -140,9 +141,27 @@ const startServer = async () => {
     // 5.1 CREA E REGISTRA ROUTER ACCOUNTS
     console.log('\n🔧 [APP] Fase 8.1: Creazione e registrazione router accounts');
     const app = server.getApp();
-    const accountRouter = createAccountRouter(Account, Role);
+    const accountRouter = createAccountRouter(Account, Role, Session);
     app.use('/auth/accounts', accountRouter);
     console.log('   ✅ Router accounts creato e registrato!');
+
+    // 5.2 CRON JOB — pulizia sessioni e token scaduti
+    console.log('\n🔧 [APP] Fase 8.2: Setup cron job pulizia sessioni');
+    // Ogni giorno alle 03:00 (Europe/Rome)
+    cron.schedule(
+      '0 3 * * *',
+      async () => {
+        console.log('🧹 [CRON] Avvio pulizia sessioni e token scaduti...');
+        try {
+          await authService.cleanupExpired();
+          console.log('✅ [CRON] Pulizia completata');
+        } catch (err) {
+          console.error('❌ [CRON] Errore durante pulizia:', err);
+        }
+      },
+      { timezone: 'Europe/Rome' }
+    );
+    console.log('   ✅ Cron job registrato (ogni giorno alle 03:00 Europe/Rome)');
 
     // 6. CRITICO: Registra error handlers DOPO le route!
     console.log('\n [APP] Fase 9: Registrazione error handlers (404, 500)');
