@@ -186,6 +186,34 @@ services:
       start_period: 30s
 
   # ===========================================================================
+  # CACHE - Redis (blacklist token, cache permessi)
+  # ===========================================================================
+  redis:
+    image: redis:7-alpine
+    container_name: edg-redis
+    restart: unless-stopped
+    command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD}
+    volumes:
+      - redis-data:/data
+    networks:
+      - internal
+    expose:
+      - '6379'
+    healthcheck:
+      test: ['CMD', 'redis-cli', '-a', '${REDIS_PASSWORD}', 'ping']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    deploy:
+      resources:
+        limits:
+          cpus: '0.25'
+          memory: 256M
+        reservations:
+          cpus: '0.05'
+          memory: 64M
+
+  # ===========================================================================
   # AUTH SERVICE (Microservizio Autenticazione)
   # ===========================================================================
   auth-service:
@@ -204,6 +232,8 @@ services:
     restart: unless-stopped
     depends_on:
       mysql:
+        condition: service_healthy
+      redis:
         condition: service_healthy
       email-service:
         condition: service_healthy
@@ -227,6 +257,9 @@ services:
       JWT_SECRET: ${JWT_SECRET}
       JWT_ACCESS_EXPIRY: 15m
       JWT_REFRESH_EXPIRY: 7d
+
+      # Redis
+      REDIS_URL: redis://:${REDIS_PASSWORD}@redis:6379
 
       # Email Service (microservizio)
       EMAIL_SERVICE_URL: http://email-service:3002
@@ -584,6 +617,9 @@ services:
       FRONTEND_APP_SUBDOMAINS: app.edg.local,app.edgdominio.com
       FRONTEND_EDG_SUBDOMAINS: edg.edg.local,edg.edgdominio.com
 
+      # Redis
+      REDIS_URL: redis://:${REDIS_PASSWORD}@redis:6379
+
       # Rate Limiting
       RATE_LIMIT_WINDOW: 16
       RATE_LIMIT_MAX_ATTEMPTS: 1024
@@ -670,6 +706,9 @@ services:
       FRONTEND_APP_SUBDOMAINS: app.edg.local,app.edgdominio.com
       FRONTEND_EDG_SUBDOMAINS: edg.edg.local,edg.edgdominio.com
 
+      # Redis
+      REDIS_URL: redis://:${REDIS_PASSWORD}@redis:6379
+
       # Rate Limiting
       RATE_LIMIT_WINDOW: 16
       RATE_LIMIT_MAX_ATTEMPTS: 1024
@@ -704,6 +743,8 @@ volumes:
   mongo-data:
     driver: local
   postgres-data:
+    driver: local
+  redis-data:
     driver: local
   vehicle-uploads:
     driver: local

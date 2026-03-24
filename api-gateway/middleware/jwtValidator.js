@@ -9,7 +9,7 @@ const jwt = require('jsonwebtoken');
 
 /**
  * Estrae il token JWT dall'header Authorization
- * 
+ *
  * @param {string} authHeader - Header Authorization (es: "Bearer eyJ...")
  * @returns {string|null} - Token JWT o null se non presente
  */
@@ -20,7 +20,7 @@ function extractToken(authHeader) {
 
   // Formato: "Bearer <token>"
   const parts = authHeader.split(' ');
-  
+
   if (parts.length !== 2 || parts[0] !== 'Bearer') {
     return null;
   }
@@ -30,7 +30,7 @@ function extractToken(authHeader) {
 
 /**
  * Valida il JWT token e estrae i dati utente
- * 
+ *
  * @param {string} token - JWT token
  * @param {string} jwtSecret - Secret per validare il token
  * @returns {object|null} - Dati utente dal token o null se invalido
@@ -57,6 +57,7 @@ function validateToken(token, jwtSecret) {
       accountType: payload.accountType,
       roleId: payload.roleId,
       permissions: payload.permissions || [],
+      sessionId: payload.sessionId || null,
     };
   } catch (error) {
     // Token invalido, scaduto o malformato
@@ -73,10 +74,10 @@ function validateToken(token, jwtSecret) {
 
 /**
  * Middleware Express per validare JWT e iniettare user data nella request
- * 
+ *
  * Estrae e valida il token JWT, poi aggiunge i dati utente a req.userData
  * Se il token non è valido, risponde con 401 Unauthorized
- * 
+ *
  * @param {object} req - Express request
  * @param {object} res - Express response
  * @param {function} next - Express next function

@@ -7,10 +7,51 @@ const helmet = require('helmet');
 const cors = require('cors');
 const rateLimit = require('express-rate-limit');
 const axios = require('axios');
+const Redis = require('ioredis');
 
 // Import middleware per JWT validation e header injection
 const { jwtValidatorMiddleware } = require('./middleware/jwtValidator');
 const { injectGatewayHeaders } = require('./middleware/gatewayHeaders');
+
+// =============================================================================
+// REDIS CLIENT — blacklist account disattivati
+// =============================================================================
+let redisClient = null;
+
+if (process.env.REDIS_URL) {
+  redisClient = new Redis(process.env.REDIS_URL, {
+    maxRetriesPerRequest: 3,
+    enableReadyCheck: true,
+    lazyConnect: false,
+  });
+
+  redisClient.on('connect', () => console.log('✅ [Gateway] Redis connesso'));
+  redisClient.on('error', err => console.error('❌ [Gateway] Redis error:', err.message));
+}
+
+/**
+ * Verifica se un accountId è nella blacklist Redis.
+ * Se Redis non è disponibile, lascia passare (fail-open).
+ */
+async function isAccountBlocked(accountId) {
+  if (!redisClient) return false;
+  try {
+    const result = await redisClient.get(`blocked:${accountId}`);
+    return result === '1';
+  } catch {
+    return false; // fail-open: se Redis è down non blochiamo il traffico
+  }
+}
+
+async function isSessionBlocked(sessionId) {
+  if (!redisClient || !sessionId) return false;
+  try {
+    const result = await redisClient.get(`blocked:session:${sessionId}`);
+    return result === '1';
+  } catch {
+    return false;
+  }
+}
 
 const app = express();
 const PORT = parseInt(process.env.PORT || '8080', 10);
@@ -237,6 +278,16 @@ app.use('/auth', async (req, res, next) => {
     return jwtValidatorMiddleware(req, res, async err => {
       if (err || res.headersSent) return;
 
+      // Controllo blacklist Redis
+      const accountId = req.userData?.accountId;
+      if (accountId && (await isAccountBlocked(accountId))) {
+        return res.status(401).json({ success: false, error: 'Account disattivato' });
+      }
+      const sessionId = req.userData?.sessionId;
+      if (sessionId && (await isSessionBlocked(sessionId))) {
+        return res.status(401).json({ success: false, error: 'Sessione revocata' });
+      }
+
       // Inietta header
       injectGatewayHeaders(req, res, async err => {
         if (err || res.headersSent) return;
@@ -296,6 +347,16 @@ app.use('/api/vehicles', async (req, res, next) => {
   // Valida JWT
   return jwtValidatorMiddleware(req, res, async err => {
     if (err || res.headersSent) return;
+
+    // Controllo blacklist Redis
+    const accountId = req.userData?.accountId;
+    if (accountId && (await isAccountBlocked(accountId))) {
+      return res.status(401).json({ success: false, error: 'Account disattivato' });
+    }
+    const sessionId = req.userData?.sessionId;
+    if (sessionId && (await isSessionBlocked(sessionId))) {
+      return res.status(401).json({ success: false, error: 'Sessione revocata' });
+    }
 
     // Inietta gateway headers (x-gateway-secret, x-user-data)
     injectGatewayHeaders(req, res, async err => {
