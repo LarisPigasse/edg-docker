@@ -5,6 +5,22 @@
 import Joi from 'joi';
 
 // ---------------------------------------------------------------------------
+// Validatore condiviso — ordine decrescente delle soglie di allerta
+// (alertDays1 > alertDays2 > alertDays3). Controlla solo se tutte e tre sono
+// presenti nel payload — in update, dove i campi sono opzionali, se anche
+// uno solo manca non c'è nulla da verificare.
+// ---------------------------------------------------------------------------
+const validateAlertDaysOrder = (value: Record<string, unknown>, helpers: Joi.CustomHelpers) => {
+  const { alertDays1, alertDays2, alertDays3 } = value;
+  if (alertDays1 != null && alertDays2 != null && alertDays3 != null) {
+    if (!(Number(alertDays1) > Number(alertDays2) && Number(alertDays2) > Number(alertDays3))) {
+      return helpers.error('alertDaysOrder.invalid');
+    }
+  }
+  return value;
+};
+
+// ---------------------------------------------------------------------------
 // VehicleCategory
 // ---------------------------------------------------------------------------
 export const vehicleCategorySchemas = {
@@ -106,7 +122,13 @@ export const deadlineTypeSchemas = {
     recurrenceMonths: Joi.number().integer().min(1).allow(null).default(null),
     sortOrder: Joi.number().integer().min(0).default(0),
     isActive: Joi.boolean().default(true),
-  }),
+    isPostponable: Joi.boolean().default(false),
+  })
+    .custom(validateAlertDaysOrder)
+    .messages({
+      'alertDaysOrder.invalid':
+        'Le soglie di allerta devono essere in ordine decrescente (alertDays1 > alertDays2 > alertDays3)',
+    }),
 
   update: Joi.object({
     name: Joi.string().max(50),
@@ -120,7 +142,14 @@ export const deadlineTypeSchemas = {
     recurrenceMonths: Joi.number().integer().min(1).allow(null),
     sortOrder: Joi.number().integer().min(0),
     isActive: Joi.boolean(),
-  }).min(1),
+    isPostponable: Joi.boolean(),
+  })
+    .min(1)
+    .custom(validateAlertDaysOrder)
+    .messages({
+      'alertDaysOrder.invalid':
+        'Le soglie di allerta devono essere in ordine decrescente (alertDays1 > alertDays2 > alertDays3)',
+    }),
 };
 
 // ---------------------------------------------------------------------------
@@ -135,7 +164,9 @@ export const maintenanceTypeSchemas = {
     kmThreshold: Joi.number().integer().min(1).allow(null).default(null),
     daysThreshold: Joi.number().integer().min(1).allow(null).default(null),
     alertKmBefore: Joi.number().integer().min(1).allow(null).default(null),
-    alertDaysBefore: Joi.number().integer().min(1).allow(null).default(null),
+    alertDays1: Joi.number().integer().min(1).allow(null).default(null),
+    alertDays2: Joi.number().integer().min(1).allow(null).default(null),
+    alertDays3: Joi.number().integer().min(1).allow(null).default(null),
     sortOrder: Joi.number().integer().min(0).default(0),
     isActive: Joi.boolean().default(true),
   })
@@ -145,8 +176,11 @@ export const maintenanceTypeSchemas = {
       }
       return value;
     })
+    .custom(validateAlertDaysOrder)
     .messages({
       'any.invalid': 'Almeno una soglia (km o giorni) deve essere definita',
+      'alertDaysOrder.invalid':
+        'Le soglie di allerta devono essere in ordine decrescente (alertDays1 > alertDays2 > alertDays3)',
     }),
 
   update: Joi.object({
@@ -157,10 +191,18 @@ export const maintenanceTypeSchemas = {
     kmThreshold: Joi.number().integer().min(1).allow(null),
     daysThreshold: Joi.number().integer().min(1).allow(null),
     alertKmBefore: Joi.number().integer().min(1).allow(null),
-    alertDaysBefore: Joi.number().integer().min(1).allow(null),
+    alertDays1: Joi.number().integer().min(1).allow(null),
+    alertDays2: Joi.number().integer().min(1).allow(null),
+    alertDays3: Joi.number().integer().min(1).allow(null),
     sortOrder: Joi.number().integer().min(0),
     isActive: Joi.boolean(),
-  }).min(1),
+  })
+    .min(1)
+    .custom(validateAlertDaysOrder)
+    .messages({
+      'alertDaysOrder.invalid':
+        'Le soglie di allerta devono essere in ordine decrescente (alertDays1 > alertDays2 > alertDays3)',
+    }),
 };
 
 // ---------------------------------------------------------------------------
@@ -180,7 +222,12 @@ export const driverComplianceTypeSchemas = {
     issuingBody: Joi.string().max(150).allow(null, '').default(null),
     sortOrder: Joi.number().integer().min(0).default(0),
     isActive: Joi.boolean().default(true),
-  }),
+  })
+    .custom(validateAlertDaysOrder)
+    .messages({
+      'alertDaysOrder.invalid':
+        'Le soglie di allerta devono essere in ordine decrescente (alertDays1 > alertDays2 > alertDays3)',
+    }),
 
   update: Joi.object({
     name: Joi.string().max(50),
@@ -195,5 +242,11 @@ export const driverComplianceTypeSchemas = {
     issuingBody: Joi.string().max(150).allow(null, ''),
     sortOrder: Joi.number().integer().min(0),
     isActive: Joi.boolean(),
-  }).min(1),
+  })
+    .min(1)
+    .custom(validateAlertDaysOrder)
+    .messages({
+      'alertDaysOrder.invalid':
+        'Le soglie di allerta devono essere in ordine decrescente (alertDays1 > alertDays2 > alertDays3)',
+    }),
 };

@@ -1,5 +1,5 @@
 {
-  "lastUpdated": "2026-03-16",
+  "lastUpdated": "2026-03-25",
   "lessons": [
     {
       "id": "L001",
@@ -108,6 +108,69 @@
       "title": "auth-service senza volume mount richiede rebuild per ogni modifica",
       "problem": "Modificare file nell'auth-service non ha effetto senza rebuild — il servizio non ha volume mount per sicurezza.",
       "solution": "Editare TypeScript in auth-service/src/, poi: docker compose build auth-service && docker compose up -d auth-service."
+    },
+    {
+      "id": "L013",
+      "date": "2026-03-24",
+      "category": "ui-components",
+      "severity": "high",
+      "title": "Radix DropdownMenu+Dialog: pointer-events:none non rimosso dal body",
+      "problem": "Aprire una Dialog da un DropdownMenu lascia pointer-events:none sul body dopo la chiusura. DropdownMenu.Root con modal=true manipola il body, e Dialog lo trova già modificato e lo ripristina a quello stato alla chiusura.",
+      "solution": "Aggiungere modal={false} al DropdownMenu.Root in ActionMenu.tsx. Il dropdown funziona normalmente ma non tocca il body."
+    },
+    {
+      "id": "L014",
+      "date": "2026-03-24",
+      "category": "ui-components",
+      "severity": "medium",
+      "title": "Radix Tooltip: nested button error senza asChild",
+      "problem": "Tooltip senza asChild su TooltipPrimitive.Trigger crea un button che avvolge il children button, generando nested button error HTML e comportamento imprevedibile.",
+      "solution": "Usare asChild su TooltipPrimitive.Trigger. Radix mergia le props sull'elemento figlio invece di crearne uno nuovo. Rimuovere className dal Trigger."
+    },
+    {
+      "id": "L015",
+      "date": "2026-03-24",
+      "category": "frontend-auth",
+      "severity": "high",
+      "title": "Token JWT scaduto: retry automatico con refresh token in apiFetch",
+      "problem": "Token JWT scaduto causa errore 401 nelle chiamate API. Il frontend non ha meccanismo di retry automatico con refresh token.",
+      "solution": "Creare apiFetch.ts condiviso in src/core/services/ con retry automatico su 401: chiama POST /auth/refresh, aggiorna storage e apiService, ripete la chiamata originale. apiService.ts ha lo stesso interceptor per i moduli che usano apiService."
+    },
+    {
+      "id": "L016",
+      "date": "2026-03-24",
+      "category": "gateway",
+      "severity": "high",
+      "title": "Redis blacklist per revoca immediata account e sessioni",
+      "problem": "Revocare/disattivare account nel DB non disconnette immediatamente l'utente — il JWT rimane valido fino alla scadenza (es. 32 minuti).",
+      "solution": "Redis blacklist: blocked:{accountId} per disattivazione account, blocked:session:{sessionId} per revoca sessione singola. TTL=JWT_ACCESS_EXPIRY. Gateway e authMiddleware controllano la blacklist dopo validazione JWT. SessionId deve essere incluso nel payload JWT fin dal login."
+    },
+    {
+      "id": "L017",
+      "date": "2026-03-24",
+      "category": "ui-components",
+      "severity": "medium",
+      "title": "Table sorting non funziona con accessor funzione — usare prop render",
+      "problem": "Table.tsx ignora sorting quando accessor è una funzione. Colonne con accessor funzione non mostrano le frecce e non ordinano, anche se sortable:true.",
+      "solution": "Aggiungere prop render?(item:T)=>ReactNode a TableColumn. Usare accessor stringa per il sorting e render per la visualizzazione formattata. Es: accessor:'createdAt', render: item => formatDate(item.createdAt)"
+    },
+    {
+      "id": "L018",
+      "date": "2026-03-25",
+      "category": "frontend-architecture",
+      "severity": "high",
+      "title": "Feature consolidation: hook instances duplicate se usati in parent e child",
+      "problem": "Quando una pagina istanzia hook (useAlertRules, useSystem ecc.) per gestire il refresh e li istanzia anche nei componenti figli, React crea istanze separate. Il refresh del parent non aggiorna il contenuto del child.",
+      "solution": "Il page component deve essere puramente strutturale (solo tab navigation). Ogni tab component gestisce autonomamente i propri hook e il proprio bottone refresh. Nessuna istanza di hook nel parent."
+    },
+    {
+      "id": "L019",
+      "date": "2026-03-25",
+      "category": "typescript",
+      "severity": "medium",
+      "title": "Promise floating in handler — usare async/await su Promise.all condizionale",
+      "problem": "Promise floating in handler: `if (condition) Promise.all([...])` non viene awaited, TypeScript/ESLint lo segnala come errore silenzioso.",
+      "solution": "Rendere il handler async e usare await: `const handleRefresh = async () => { if (condition) await Promise.all([...]); }`"
     }
   ]
 }

@@ -30,6 +30,22 @@ export const notificationSchemas = {
     severity: Joi.string().valid('info', 'warning', 'critical'),
     isRead: Joi.boolean(),
     isArchived: Joi.boolean().default(false),
+    dateFrom: Joi.date().iso(),
+    dateTo: Joi.date().iso(),
+  }).unknown(false),
+};
+
+// ---------------------------------------------------------------------------
+// NotificationDeliveryLog — tracciamento invii email per destinatario
+// ---------------------------------------------------------------------------
+export const notificationDeliveryLogSchemas = {
+  listQuery: Joi.object({
+    page: Joi.number().integer().min(1).default(1),
+    limit: Joi.number().integer().min(1).max(100).default(20),
+    notificationId: Joi.number().integer().positive(),
+    status: Joi.string().valid('sent', 'failed'),
+    dateFrom: Joi.date().iso(),
+    dateTo: Joi.date().iso(),
   }).unknown(false),
 };
 
@@ -50,5 +66,45 @@ export const attachmentSchemas = {
       .valid('vehicle', 'driver', 'vehicle_deadline', 'maintenance_record', 'driver_compliance')
       .required(),
     entityId: Joi.number().integer().positive().required(),
+  }).unknown(false),
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
+// AlertRecipient — destinatari degli avvisi via email, con preferenze per tipo
+// ─────────────────────────────────────────────────────────────────────────────
+
+const alertPreferenceItemSchema = Joi.object({
+  deadlineTypeId: Joi.number().integer().positive().allow(null),
+  maintenanceTypeId: Joi.number().integer().positive().allow(null),
+  complianceTypeId: Joi.number().integer().positive().allow(null),
+})
+  .custom((value, helpers) => {
+    const count = [value.deadlineTypeId, value.maintenanceTypeId, value.complianceTypeId].filter(v => v != null).length;
+    if (count !== 1) return helpers.error('any.invalid');
+    return value;
+  })
+  .messages({ 'any.invalid': 'Ogni preferenza deve indicare esattamente un tipo (scadenza, manutenzione o conformità)' });
+
+export const alertRecipientSchemas = {
+  create: Joi.object({
+    email: Joi.string().email().max(150).required(),
+    name: Joi.string().max(150).allow(null, '').default(null),
+    receivesAll: Joi.boolean().default(false),
+    isActive: Joi.boolean().default(true),
+    preferences: Joi.array().items(alertPreferenceItemSchema).default([]),
+  }),
+
+  update: Joi.object({
+    email: Joi.string().email().max(150),
+    name: Joi.string().max(150).allow(null, ''),
+    receivesAll: Joi.boolean(),
+    isActive: Joi.boolean(),
+    preferences: Joi.array().items(alertPreferenceItemSchema),
+  }).min(1),
+
+  listQuery: Joi.object({
+    page: Joi.number().integer().min(1).default(1),
+    limit: Joi.number().integer().min(1).max(100).default(20),
+    isActive: Joi.boolean(),
   }).unknown(false),
 };

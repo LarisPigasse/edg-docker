@@ -1,10 +1,10 @@
 {
-  "lastUpdated": "2026-03-16",
+  "lastUpdated": "2026-07-01",
   "modules": {
     "auth-service": {
       "status": "stable",
-      "notes": "RBAC completo, JWT, sessioni, reset password. Nessun volume mount — modifiche richiedono rebuild Docker.",
-      "lastUpdated": "2026-03-16"
+      "notes": "Aggiunto: sessionId nel JWT al login, Redis blacklist account+session, cron cleanup sessioni 03:00, GET /accounts/roles, hard delete endpoint.",
+      "lastUpdated": "2026-03-24"
     },
     "log-service": {
       "status": "stable",
@@ -18,8 +18,8 @@
     },
     "api-gateway (x2 HA)": {
       "status": "stable",
-      "notes": "Dual instance load balanced, Traefik, rate limiting 1024req/16min. GATEWAY-ARCHITECTURE.md disponibile.",
-      "lastUpdated": "2026-03-16"
+      "notes": "Aggiunto: Redis blacklist check per account e session su route /auth e /api/vehicles. sessionId propagato da jwtValidator in req.userData.",
+      "lastUpdated": "2026-03-24"
     },
     "vehicle-service (backend)": {
       "status": "stable",
@@ -42,14 +42,34 @@
       "lastUpdated": "2026-03-16"
     },
     "pro-frontend (accounts module)": {
-      "status": "review",
-      "notes": "CRUD completo funzionale. Review generale componenti e gestione errori.",
-      "lastUpdated": "2026-03-16"
+      "status": "stable",
+      "notes": "Completato: PageHeader, rowActions menu, AccountFilters dropdown, hard delete, token refresh auto, Redis blacklist immediata, Table render prop per sorting.",
+      "lastUpdated": "2026-03-24"
     },
     "pro-frontend (vehicle module)": {
       "status": "in-progress",
       "notes": "Blocco B (Autisti) in sviluppo. Bug attivo: res.data.map — fix: usare res.data.data.",
       "lastUpdated": "2026-03-16"
+    },
+    "pro-frontend (sessions module)": {
+      "status": "stable",
+      "notes": "Completato: PageHeader standard, ConfirmModal revoca sessione, RevocaSession con Redis blacklist immediata, useSessions NodeJS.Timeout fix.",
+      "lastUpdated": "2026-03-24"
+    },
+    "pro-frontend (system module)": {
+      "status": "stable",
+      "notes": "Riorganizzazione features: sessions→accounts, alerts+logs→system. InfoPage unifica HealthPage+AlertsPage in 3 tab flat (Salute, Alert Manager, Storico). Ogni tab gestisce autonomamente hook e refresh.",
+      "lastUpdated": "2026-03-25"
+    },
+    "multi-tenant feature toggling": {
+      "status": "planned",
+      "notes": "Pianificato. ADR009. Tenant in auth-service, moduleGuard nel gateway, modules nel JWT. Frontend UX-only. Da implementare quando si è pronti ad aprire l'app ai clienti.",
+      "lastUpdated": "2026-03-25"
+    },
+    "pro-frontend (vehicles module)": {
+      "status": "in-progress",
+      "notes": "Blocco A+B riallineati al backend reale: types/api/hooks/pages/componenti tutti corretti. Blocchi C (Scadenze), D (Storico), I (Config) ancora placeholder.",
+      "lastUpdated": "2026-07-01"
     }
   }
 }

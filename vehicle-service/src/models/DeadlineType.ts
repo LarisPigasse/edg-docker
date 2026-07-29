@@ -14,6 +14,7 @@ interface DeadlineTypeAttributes {
   recurrenceMonths: number | null;
   isActive: boolean;
   sortOrder: number;
+  isPostponable: boolean;
   createdAt?: Date;
   updatedAt?: Date;
 }
@@ -45,6 +46,7 @@ class DeadlineType extends Model<DeadlineTypeAttributes, DeadlineTypeCreationAtt
   declare recurrenceMonths: number | null;
   declare isActive: boolean;
   declare sortOrder: number;
+  declare isPostponable: boolean;
   declare createdAt: Date;
   declare updatedAt: Date;
 }
@@ -109,6 +111,11 @@ DeadlineType.init(
       type: DataTypes.INTEGER,
       allowNull: false,
       defaultValue: 0,
+    },
+    isPostponable: {
+      type: DataTypes.BOOLEAN,
+      allowNull: false,
+      defaultValue: false,
     },
   },
   {

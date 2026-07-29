@@ -1,5 +1,5 @@
 {
-  "lastUpdated": "2026-03-16",
+  "lastUpdated": "2026-03-25",
   "decisions": [
     {
       "id": "ADR001",
@@ -71,6 +71,15 @@
       "context": "Problema di amnesia contestuale tra sessioni: errori ripetuti, stato moduli sconosciuto, decisioni dimenticate.",
       "decision": "Tre file JSON (modules.json, lessons.json, decisions.json) in edg-docker/docs/dev-knowledge/. Gestiti via tool MCP get-dev-briefing, update-module-status, log-lesson-learned, log-architecture-decision.",
       "rationale": "La conoscenza del progetto vive nel repo del progetto, è versionata con Git, accessibile programmaticamente dal Control Tower MCP.",
+      "status": "accepted"
+    },
+    {
+      "id": "ADR009",
+      "date": "2026-03-25",
+      "title": "Feature toggling multi-tenant: moduli attivabili per cliente",
+      "context": "L'app EDG verrà distribuita a clienti diversi. Ogni cliente deve vedere solo i moduli che ha acquistato (es. uno vuole vehicles, un altro no). Serve un unico frontend configurabile per tenant.",
+      "decision": "Implementare multi-tenancy con feature toggling a tre livelli: (1) Entità Tenant in auth-service con modules[], tenantId su Account, modules nel JWT al login. (2) Middleware moduleGuard nel gateway che mappa route→modulo e verifica modules dal JWT prima di forwardare. (3) Frontend usa modules dal JWT solo per UX (menu/route visibili), mai come controllo di sicurezza. La sicurezza reale è garantita esclusivamente dal gateway.",
+      "rationale": "JWT firmato impedisce manomissioni client-side. Il gateway centralizza il controllo su tutti i microservizi senza duplicare logica. Il frontend resta un unico codebase. Root può configurare i moduli per tenant dalla sezione accounts. Approccio JWT scelto su chiamata API dedicata per evitare round-trip aggiuntivo all'avvio, accettando che i cambiamenti richiedano re-login.",
       "status": "accepted"
     }
   ]

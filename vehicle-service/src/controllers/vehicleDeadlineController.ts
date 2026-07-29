@@ -10,7 +10,11 @@ import { logger } from '../services/logger';
 
 const INCLUDE = [
   { model: Vehicle, as: 'vehicle', attributes: ['id', 'brand', 'model', 'plate'] },
-  { model: DeadlineType, as: 'deadlineType', attributes: ['id', 'name', 'label', 'alertDays1', 'alertDays2', 'alertDays3'] },
+  {
+    model: DeadlineType,
+    as: 'deadlineType',
+    attributes: ['id', 'name', 'label', 'alertDays1', 'alertDays2', 'alertDays3', 'isPostponable'],
+  },
 ];
 
 // Helper: calcola status automatico in base alla data
@@ -102,7 +106,19 @@ export const update = async (req: Request, res: Response): Promise<void> => {
       return;
     }
 
-    await record.update(req.body);
+    const payload: Record<string, unknown> = { ...req.body };
+
+    // Se cambia la data di scadenza anche da qui (non solo dal rinnovo dedicato),
+    // status e tracciamento cascata vanno ricalcolati/azzerati allo stesso modo
+    if (req.body.expiryDate) {
+      const deadlineType = await DeadlineType.findByPk(record.deadlineTypeId);
+      if (deadlineType) {
+        payload.status = computeStatus(new Date(req.body.expiryDate), deadlineType.alertDays1, deadlineType.alertDays2);
+      }
+      payload.lastAlertOffset = null;
+    }
+
+    await record.update(payload);
     successResponse(res, record, 'Scadenza aggiornata');
   } catch (err) {
     console.error('[vehicleDeadlineController.update]', err);
@@ -123,7 +139,7 @@ export const renew = async (req: Request, res: Response): Promise<void> => {
       ? computeStatus(new Date(req.body.expiryDate), deadlineType.alertDays1, deadlineType.alertDays2)
       : 'valid';
 
-    await record.update({ ...req.body, status });
+    await record.update({ ...req.body, status, lastAlertOffset: null });
 
     logger.audit(
       'vehicleDeadline.renew',

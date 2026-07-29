@@ -18,7 +18,7 @@ export const list = async (req: Request, res: Response): Promise<void> => {
 
     // Filtro isActive (default: solo attivi)
     if (req.query.active !== undefined) {
-      (where as Record<string, unknown>).isActive = req.query.active !== 'false';
+      (where as Record<string, unknown>).isActive = req.query.active as unknown as boolean;
     } else {
       (where as Record<string, unknown>).isActive = true;
     }

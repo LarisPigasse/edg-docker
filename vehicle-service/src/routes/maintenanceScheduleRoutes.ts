@@ -14,6 +14,13 @@ router.get(
   c.list
 );
 router.get('/:id', requireAuth, requirePermission('vehicles', 'read'), validateParams(commonSchemas.intParam), c.getById);
+router.post(
+  '/',
+  requireAuth,
+  requirePermission('vehicles', 'create'),
+  validateBody(maintenanceScheduleSchemas.create),
+  c.create
+);
 router.put(
   '/:id',
   requireAuth,
@@ -22,4 +29,7 @@ router.put(
   validateBody(maintenanceScheduleSchemas.update),
   c.update
 );
+
+router.delete('/:id', requireAuth, requirePermission('vehicles', 'delete'), validateParams(commonSchemas.intParam), c.remove);
+
 export default router;

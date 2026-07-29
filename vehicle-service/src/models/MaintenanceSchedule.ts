@@ -1,7 +1,9 @@
 import { DataTypes, Model, Optional } from 'sequelize';
 import { sequelize } from '../config/database';
+import type Vehicle from './Vehicle';
+import type MaintenanceType from './MaintenanceType';
 
-export type ScheduleStatus = 'ok' | 'warning' | 'overdue';
+export type ScheduleStatus = 'ok' | 'warning' | 'overdue' | 'suspended';
 
 interface MaintenanceScheduleAttributes {
   id: number;
@@ -15,10 +17,14 @@ interface MaintenanceScheduleAttributes {
   notes: string | null;
   createdAt?: Date;
   updatedAt?: Date;
+  lastAlertDaysOffset: number | null;
+  lastAlertKmOffset: number | null;
 }
 
-interface MaintenanceScheduleCreationAttributes
-  extends Optional<MaintenanceScheduleAttributes, 'id' | 'lastKm' | 'lastDate' | 'nextKm' | 'nextDate' | 'status' | 'notes'> {}
+interface MaintenanceScheduleCreationAttributes extends Optional<
+  MaintenanceScheduleAttributes,
+  'id' | 'lastKm' | 'lastDate' | 'nextKm' | 'nextDate' | 'status' | 'notes'
+> {}
 
 class MaintenanceSchedule
   extends Model<MaintenanceScheduleAttributes, MaintenanceScheduleCreationAttributes>
@@ -35,6 +41,10 @@ class MaintenanceSchedule
   declare notes: string | null;
   declare createdAt: Date;
   declare updatedAt: Date;
+  declare vehicle?: Vehicle;
+  declare maintenanceType?: MaintenanceType;
+  declare lastAlertDaysOffset: number | null;
+  declare lastAlertKmOffset: number | null;
 }
 
 MaintenanceSchedule.init(
@@ -75,11 +85,19 @@ MaintenanceSchedule.init(
       allowNull: false,
       defaultValue: 'ok',
       validate: {
-        isIn: [['ok', 'warning', 'overdue']],
+        isIn: [['ok', 'warning', 'overdue', 'suspended']],
       },
     },
     notes: {
       type: DataTypes.TEXT,
+      allowNull: true,
+    },
+    lastAlertDaysOffset: {
+      type: DataTypes.INTEGER,
+      allowNull: true,
+    },
+    lastAlertKmOffset: {
+      type: DataTypes.INTEGER,
       allowNull: true,
     },
   },
@@ -87,9 +105,7 @@ MaintenanceSchedule.init(
     sequelize,
     tableName: 'maintenance_schedules',
     timestamps: true,
-    indexes: [
-      { unique: true, fields: ['vehicle_id', 'maintenance_type_id'] },
-    ],
+    indexes: [{ unique: true, fields: ['vehicle_id', 'maintenance_type_id'] }],
   }
 );
 

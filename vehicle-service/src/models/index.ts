@@ -18,7 +18,10 @@ import MaintenanceRecord from './MaintenanceRecord';
 import VehicleAssignment from './VehicleAssignment';
 import DriverCompliance from './DriverCompliance';
 import Notification from './Notification';
+import NotificationDeliveryLog from './NotificationDeliveryLog';
 import Attachment from './Attachment';
+import AlertRecipient from './AlertRecipient';
+import AlertRecipientPreference from './AlertRecipientPreference';
 
 // =============================================================================
 // ASSOCIAZIONI
@@ -163,6 +166,40 @@ Notification.belongsTo(Driver, {
   as: 'driver',
 });
 
+// --- Notification ↔ NotificationDeliveryLog ---
+Notification.hasMany(NotificationDeliveryLog, {
+  foreignKey: 'notificationId',
+  as: 'deliveryLogs',
+  onDelete: 'CASCADE',
+});
+NotificationDeliveryLog.belongsTo(Notification, {
+  foreignKey: 'notificationId',
+  as: 'notification',
+});
+
+// --- AlertRecipient ↔ AlertRecipientPreference ---
+AlertRecipient.hasMany(AlertRecipientPreference, {
+  foreignKey: 'recipientId',
+  as: 'preferences',
+  onDelete: 'CASCADE',
+});
+AlertRecipientPreference.belongsTo(AlertRecipient, {
+  foreignKey: 'recipientId',
+  as: 'recipient',
+});
+AlertRecipientPreference.belongsTo(DeadlineType, {
+  foreignKey: 'deadlineTypeId',
+  as: 'deadlineType',
+});
+AlertRecipientPreference.belongsTo(MaintenanceType, {
+  foreignKey: 'maintenanceTypeId',
+  as: 'maintenanceType',
+});
+AlertRecipientPreference.belongsTo(DriverComplianceType, {
+  foreignKey: 'complianceTypeId',
+  as: 'complianceType',
+});
+
 // =============================================================================
 // EXPORT
 // =============================================================================
@@ -187,5 +224,8 @@ export {
   DriverCompliance,
   // Trasversali
   Notification,
+  NotificationDeliveryLog,
   Attachment,
+  AlertRecipient,
+  AlertRecipientPreference,
 };

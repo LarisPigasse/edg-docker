@@ -11,6 +11,7 @@ const h = createCrudHandlers({
   model: TelematicsProvider,
   resourceName: 'Provider telematico',
   searchFields: ['name'],
+  defaultOrder: [['name', 'ASC']], // la tabella non ha una colonna sort_order
 });
 
 router.get('/', requireAuth, requirePermission('vehicles', 'read'), h.list);

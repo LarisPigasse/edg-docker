@@ -392,51 +392,63 @@ app.use('/api/vehicles', async (req, res, next) => {
 });
 
 // =============================================================================
-// PROXY FRONTEND - SEMPLICE E PULITO
+// PROXY FRONTEND - istanza unica, creata una sola volta all'avvio
 // =============================================================================
-app.use((req, res) => {
-  const hostname = req.hostname || req.headers.host?.split(':')[0];
-  const frontend = getFrontendByHostname(hostname);
+// IMPORTANTE: questa istanza NON va creata dentro l'handler della richiesta.
+// http-proxy-middleware si aggancia all'evento 'upgrade' del server HTTP
+// solo una volta per istanza (flag interno wsInternalSubscribed). Creare una
+// nuova istanza per ogni richiesta significava aggiungere un nuovo listener
+// 'upgrade' sullo stesso server ad ogni asset caricato dal browser: quando
+// arrivava la vera richiesta WebSocket dell'HMR di Vite, TUTTI i listener
+// accumulati rispondevano in conflitto sullo stesso socket, corrompendo i
+// frame WebSocket ("Invalid frame header"). Il target dinamico per hostname
+// è gestito qui tramite l'opzione 'router', che la libreria applica sia alle
+// richieste HTTP normali che agli upgrade WebSocket.
+const frontendProxy = createProxyMiddleware({
+  ws: true,
+  changeOrigin: true,
+  logLevel: 'silent',
+  timeout: 30000,
+  proxyTimeout: 30000,
+  router: req => {
+    const hostname = (req.headers.host || '').split(':')[0];
+    return getFrontendByHostname(hostname).url;
+  },
+  onProxyReq: (proxyReq, req) => {
+    const hostname = (req.headers.host || '').split(':')[0];
+    const scheme = req.headers['x-forwarded-proto'] || req.protocol || 'http';
+    proxyReq.setHeader('Origin', `${scheme}://${hostname}`);
+    proxyReq.setHeader('Host', hostname);
+    proxyReq.setHeader('Cache-Control', 'no-cache');
+  },
+  onProxyReqWs: (proxyReq, req) => {
+    proxyReq.setHeader('Connection', 'Upgrade');
+    proxyReq.setHeader('Upgrade', 'websocket');
+    const hostname = (req.headers.host || '').split(':')[0];
+    const scheme = req.headers['x-forwarded-proto'] || req.protocol || 'http';
+    proxyReq.setHeader('Origin', `${scheme}://${hostname}`);
+    proxyReq.setHeader('Host', hostname);
+  },
+  onError: (err, req, res) => {
+    const hostname = (req.headers.host || '').split(':')[0];
+    const frontend = getFrontendByHostname(hostname);
+    console.error(`❌ Frontend proxy error (${frontend.name}): ${err.message}`);
+    console.error(`   Target: ${frontend.url}`);
+    console.error(`   Path: ${req.url}`);
+    console.error(`   Error code: ${err.code}`);
 
-  const proxy = createProxyMiddleware({
-    target: frontend.url,
-    changeOrigin: true,
-    ws: true,
-    logLevel: 'silent',
-    timeout: 30000,
-    proxyTimeout: 30000,
-    onProxyReq: (proxyReq, req) => {
-      const scheme = req.headers['x-forwarded-proto'] || req.protocol || 'http';
-      proxyReq.setHeader('Origin', `${scheme}://${hostname}`);
-      proxyReq.setHeader('Host', hostname);
-      proxyReq.setHeader('Cache-Control', 'no-cache');
-    },
-    onProxyReqWs: (proxyReq, req) => {
-      proxyReq.setHeader('Connection', 'Upgrade');
-      proxyReq.setHeader('Upgrade', 'websocket');
-      const scheme = req.headers['x-forwarded-proto'] || req.protocol || 'http';
-      proxyReq.setHeader('Origin', `${scheme}://${hostname}`);
-      proxyReq.setHeader('Host', hostname);
-    },
-    onError: (err, req, res) => {
-      console.error(`❌ Frontend proxy error (${frontend.name}): ${err.message}`);
-      console.error(`   Target: ${frontend.url}`);
-      console.error(`   Path: ${req.url}`);
-      console.error(`   Error code: ${err.code}`);
-
-      if (!res.headersSent) {
-        res.status(503).send(`
+    if (res && !res.headersSent) {
+      res.status(503).send(`
           <h1>Service Unavailable</h1>
           <p>The frontend service (${frontend.name}) is not reachable.</p>
           <p>Target: ${frontend.url}</p>
           <p>Error: ${err.message}</p>
         `);
-      }
-    },
-  });
-
-  return proxy(req, res);
+    }
+  },
 });
+
+app.use(frontendProxy);
 
 // =============================================================================
 // AVVIO SERVER

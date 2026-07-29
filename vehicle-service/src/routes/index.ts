@@ -25,7 +25,9 @@ import driverComplianceRoutes from './driverComplianceRoutes';
 
 // Transversali
 import notificationRoutes from './notificationRoutes';
+import notificationDeliveryLogRoutes from './notificationDeliveryLogRoutes';
 import attachmentRoutes from './attachmentRoutes';
+import alertRecipientRoutes from './alertRecipientRoutes';
 
 const router = Router();
 
@@ -51,5 +53,8 @@ router.use('/driver-compliances', driverComplianceRoutes);
 
 // Transversali
 router.use('/notifications', notificationRoutes);
+router.use('/notification-delivery-logs', notificationDeliveryLogRoutes);
 router.use('/attachments', attachmentRoutes);
+router.use('/alert-recipients', alertRecipientRoutes);
+
 export default router;

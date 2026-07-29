@@ -7,7 +7,7 @@ import { Request, Response } from 'express';
 import { WhereOptions } from 'sequelize';
 import { MaintenanceSchedule, MaintenanceType, Vehicle } from '../models';
 import { sequelize } from '../config/database';
-import { successResponse, notFound, buildPaginationMeta, parsePagination } from '../utils/response';
+import { successResponse, createdResponse, notFound, conflict, buildPaginationMeta, parsePagination } from '../utils/response';
 import { logger } from '../services/logger';
 
 const INCLUDE = [
@@ -15,7 +15,17 @@ const INCLUDE = [
   {
     model: MaintenanceType,
     as: 'maintenanceType',
-    attributes: ['id', 'name', 'label', 'kmThreshold', 'daysThreshold', 'alertKmBefore', 'alertDaysBefore'],
+    attributes: [
+      'id',
+      'name',
+      'label',
+      'kmThreshold',
+      'daysThreshold',
+      'alertKmBefore',
+      'alertDays1',
+      'alertDays2',
+      'alertDays3',
+    ],
   },
 ];
 
@@ -59,6 +69,39 @@ export const getById = async (req: Request, res: Response): Promise<void> => {
   }
 };
 
+export const create = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const existing = await MaintenanceSchedule.findOne({
+      where: { vehicleId: req.body.vehicleId, maintenanceTypeId: req.body.maintenanceTypeId },
+    });
+    if (existing) {
+      conflict(res, 'Programmazione già presente per questo veicolo e tipo');
+      return;
+    }
+
+    const record = await MaintenanceSchedule.create({
+      vehicleId: req.body.vehicleId,
+      maintenanceTypeId: req.body.maintenanceTypeId,
+      nextKm: req.body.nextKm,
+      nextDate: req.body.nextDate,
+      notes: req.body.notes,
+      status: 'ok',
+    });
+
+    logger.audit(
+      'maintenanceSchedule.create',
+      `Programmazione #${record.id} creata — veicolo #${req.body.vehicleId}`,
+      req.user!.id,
+      req.user!.uuid ?? req.user!.email
+    );
+
+    const full = await MaintenanceSchedule.findByPk(record.id, { include: INCLUDE });
+    createdResponse(res, full, 'Programmazione creata');
+  } catch (err) {
+    console.error('[maintenanceScheduleController.create]', err);
+    throw err;
+  }
+};
 // Override manuale dello status o delle date previste
 export const update = async (req: Request, res: Response): Promise<void> => {
   try {
@@ -82,6 +125,27 @@ export const update = async (req: Request, res: Response): Promise<void> => {
     successResponse(res, full, 'Programma aggiornato');
   } catch (err) {
     console.error('[maintenanceScheduleController.update]', err);
+    throw err;
+  }
+};
+
+export const remove = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const record = await MaintenanceSchedule.findByPk(req.params.id);
+    if (!record) {
+      notFound(res, 'Programma manutenzione');
+      return;
+    }
+    await record.destroy();
+    logger.audit(
+      'maintenanceSchedule.delete',
+      `Eliminata programmazione #${req.params.id}`,
+      req.user!.id,
+      req.user!.uuid ?? req.user!.email
+    );
+    successResponse(res, null, 'Programmazione eliminata');
+  } catch (err) {
+    console.error('[maintenanceScheduleController.remove]', err);
     throw err;
   }
 };

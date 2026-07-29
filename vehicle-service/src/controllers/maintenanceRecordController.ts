@@ -3,11 +3,12 @@
 // Al create aggiorna automaticamente il MaintenanceSchedule associato
 // =============================================================================
 import { Request, Response } from 'express';
-import { WhereOptions } from 'sequelize';
+import { Op, WhereOptions } from 'sequelize';
 import { sequelize } from '../config/database';
 import { MaintenanceRecord, MaintenanceSchedule, MaintenanceType, Vehicle, Workshop } from '../models';
 import { successResponse, createdResponse, notFound, buildPaginationMeta, parsePagination } from '../utils/response';
 import { logger } from '../services/logger';
+import { computeScheduleStatus } from '../services/statusChecker';
 
 const INCLUDE = [
   { model: Vehicle, as: 'vehicle', attributes: ['id', 'brand', 'model', 'plate'] },
@@ -23,6 +24,13 @@ export const list = async (req: Request, res: Response): Promise<void> => {
     if (req.query.vehicleId) (where as Record<string, unknown>).vehicleId = Number(req.query.vehicleId);
     if (req.query.maintenanceTypeId) (where as Record<string, unknown>).maintenanceTypeId = Number(req.query.maintenanceTypeId);
     if (req.query.workshopId) (where as Record<string, unknown>).workshopId = Number(req.query.workshopId);
+
+    if (req.query.dateFrom || req.query.dateTo) {
+      (where as Record<string, unknown>).performedAt = {
+        ...(req.query.dateFrom ? { [Op.gte]: new Date(String(req.query.dateFrom)) } : {}),
+        ...(req.query.dateTo ? { [Op.lte]: new Date(String(req.query.dateTo)) } : {}),
+      };
+    }
 
     const { count, rows } = await MaintenanceRecord.findAndCountAll({
       where,
@@ -83,6 +91,8 @@ export const create = async (req: Request, res: Response): Promise<void> => {
           nextKm: req.body.nextKm ?? null,
           nextDate: req.body.nextDate ?? null,
           status: 'ok',
+          lastAlertDaysOffset: null,
+          lastAlertKmOffset: null,
         },
         { transaction }
       );
@@ -112,14 +122,57 @@ export const create = async (req: Request, res: Response): Promise<void> => {
 };
 
 export const update = async (req: Request, res: Response): Promise<void> => {
+  const transaction = await sequelize.transaction();
   try {
-    const record = await MaintenanceRecord.findByPk(req.params.id);
+    const record = await MaintenanceRecord.findByPk(req.params.id, { transaction });
     if (!record) {
+      await transaction.rollback();
       notFound(res, 'Intervento di manutenzione');
       return;
     }
 
-    await record.update(req.body);
+    await record.update(req.body, { transaction });
+
+    // Sincronizza lo schedule collegato — stessa logica del create, prima mancante qui
+    if (record.scheduleId) {
+      const schedule = await MaintenanceSchedule.findByPk(record.scheduleId, {
+        include: [
+          { model: MaintenanceType, as: 'maintenanceType' },
+          { model: Vehicle, as: 'vehicle' },
+        ],
+        transaction,
+      });
+      if (schedule) {
+        const nextKm = req.body.nextKm !== undefined ? req.body.nextKm : schedule.nextKm;
+        const nextDate = req.body.nextDate !== undefined ? req.body.nextDate : schedule.nextDate;
+        const maintenanceType = schedule.maintenanceType as MaintenanceType;
+        const vehicle = schedule.vehicle as Vehicle;
+
+        const newStatus = computeScheduleStatus({
+          nextDate: nextDate ? new Date(nextDate) : null,
+          alertDaysBefore: maintenanceType?.alertDays2 ?? null,
+          nextKm: nextKm ?? null,
+          alertKmBefore: maintenanceType?.alertKmBefore ?? null,
+          currentKm: vehicle?.currentKm ?? 0,
+        });
+
+        await schedule.update(
+          {
+            lastKm: req.body.kmAtService ?? schedule.lastKm,
+            lastDate: req.body.performedAt ?? schedule.lastDate,
+            nextKm,
+            nextDate,
+            status: newStatus,
+            lastAlertDaysOffset: null,
+            lastAlertKmOffset: null,
+          },
+          { transaction }
+        );
+      }
+    }
+
+    await transaction.commit();
+
     const full = await MaintenanceRecord.findByPk(record.id, { include: INCLUDE });
 
     logger.audit(
@@ -131,6 +184,7 @@ export const update = async (req: Request, res: Response): Promise<void> => {
 
     successResponse(res, full, 'Intervento aggiornato');
   } catch (err) {
+    await transaction.rollback();
     console.error('[maintenanceRecordController.update]', err);
     throw err;
   }

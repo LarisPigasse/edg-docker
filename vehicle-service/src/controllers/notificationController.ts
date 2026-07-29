@@ -6,7 +6,7 @@
 import { Request, Response } from 'express';
 import { Op, WhereOptions } from 'sequelize';
 import { sequelize } from '../config/database';
-import { Notification } from '../models';
+import { Notification, Vehicle, Driver } from '../models';
 import { successResponse, createdResponse, notFound, buildPaginationMeta, parsePagination } from '../utils/response';
 import { logger } from '../services/logger';
 
@@ -22,13 +22,23 @@ export const list = async (req: Request, res: Response): Promise<void> => {
 
     // isRead: default tutto, ma filtrabile
     if (req.query.isRead !== undefined) {
-      (where as Record<string, unknown>).isRead = req.query.isRead === 'true';
+      (where as Record<string, unknown>).isRead = req.query.isRead as unknown as boolean;
     }
-    // isArchived: default false (non mostrare archiviate a meno che richiesto)
-    (where as Record<string, unknown>).isArchived = req.query.isArchived === 'true' ? true : false;
+    (where as Record<string, unknown>).isArchived = req.query.isArchived as unknown as boolean;
+
+    if (req.query.dateFrom || req.query.dateTo) {
+      (where as Record<string, unknown>).createdAt = {
+        ...(req.query.dateFrom ? { [Op.gte]: new Date(String(req.query.dateFrom)) } : {}),
+        ...(req.query.dateTo ? { [Op.lte]: new Date(String(req.query.dateTo)) } : {}),
+      };
+    }
 
     const { count, rows } = await Notification.findAndCountAll({
       where,
+      include: [
+        { model: Vehicle, as: 'vehicle', attributes: ['id', 'brand', 'model', 'plate'] },
+        { model: Driver, as: 'driver', attributes: ['id', 'firstName', 'lastName'] },
+      ],
       limit,
       offset,
       order: [[sequelize.literal('"Notification"."created_at"'), 'DESC']],

@@ -16,6 +16,7 @@ interface DriverComplianceAttributes {
   notes: string | null;
   createdAt?: Date;
   updatedAt?: Date;
+  lastAlertOffset: number | null;
 }
 
 interface DriverComplianceCreationAttributes extends Optional<
@@ -37,6 +38,7 @@ class DriverCompliance
   declare notes: string | null;
   declare createdAt: Date;
   declare updatedAt: Date;
+  declare lastAlertOffset: number | null;
 
   // Associations (populated by include)
   declare complianceType?: DriverComplianceType;
@@ -82,6 +84,10 @@ DriverCompliance.init(
     },
     notes: {
       type: DataTypes.TEXT,
+      allowNull: true,
+    },
+    lastAlertOffset: {
+      type: DataTypes.INTEGER,
       allowNull: true,
     },
   },

@@ -105,7 +105,15 @@ export const update = async (req: Request, res: Response): Promise<void> => {
       return;
     }
 
-    await record.update(req.body);
+    const payload: Record<string, unknown> = { ...req.body };
+
+    if (req.body.expiresAt) {
+      const complianceType = await DriverComplianceType.findByPk(record.typeId);
+      payload.status = computeStatus(new Date(req.body.expiresAt), complianceType?.alertDays2 ?? 30);
+      payload.lastAlertOffset = null;
+    }
+
+    await record.update(payload);
     successResponse(res, record, 'Conformità aggiornata');
   } catch (err) {
     console.error('[driverComplianceController.update]', err);
@@ -124,7 +132,7 @@ export const renew = async (req: Request, res: Response): Promise<void> => {
     const complianceType = await DriverComplianceType.findByPk(record.typeId);
     const status = computeStatus(req.body.expiresAt ? new Date(req.body.expiresAt) : null, complianceType?.alertDays2 ?? 30);
 
-    await record.update({ ...req.body, status });
+    await record.update({ ...req.body, status, lastAlertOffset: null });
 
     logger.audit(
       'driverCompliance.renew',

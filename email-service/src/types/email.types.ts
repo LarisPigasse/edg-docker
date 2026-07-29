@@ -8,7 +8,8 @@ export type EmailTemplate =
   | 'auth/email-verification'
   | 'auth/welcome'
   | 'alerts/security-alert'
-  | 'alerts/system-error';
+  | 'alerts/system-error'
+  | 'alerts/vehicle-notification';
 
 /**
  * Livelli di severità per alert

@@ -15,6 +15,7 @@ interface VehicleDeadlineAttributes {
   notes: string | null;
   createdAt?: Date;
   updatedAt?: Date;
+  lastAlertOffset: number | null;
 }
 
 interface VehicleDeadlineCreationAttributes extends Optional<
@@ -35,6 +36,7 @@ class VehicleDeadline
   declare notes: string | null;
   declare createdAt: Date;
   declare updatedAt: Date;
+  declare lastAlertOffset: number | null;
 
   // Associations (populated by include)
   declare deadlineType?: DeadlineType;
@@ -76,6 +78,10 @@ VehicleDeadline.init(
     },
     notes: {
       type: DataTypes.TEXT,
+      allowNull: true,
+    },
+    lastAlertOffset: {
+      type: DataTypes.INTEGER,
       allowNull: true,
     },
   },

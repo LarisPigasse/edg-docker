@@ -1,0 +1,6 @@
+{{title}}
+
+{{message}}
+
+---
+Notifica automatica del gestionale EDG — Modulo Asset Aziendali.

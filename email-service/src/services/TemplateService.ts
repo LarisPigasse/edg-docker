@@ -7,22 +7,21 @@ import { EmailTemplate, AlertSeverity } from '../types/email.types';
 
 /**
  * TEMPLATE SERVICE
- * 
+ *
  * Gestisce il caricamento e la compilazione dei template email usando Handlebars.
  * I template sono file HTML/TXT separati nella cartella src/templates/
  */
 export class TemplateService {
-  private templateCache: Map<string, { html: HandlebarsTemplateDelegate; text: HandlebarsTemplateDelegate }> =
-    new Map();
+  private templateCache: Map<string, { html: HandlebarsTemplateDelegate; text: HandlebarsTemplateDelegate }> = new Map();
   private templatesDir: string;
 
   constructor() {
     // Path assoluto alla directory templates
     this.templatesDir = path.join(__dirname, '../templates');
-    
+
     // Registra helper Handlebars personalizzati
     this.registerHelpers();
-    
+
     // Pre-carica tutti i template all'avvio
     this.preloadTemplates();
   }
@@ -70,9 +69,10 @@ export class TemplateService {
       'auth/welcome',
       'alerts/security-alert',
       'alerts/system-error',
+      'alerts/vehicle-notification',
     ];
 
-    templates.forEach((template) => {
+    templates.forEach(template => {
       try {
         this.loadTemplate(template);
         console.log(`✅ [TEMPLATE] Template caricato: ${template}`);

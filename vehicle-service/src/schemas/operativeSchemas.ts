@@ -68,8 +68,6 @@ export const maintenanceScheduleSchemas = {
   create: Joi.object({
     vehicleId: Joi.number().integer().positive().required(),
     maintenanceTypeId: Joi.number().integer().positive().required(),
-    lastKm: Joi.number().integer().min(0).allow(null).default(null),
-    lastDate: Joi.date().iso().allow(null).default(null),
     nextKm: Joi.number().integer().min(0).allow(null).default(null),
     nextDate: Joi.date().iso().allow(null).default(null),
     notes: Joi.string().max(500).allow(null, '').default(null),
@@ -80,7 +78,7 @@ export const maintenanceScheduleSchemas = {
     lastDate: Joi.date().iso().allow(null),
     nextKm: Joi.number().integer().min(0).allow(null),
     nextDate: Joi.date().iso().allow(null),
-    status: Joi.string().valid('ok', 'due_soon', 'overdue'),
+    status: Joi.string().valid('ok', 'warning', 'overdue', 'suspended'),
     notes: Joi.string().max(500).allow(null, ''),
   }).min(1),
 
@@ -88,7 +86,7 @@ export const maintenanceScheduleSchemas = {
     page: Joi.number().integer().min(1).default(1),
     limit: Joi.number().integer().min(1).max(100).default(20),
     vehicleId: Joi.number().integer().positive(),
-    status: Joi.string().valid('ok', 'due_soon', 'overdue', 'all').default('all'),
+    status: Joi.string().valid('ok', 'warning', 'overdue', 'suspended', 'all').default('all'),
   }).unknown(false),
 };
 

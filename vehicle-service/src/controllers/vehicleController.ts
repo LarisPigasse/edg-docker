@@ -41,7 +41,7 @@ export const list = async (req: Request, res: Response): Promise<void> => {
 
     // Filtro hasPlate
     if (req.query.hasPlate !== undefined) {
-      (where as Record<string, unknown>).hasPlate = req.query.hasPlate === 'true';
+      (where as Record<string, unknown>).hasPlate = req.query.hasPlate as unknown as boolean;
     }
 
     // Ricerca testuale su brand/model/plate/vin/internalCode

@@ -394,122 +394,6 @@ services:
       start_period: 40s
 
   # ===========================================================================
-  # FRONTEND PRO (Operatori)
-  # ===========================================================================
-  pro-frontend:
-    build:
-      context: ./pro-frontend
-      dockerfile: /docker/Dockerfile
-      target: frontend-dev
-    container_name: pro-frontend
-    deploy:
-      resources:
-        limits:
-          cpus: '0.50'
-          memory: 512M
-        reservations:
-          cpus: '0.10'
-          memory: 128M
-    restart: unless-stopped
-    volumes:
-      - ./pro-frontend:/app
-      - /app/node_modules
-      - /app/dist
-    environment:
-      - NODE_ENV=development
-      # VITE_LOG_SERVICE_URL viene letto da .env.development
-    depends_on:
-      log-service:
-        condition: service_healthy
-    networks:
-      - internal
-      - external
-    ports:
-      - '5173:5173'
-    stdin_open: true
-    tty: true
-    healthcheck:
-      test: ['CMD', 'wget', '--quiet', '--tries=1', '--spider', 'http://localhost:5173']
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 40s
-
-  # ===========================================================================
-  # FRONTEND APP (Clienti)
-  # ===========================================================================
-  app-frontend:
-    build:
-      context: ./app-frontend
-      dockerfile: Dockerfile
-      target: frontend-dev
-    container_name: app-frontend
-    deploy:
-      resources:
-        limits:
-          cpus: '0.50'
-          memory: 512M
-        reservations:
-          cpus: '0.10'
-          memory: 128M
-    restart: unless-stopped
-    volumes:
-      - ./app-frontend:/app
-      - /app/node_modules
-      - /app/dist
-    environment:
-      - NODE_ENV=development
-      - VITE_FRONTEND_TYPE=app
-    networks:
-      - internal
-      - external
-    ports:
-      - '5174:5174'
-    healthcheck:
-      test: ['CMD', 'wget', '--quiet', '--tries=1', '--spider', 'http://localhost:5174']
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 40s
-
-  # ===========================================================================
-  # FRONTEND EDG (Partner)
-  # ===========================================================================
-  edg-frontend:
-    build:
-      context: ./edg-frontend
-      dockerfile: Dockerfile
-      target: frontend-dev
-    container_name: edg-frontend
-    deploy:
-      resources:
-        limits:
-          cpus: '0.50'
-          memory: 512M
-        reservations:
-          cpus: '0.10'
-          memory: 128M
-    restart: unless-stopped
-    volumes:
-      - ./edg-frontend:/app
-      - /app/node_modules
-      - /app/dist
-    environment:
-      - NODE_ENV=development
-      - VITE_FRONTEND_TYPE=edg
-    networks:
-      - internal
-      - external
-    ports:
-      - '5175:5175'
-    healthcheck:
-      test: ['CMD', 'wget', '--quiet', '--tries=1', '--spider', 'http://localhost:5175']
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 40s
-
-  # ===========================================================================
   # VEHICLE SERVICE (Microservizio Gestione Mezzi)
   # ===========================================================================
   vehicle-service:
@@ -585,12 +469,6 @@ services:
         condition: service_healthy
       vehicle-service:
         condition: service_healthy
-      pro-frontend:
-        condition: service_healthy
-      app-frontend:
-        condition: service_healthy
-      edg-frontend:
-        condition: service_healthy
     environment:
       # Gateway Configuration
       NODE_ENV: development
@@ -599,9 +477,9 @@ services:
       # Service URLs
       AUTH_SERVICE_URL: http://auth-service:3001
       VEHICLE_SERVICE_URL: http://vehicle-service:3003
-      FRONTEND_PRO_URL: http://pro-frontend:5173
-      FRONTEND_APP_URL: http://app-frontend:5174
-      FRONTEND_EDG_URL: http://edg-frontend:5175
+      FRONTEND_PRO_URL: http://host.docker.internal:5173
+      FRONTEND_APP_URL: http://host.docker.internal:5174
+      FRONTEND_EDG_URL: http://host.docker.internal:5175
 
       # JWT Secret
       JWT_SECRET: ${JWT_SECRET}
@@ -674,12 +552,6 @@ services:
         condition: service_healthy
       vehicle-service:
         condition: service_healthy
-      pro-frontend:
-        condition: service_healthy
-      app-frontend:
-        condition: service_healthy
-      edg-frontend:
-        condition: service_healthy
     environment:
       # Gateway Configuration
       NODE_ENV: development
@@ -688,9 +560,9 @@ services:
       # Service URLs (identici a gateway-1)
       AUTH_SERVICE_URL: http://auth-service:3001
       VEHICLE_SERVICE_URL: http://vehicle-service:3003
-      FRONTEND_PRO_URL: http://pro-frontend:5173
-      FRONTEND_APP_URL: http://app-frontend:5174
-      FRONTEND_EDG_URL: http://edg-frontend:5175
+      FRONTEND_PRO_URL: http://host.docker.internal:5173
+      FRONTEND_APP_URL: http://host.docker.internal:5174
+      FRONTEND_EDG_URL: http://host.docker.internal:5175
 
       # JWT Secret (IDENTICO a gateway-1)
       JWT_SECRET: ${JWT_SECRET}
