@@ -169,6 +169,8 @@ services:
       POSTGRES_DB: edg_vehicles
       POSTGRES_VEHICLE_USER: ${POSTGRES_VEHICLE_USER}
       POSTGRES_VEHICLE_PASSWORD: ${POSTGRES_VEHICLE_PASSWORD}
+      POSTGRES_SYSTEM_USER: ${POSTGRES_SYSTEM_USER}
+      POSTGRES_SYSTEM_PASSWORD: ${POSTGRES_SYSTEM_PASSWORD}
     volumes:
       - postgres-data:/var/lib/postgresql/data
       - ./postgres/init:/docker-entrypoint-initdb.d
@@ -446,6 +448,50 @@ services:
       retries: 3
       start_period: 40s
 
+  system-service:
+    build:
+      context: ./system-service
+      dockerfile: Dockerfile
+      target: production
+    container_name: system-service
+    deploy:
+      resources:
+        limits:
+          cpus: '0.50'
+          memory: 512M
+        reservations:
+          cpus: '0.10'
+          memory: 128M
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      SERVICE_NAME: EDG System Service
+      PORT: 3004
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: edg_system
+      DB_USER: ${POSTGRES_SYSTEM_USER}
+      DB_PASSWORD: ${POSTGRES_SYSTEM_PASSWORD}
+      DB_SSL: 'false'
+      GATEWAY_SECRET: ${GATEWAY_SECRET}
+      LOG_SERVICE_URL: http://log-service:4000
+      LOG_API_KEY_SECRET: ${LOG_API_KEY_SECRET}
+    expose:
+      - '3004'
+    labels:
+      - 'traefik.enable=false'
+    networks:
+      - internal
+    healthcheck:
+      test: ['CMD-SHELL', 'wget --no-verbose --tries=1 --spider http://localhost:3004/health || exit 1']
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
   #############################################################################
   # API GATEWAY - Istanza 1 (Primary)
   #############################################################################
@@ -469,6 +515,8 @@ services:
         condition: service_healthy
       vehicle-service:
         condition: service_healthy
+      system-service:
+        condition: service_healthy
     environment:
       # Gateway Configuration
       NODE_ENV: development
@@ -477,6 +525,7 @@ services:
       # Service URLs
       AUTH_SERVICE_URL: http://auth-service:3001
       VEHICLE_SERVICE_URL: http://vehicle-service:3003
+      SYSTEM_SERVICE_URL: http://system-service:3004
       FRONTEND_PRO_URL: http://host.docker.internal:5173
       FRONTEND_APP_URL: http://host.docker.internal:5174
       FRONTEND_EDG_URL: http://host.docker.internal:5175
@@ -552,6 +601,8 @@ services:
         condition: service_healthy
       vehicle-service:
         condition: service_healthy
+      system-service:
+        condition: service_healthy
     environment:
       # Gateway Configuration
       NODE_ENV: development
@@ -560,6 +611,7 @@ services:
       # Service URLs (identici a gateway-1)
       AUTH_SERVICE_URL: http://auth-service:3001
       VEHICLE_SERVICE_URL: http://vehicle-service:3003
+      SYSTEM_SERVICE_URL: http://system-service:3004
       FRONTEND_PRO_URL: http://host.docker.internal:5173
       FRONTEND_APP_URL: http://host.docker.internal:5174
       FRONTEND_EDG_URL: http://host.docker.internal:5175

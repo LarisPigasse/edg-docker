@@ -12,6 +12,7 @@ const Redis = require('ioredis');
 // Import middleware per JWT validation e header injection
 const { jwtValidatorMiddleware } = require('./middleware/jwtValidator');
 const { injectGatewayHeaders } = require('./middleware/gatewayHeaders');
+const { requireModule } = require('./middleware/moduleGuard'); // ADR009
 
 // =============================================================================
 // REDIS CLIENT — blacklist account disattivati
@@ -61,6 +62,7 @@ const PORT = parseInt(process.env.PORT || '8080', 10);
 // =============================================================================
 const AUTH_SERVICE = process.env.AUTH_SERVICE_URL || 'http://auth-service:3001';
 const VEHICLE_SERVICE = process.env.VEHICLE_SERVICE_URL || 'http://vehicle-service:3003';
+const SYSTEM_SERVICE = process.env.SYSTEM_SERVICE_URL || 'http://system-service:3004';
 
 // Route protette che richiedono JWT validation + gateway headers
 const PROTECTED_AUTH_ROUTES = ['/change-password', '/logout-all', '/me', '/sessions', '/blocked-users', '/users', '/accounts'];
@@ -195,6 +197,7 @@ app.get('/health', (req, res) => {
     services: {
       auth: AUTH_SERVICE,
       vehicle: VEHICLE_SERVICE,
+      system: SYSTEM_SERVICE,
       frontends: {
         pro: FRONTENDS.pro.url,
         app: FRONTENDS.app.url,
@@ -358,6 +361,70 @@ app.use('/api/vehicles', async (req, res, next) => {
       return res.status(401).json({ success: false, error: 'Sessione revocata' });
     }
 
+    // ADR009: il modulo 'vehicles' deve essere tra quelli attivi per il tenant
+    return requireModule('vehicles')(req, res, async err => {
+      if (err || res.headersSent) return;
+
+      // Inietta gateway headers (x-gateway-secret, x-user-data)
+      injectGatewayHeaders(req, res, async err => {
+        if (err || res.headersSent) return;
+
+        try {
+          const clientIp = req.headers['x-forwarded-for'] || req.ip || req.connection.remoteAddress;
+
+          const response = await axios({
+            method: req.method,
+            url: `${VEHICLE_SERVICE}/api/vehicles${req.url}`,
+            data: ['GET', 'DELETE'].includes(req.method) ? undefined : req.body,
+            headers: {
+              'Content-Type': 'application/json',
+              'x-gateway-secret': req.headers['x-gateway-secret'],
+              'x-user-data': req.headers['x-user-data'],
+              'x-forwarded-for': clientIp,
+              'x-real-ip': clientIp,
+            },
+          });
+
+          res.status(response.status).json(response.data);
+        } catch (error) {
+          if (error.response) {
+            res.status(error.response.status).json(error.response.data);
+          } else {
+            console.error(`❌ [GATEWAY] Error forwarding to vehicle-service:`, error.message);
+            res.status(503).json({ error: 'Vehicle Service Unavailable' });
+          }
+        }
+      });
+    });
+  });
+});
+
+// =============================================================================
+// PROXY VERSO SYSTEM-SERVICE
+// Route protette: richiedono JWT validation + gateway headers.
+// Dati di amministrazione root (operatori, reparti, anagrafiche) — NIENTE
+// requireModule: non e' un modulo attivabile per tenant (ADR009), e' gestione
+// interna sempre disponibile per chi ne ha il permesso RBAC.
+// =============================================================================
+
+app.options('/api/system/*', corsMiddleware); // ← preflight OPTIONS
+app.use('/api/system', corsMiddleware); // ← CORS headers su ogni risposta
+
+app.use('/api/system', async (req, res, next) => {
+  // Valida JWT
+  return jwtValidatorMiddleware(req, res, async err => {
+    if (err || res.headersSent) return;
+
+    // Controllo blacklist Redis
+    const accountId = req.userData?.accountId;
+    if (accountId && (await isAccountBlocked(accountId))) {
+      return res.status(401).json({ success: false, error: 'Account disattivato' });
+    }
+    const sessionId = req.userData?.sessionId;
+    if (sessionId && (await isSessionBlocked(sessionId))) {
+      return res.status(401).json({ success: false, error: 'Sessione revocata' });
+    }
+
     // Inietta gateway headers (x-gateway-secret, x-user-data)
     injectGatewayHeaders(req, res, async err => {
       if (err || res.headersSent) return;
@@ -367,7 +434,7 @@ app.use('/api/vehicles', async (req, res, next) => {
 
         const response = await axios({
           method: req.method,
-          url: `${VEHICLE_SERVICE}/api/vehicles${req.url}`,
+          url: `${SYSTEM_SERVICE}/api${req.url}`,
           data: ['GET', 'DELETE'].includes(req.method) ? undefined : req.body,
           headers: {
             'Content-Type': 'application/json',
@@ -383,8 +450,8 @@ app.use('/api/vehicles', async (req, res, next) => {
         if (error.response) {
           res.status(error.response.status).json(error.response.data);
         } else {
-          console.error(`❌ [GATEWAY] Error forwarding to vehicle-service:`, error.message);
-          res.status(503).json({ error: 'Vehicle Service Unavailable' });
+          console.error(`❌ [GATEWAY] Error forwarding to system-service:`, error.message);
+          res.status(503).json({ error: 'System Service Unavailable' });
         }
       }
     });

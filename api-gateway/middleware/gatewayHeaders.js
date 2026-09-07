@@ -50,8 +50,10 @@ function injectGatewayHeaders(req, res, next) {
     accountId: req.userData.accountId,
     email: req.userData.email,
     accountType: req.userData.accountType,
+    tenantId: req.userData.tenantId || null, // ADR009
     roleId: req.userData.roleId,
     permissions: req.userData.permissions || [],
+    modules: req.userData.modules || [], // ADR009: informativo per i microservizi a valle, il controllo reale è moduleGuard
   });
 
   next();
@@ -64,7 +66,9 @@ function logHeadersInjection(email, userData) {
   console.log(`✅ [GATEWAY] Header iniettati per ${email}`);
   console.log(`   accountId: ${userData.accountId}`);
   console.log(`   accountType: ${userData.accountType}`);
+  console.log(`   tenantId: ${userData.tenantId}`);
   console.log(`   permissions: ${userData.permissions.length} permessi`);
+  console.log(`   modules: ${(userData.modules || []).join(', ')}`);
 }
 
 module.exports = {

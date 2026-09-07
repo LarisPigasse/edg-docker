@@ -1,0 +1,12 @@
+Questa cartella contiene file rimossi dal template ma che non ho potuto
+cancellare: il ponte verso il tuo disco consente scrittura e spostamento,
+non l'eliminazione.
+
+Puoi cancellare l'intera cartella "_da_cancellare" senza alcun effetto:
+è fuori da src/, quindi né TypeScript né Vite la vedono.
+
+- ModulePlaceholder.tsx : pannello "sezione in preparazione", non più usato
+                          dopo che la pagina Asset è stata svuotata.
+
+Residuo analogo: la cartella vuota "src/template/", arrivata dalla copia di
+pro-frontend. È vuota e git non la traccia, ma puoi eliminarla.

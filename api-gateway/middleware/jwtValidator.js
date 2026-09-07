@@ -55,8 +55,10 @@ function validateToken(token, jwtSecret) {
       accountId: payload.accountId,
       email: payload.email,
       accountType: payload.accountType,
+      tenantId: payload.tenantId || null, // ADR009
       roleId: payload.roleId,
       permissions: payload.permissions || [],
+      modules: payload.modules || [], // ADR009: moduli attivi del tenant, usati da moduleGuard
       sessionId: payload.sessionId || null,
     };
   } catch (error) {

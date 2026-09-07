@@ -1,5 +1,5 @@
 {
-  "lastUpdated": "2026-03-25",
+  "lastUpdated": "2026-09-07",
   "decisions": [
     {
       "id": "ADR001",
@@ -80,6 +80,51 @@
       "context": "L'app EDG verrà distribuita a clienti diversi. Ogni cliente deve vedere solo i moduli che ha acquistato (es. uno vuole vehicles, un altro no). Serve un unico frontend configurabile per tenant.",
       "decision": "Implementare multi-tenancy con feature toggling a tre livelli: (1) Entità Tenant in auth-service con modules[], tenantId su Account, modules nel JWT al login. (2) Middleware moduleGuard nel gateway che mappa route→modulo e verifica modules dal JWT prima di forwardare. (3) Frontend usa modules dal JWT solo per UX (menu/route visibili), mai come controllo di sicurezza. La sicurezza reale è garantita esclusivamente dal gateway.",
       "rationale": "JWT firmato impedisce manomissioni client-side. Il gateway centralizza il controllo su tutti i microservizi senza duplicare logica. Il frontend resta un unico codebase. Root può configurare i moduli per tenant dalla sezione accounts. Approccio JWT scelto su chiamata API dedicata per evitare round-trip aggiuntivo all'avvio, accettando che i cambiamenti richiedano re-login.",
+      "status": "accepted"
+    },
+    {
+      "id": "ADR010",
+      "date": "2026-08-26",
+      "title": "Due soli frontend: app-frontend per gli utenti, pro-frontend per gli operatori",
+      "context": "Vigilo (gestione scadenze, manutenzioni e controlli periodici) nasce per un'utenza più ampia dei soli clienti EDG: trasportatori, ma anche aziende agricole e di movimento terra. L'ipotesi iniziale era un frontend dedicato (asset-frontend) affiancato al modulo replicato in pro-frontend per la gestione operatori. Quell'impostazione avrebbe richiesto un frontend per ogni prodotto futuro, moltiplicando le copie del design system e imponendo un SSO cross-dominio a ogni salto fra applicazioni. Verifica sul campo: core/, features/auth e config/ esistono già in copia in pro-frontend, app-frontend e asset-frontend.",
+      "decision": "Il confine fra le applicazioni è il ruolo dell'utente, non il prodotto. Due soli frontend: app-frontend, che contiene tutte le feature destinate agli utenti finali (Vigilo, logistica, spedizioni...) con menu e homepage derivati dai moduli attivi secondo ADR009; pro-frontend, riservato agli operatori EDG per la gestione di moduli, clienti e account. Vigilo è un modulo di app-frontend (features/vigilo), non un'applicazione: asset-frontend viene assorbito. Regola vincolante: i moduli non si importano fra loro — ogni features/<modulo> dipende dal core e dai pacchetti condivisi, mai da un altro modulo; ciò che serve a due moduli sale nei pacchetti condivisi.",
+      "rationale": "Il confine usare/amministrare non si moltiplica al crescere dei prodotti, quello per prodotto sì: cinque prodotti significherebbero cinque frontend, cinque copie del design system e quattro salti di dominio da orchestrare. La scelta elimina inoltre alla radice il problema dell'SSO cross-dominio: senza salti fra applicazioni non servono né cookie sul dominio padre (che estenderebbero il perimetro di fiducia a ogni sottodominio, incluse le sessioni degli operatori interni) né token di handoff. Il lazy loading già presente in App.tsx evita che l'utente scarichi i moduli che non usa. La regola di non-importazione fra moduli mantiene app-frontend scomponibile e un modulo estraibile in futuro senza traumi.",
+      "status": "accepted"
+    },
+    {
+      "id": "ADR011",
+      "date": "2026-08-26",
+      "title": "Monorepo con pacchetti condivisi per design system e autenticazione",
+      "context": "Design system (core/), autenticazione (features/auth) e configurazione (config/) esistono oggi in copia in pro-frontend, app-frontend e asset-frontend. Le correzioni applicate a una copia non raggiungono le altre, e il fenomeno è già documentabile: il Dockerfile di produzione privo di COPY --from=frontend-builder /app/dist (nginx serve una root vuota) e gli asset del tema referenziati come /src/assets/*.png (path valido solo con il dev server, 404 in build) sono stati corretti in una sola copia e restano attivi nelle altre.",
+      "decision": "Monorepo unico con npm workspaces: apps/ contiene le applicazioni (pro-frontend, app-frontend), packages/ il codice condiviso — @edg/ui per il design system, @edg/auth per login, PrivateRoute, slice e apiFetch, più un pacchetto di contratti per ciascun dominio applicativo (tipi e client API). Le applicazioni importano dai pacchetti anziché possederne una copia locale. Nessun registry privato: dipendenze locali nella stessa repository. Build, deploy e domini restano separati per applicazione; i microservizi backend restano dove sono.",
+      "rationale": "Una correzione scritta una volta raggiunge tutte le applicazioni, che è la proprietà oggi assente. Se una modifica al codice condiviso rompe un'applicazione, il suo build fallisce subito: con le copie lo stesso problema resterebbe silenzioso per mesi. Gli npm workspaces non richiedono infrastruttura aggiuntiva né pubblicazione di pacchetti. Il costo accettato è che il codice condiviso va toccato con più attenzione perché impatta tutti: molto minore di quello, ricorrente e dimenticabile, di ricordare quali copie aggiornare.",
+      "status": "accepted"
+    },
+    {
+      "id": "ADR012",
+      "date": "2026-08-26",
+      "title": "Branding per dominio: stesso build, identità di prodotto diversa",
+      "context": "Vigilo si rivolge anche ad aziende agricole e di movimento terra, per le quali Express Delivery Group è un fornitore di spedizioni: mostrare quel marchio è commercialmente dissonante. Serve un'identità di prodotto autonoma senza reintrodurre una seconda applicazione, che riporterebbe la duplicazione esclusa da ADR010.",
+      "decision": "app-frontend viene servito su più domini (es. app.expressdeliverygroup.com e vigilo.it) a partire dallo stesso artefatto di build. APP_CONFIG diventa funzione del dominio di accesso: nome, claim, logo, palette, favicon, titolo della pagina e insieme dei moduli proposti. Ogni cliente entra da un solo dominio e vi resta per l'intera sessione.",
+      "rationale": "Ottiene l'identità di prodotto senza una seconda base di codice: il punto di variazione esiste già ed è unico, perché APP_CONFIG centralizza per costruzione nome, brand e tema. Poiché ogni utente resta sul proprio dominio non nascono salti fra applicazioni, quindi nessuna sessione da propagare fra domini e nessun meccanismo di SSO da introdurre. Il costo è limitato alla parametrizzazione della configurazione e al deploy dello stesso artefatto con variabili diverse.",
+      "status": "accepted"
+    },
+    {
+      "id": "ADR013",
+      "date": "2026-08-26",
+      "title": "Token semantici per azioni, superfici e testo nel design system",
+      "context": "ADR007 stabilisce un solo punto di definizione dei colori, ma il tema copriva soltanto i contenitori (bg-*, text-*, border-*, --card-*, --modal-*): mancavano i colori delle azioni semantiche. Ogni componente se li inventava con utility Tailwind letterali — 139 occorrenze in 27 file, con `danger` reso come red-600 nel Button e red-500 altrove. Badge risolveva il tema con varianti `dark:` esplicite, un secondo meccanismo parallelo a quello dei token. Cambiare il brand significava aprire venti file.",
+      "decision": "Tre famiglie di token in globals.css, definite per entrambi i temi e mappate su utility Tailwind in index.css: (1) `--action-{primary|secondary|neutral|danger|success|warning|info}` con `-hover` e `-text` per le superfici piene (pulsanti, avatar, barre); (2) `--surface-{sem}` con `-text` e `-border` per le superfici tenui (badge, alert, evidenziazioni); (3) `--text-{danger|success|warning}` con `-hover` per il testo semantico. Nei componenti nessun colore letterale: zero occorrenze residue. Le varianti `dark:` sui colori spariscono, perché il token cambia già col tema.",
+      "status": "accepted",
+      "rationale": "Testo e superficie hanno esigenze di contrasto opposte fra i due temi — un testo colorato deve scurire sul chiaro e schiarire sullo scuro, un fondo pieno no — quindi servono famiglie separate e non un unico set di colori. I valori sono scelti con contrasto testo/fondo verificato ≥ 4.5:1 (WCAG AA), cosa che i colori letterali precedenti non garantivano: `Button variant=\"warning\"` usava `text-dark`, una classe inesistente, lasciando il testo senza colore su fondo giallo. Con i token il cambio di brand torna a essere una modifica in un solo file, come ADR007 prevedeva."
+    },
+    {
+      "id": "ADR014",
+      "date": "2026-09-07",
+      "title": "Convenzione di naming per tabelle Postgres: tabelle primitive, id_<entità> e uuid_<entità> separati",
+      "context": "Nel disegnare le prime tabelle di system-service (operatori, reparti, anagrafiche partner/clienti/agenti) è emersa la necessità di uno standard rigoroso e ripetibile per tutte le tabelle Postgres dei servizi EDG, da applicare sempre in futuro, non solo qui.",
+      "decision": "Per ogni tabella Postgres di un microservizio EDG: (1) nomi tabella e campo in italiano, snake_case — restano in inglese solo i campi standard created_at/updated_at/is_active; (2) PK intera autoincrementante chiamata id_<nome_tabella_singolare>, mai \"id\" generico; (3) identificativo pubblico separato uuid_<nome_tabella_singolare>, tipo UUID nativo Postgres, generato lato DB con DEFAULT gen_random_uuid() (mai passato come defaultValue lato Sequelize, per lasciare il DB come unica fonte); (4) ogni concetto che è in realtà un elenco chiuso/gestibile (es. reparto) diventa una tabella primitiva dedicata, referenziata con una FK intera id_<tabella_primitiva> — mai un varchar libero; (5) un CHECK enum si usa solo se i valori ammessi non potranno mai essere modificati o ampliati in futuro (es. anagrafiche.tipo: partner/cliente/agente); (6) le tabelle elementari/di lookup (es. reparti) non hanno created_at/updated_at, perché non serve storicizzarle e non vengono quasi mai modificate.",
+      "rationale": "Le tabelle primitive individuate a monte evitano varchar liberi che poi si scoprono essere in realtà elenchi da amministrare (visto già con \"reparto\"), e la separazione tra PK interna e uuid pubblico permette di avere chiavi primarie leggere/efficienti per i join interni mantenendo comunque un identificativo stabile e non enumerabile da esporre nelle API e nei riferimenti cross-service (es. accounts.entityId in auth-service). Deciso con l'utente confrontando un file di esempio (tabelle_iniziali.docx) e iterando su 4 punti aperti: criterio enum-vs-tabella-primitiva, tipo del campo uuid, lingua dei nomi, timestamp sulle tabelle elementari.",
       "status": "accepted"
     }
   ]

@@ -1,5 +1,5 @@
 {
-  "lastUpdated": "2026-07-01",
+  "lastUpdated": "2026-09-07",
   "modules": {
     "auth-service": {
       "status": "stable",
@@ -32,9 +32,9 @@
       "lastUpdated": "2026-03-16"
     },
     "pro-frontend (core/template)": {
-      "status": "stable",
-      "notes": "React 19 + Tailwind 4 + 52 componenti. Sistema tema light/dark. Base per tutti i moduli.",
-      "lastUpdated": "2026-03-16"
+      "status": "review",
+      "notes": "SUPERATO: non e piu la base per i moduli, sostituito da @edg/ui in edg-system. Resta in edg-docker solo come sorgente dei moduli accounts/system/vehicles ancora da migrare.",
+      "lastUpdated": "2026-08-31"
     },
     "pro-frontend (auth module)": {
       "status": "review",
@@ -63,13 +63,63 @@
     },
     "multi-tenant feature toggling": {
       "status": "planned",
-      "notes": "Pianificato. ADR009. Tenant in auth-service, moduleGuard nel gateway, modules nel JWT. Frontend UX-only. Da implementare quando si è pronti ad aprire l'app ai clienti.",
-      "lastUpdated": "2026-03-25"
+      "notes": "ADR009 accettata a marzo 2026 ma MAI implementata. Ora e prerequisito: menu e homepage per moduli attivi (ADR010/012) dipendono da tenantId, modules nel JWT e moduleGuard nel gateway.",
+      "lastUpdated": "2026-08-31"
     },
     "pro-frontend (vehicles module)": {
       "status": "in-progress",
       "notes": "Blocco A+B riallineati al backend reale: types/api/hooks/pages/componenti tutti corretti. Blocchi C (Scadenze), D (Storico), I (Config) ancora placeholder.",
       "lastUpdated": "2026-07-01"
+    },
+    "edg-system (monorepo)": {
+      "status": "stable",
+      "notes": "Repo D:\\Sviluppo\\edg-system (GitHub LarisPigasse/edg-system). npm workspaces: packages/ui+auth, apps/app-frontend (5174) e pro-frontend (5173). Unica eslint.config.js in radice.",
+      "lastUpdated": "2026-08-31"
+    },
+    "@edg/ui (packages/ui)": {
+      "status": "stable",
+      "notes": "Estratto da pro-frontend (~172 file). Contratto: EdgConfigProvider riceve EdgAppConfig; lo store app monta uiSlice sotto chiave 'ui'. Explorer su sottopath @edg/ui/explorer, fuori dal barrel.",
+      "lastUpdated": "2026-08-31"
+    },
+    "@edg/auth (packages/auth)": {
+      "status": "stable",
+      "notes": "Estratto da pro-frontend (~26 file): authSlice, useAuth, apiService, UserMenu, ConnectionStatus. Lo store app monta authReducer sotto chiave 'auth'. Nessuna dipendenza circolare con @edg/ui.",
+      "lastUpdated": "2026-08-31"
+    },
+    "app-frontend (edg-system)": {
+      "status": "in-progress",
+      "notes": "Frontend utenti finali, porta 5174, icon 'icon'. Vuoto e funzionante: login + dashboard con sigla/titolo/tagline. Nessun modulo ancora. Sezione /design rimossa, sta in pro-frontend.",
+      "lastUpdated": "2026-08-31"
+    },
+    "pro-frontend (edg-system)": {
+      "status": "in-progress",
+      "notes": "Frontend operatori EDG, porta 5173, icon 'iconPro'. Copia vuota di app-frontend piu sezione /design (tema, componenti) solo in DEV. Moduli accounts/system/vehicles ancora da migrare.",
+      "lastUpdated": "2026-08-31"
+    },
+    "asset-frontend (edg-docker)": {
+      "status": "review",
+      "notes": "ASSORBITO in edg-system. ADR010 (due soli frontend) lo rende superfluo: NON va piu toccato ne sviluppato. La cartella in edg-docker e da eliminare.",
+      "lastUpdated": "2026-08-31"
+    },
+    "migrazione moduli pro-frontend -> edg-system": {
+      "status": "planned",
+      "notes": "accounts, system e vehicles restano in edg-docker/pro-frontend e vanno portati in edg-system/apps/pro-frontend appoggiandosi a @edg/ui e @edg/auth. Chiude ADR011.",
+      "lastUpdated": "2026-08-31"
+    },
+    "vigilo (modulo app-frontend)": {
+      "status": "planned",
+      "notes": "Scadenze, manutenzioni e controlli periodici. Sara un modulo in app-frontend/src/features/vigilo, non un'app separata (ADR010). Regola vincolante: i moduli non si importano fra loro.",
+      "lastUpdated": "2026-08-31"
+    },
+    "revisione UI @edg/ui": {
+      "status": "in-progress",
+      "notes": "Blocco 1 (token colore action/surface/text, ADR013) fatto. Aperti: blocco 2 coerenza API (scale size, varianti Button, className assente in 18/56) e blocco 3 struttura showcase e barrel.",
+      "lastUpdated": "2026-08-31"
+    },
+    "system-service": {
+      "status": "review",
+      "notes": "Container attivo e sano (Postgres edg_system, tabelle reparti/operatori/anagrafiche). Gateway (/api/system/*) verificato end-to-end: 401 pulito senza token su entrambe le istanze HA. Da validare: CRUD reale con token valido, permessi RBAC 'system' da definire, nessun record creato ancora (entityId storici rimandato a dopo).",
+      "lastUpdated": "2026-09-07"
     }
   }
 }

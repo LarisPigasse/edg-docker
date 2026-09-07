@@ -1,0 +1,546 @@
+# =============================================================================
+# EDG MICROSERVICES - PRODUZIONE (Ubuntu / Plesk)
+# =============================================================================
+# File COMPLETAMENTE SEPARATO da docker-compose.yml (che resta invariato per
+# lo sviluppo locale su Windows). Uso, sul server:
+#
+#   docker compose -f docker-compose.prod.yml --env-file .env up -d --build
+#
+# Differenze rispetto a docker-compose.yml:
+#   - Traefik: solo provider Docker (niente file provider — evita due router
+#     duplicati sullo stesso PathPrefix "/"), porta 8090 solo su 127.0.0.1
+#     (Plesk resta il reverse proxy pubblico su 80/443, con SSL già attivo)
+#   - Database (mysql, logger-mongo, postgres) e log-service: niente "ports"
+#     verso l'host — raggiungibili solo dalla rete Docker "internal"
+#   - api-gateway-1: rimossa la porta 8080 di debug CORS (era temporanea)
+#   - NODE_ENV: production ovunque (vehicle-service lo aveva già)
+#   - CORS_ORIGINS: letto da .env (dominio reale, non i placeholder .edg.local)
+# =============================================================================
+
+networks:
+  internal:
+    driver: bridge
+    name: edg-internal
+  external:
+    driver: bridge
+    name: edg-external
+
+services:
+  #############################################################################
+  # LOAD BALANCER - Traefik (solo provider Docker in produzione)
+  #############################################################################
+  traefik:
+    image: traefik:v2.11
+    container_name: traefik
+    command:
+      - '--api.dashboard=true'
+      - '--api.insecure=false'
+      - '--providers.docker=true'
+      - '--providers.docker.exposedbydefault=false'
+      - '--providers.docker.network=edg-external'
+      - '--entrypoints.web.address=:80'
+      - '--entrypoints.websecure.address=:443'
+      - '--log.level=INFO'
+      - '--accesslog=true'
+      - '--ping=true'
+      - '--metrics.prometheus=true'
+    ports:
+      - '127.0.0.1:8090:80' # Solo localhost: Plesk fa da reverse proxy pubblico su 80/443
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    networks:
+      - external
+    deploy:
+      resources:
+        limits:
+          cpus: '0.50'
+          memory: 512M
+        reservations:
+          cpus: '0.10'
+          memory: 128M
+    restart: unless-stopped
+    healthcheck:
+      test: ['CMD', 'traefik', 'healthcheck', '--ping']
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+  # ===========================================================================
+  # DATABASE (MySQL) — niente porta verso l'host
+  # ===========================================================================
+  mysql:
+    image: mysql:8.0
+    container_name: auth-mysql
+    deploy:
+      resources:
+        limits:
+          cpus: '0.50'
+          memory: 512M
+        reservations:
+          cpus: '0.10'
+          memory: 128M
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      MYSQL_DATABASE: ${MYSQL_DATABASE}
+      MYSQL_USER: ${MYSQL_USER}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+    volumes:
+      - mysql-data:/var/lib/mysql
+    networks:
+      - internal
+    healthcheck:
+      test: ['CMD', 'mysqladmin', 'ping', '-h', 'localhost']
+      timeout: 20s
+      retries: 10
+
+  # ===========================================================================
+  # DATABASE LOGGER (MongoDB) — niente porta verso l'host
+  # ===========================================================================
+  logger-mongo:
+    image: mongo:7.0
+    container_name: log-mongo
+    deploy:
+      resources:
+        limits:
+          cpus: '0.50'
+          memory: 512M
+        reservations:
+          cpus: '0.10'
+          memory: 128M
+    restart: unless-stopped
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_LOG_USER}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_LOG_PASSWORD}
+      MONGO_INITDB_DATABASE: ${MONGO_LOG_DATABASE}
+    volumes:
+      - mongo-data:/data/db
+    networks:
+      - internal
+    healthcheck:
+      test: ['CMD', 'mongosh', '--eval', "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 50
+
+  # ===========================================================================
+  # DATABASE POSTGRESQL — niente porta verso l'host (resta "expose" interno)
+  # ===========================================================================
+  postgres:
+    image: postgres:16-alpine
+    container_name: edg-postgres
+    deploy:
+      resources:
+        limits:
+          cpus: '0.50'
+          memory: 512M
+        reservations:
+          cpus: '0.10'
+          memory: 128M
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: edg_vehicles
+      POSTGRES_VEHICLE_USER: ${POSTGRES_VEHICLE_USER}
+      POSTGRES_VEHICLE_PASSWORD: ${POSTGRES_VEHICLE_PASSWORD}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./postgres/init:/docker-entrypoint-initdb.d
+    expose:
+      - '5432'
+    networks:
+      - internal
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U ${POSTGRES_USER} -d edg_vehicles']
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+
+  # ===========================================================================
+  # CACHE - Redis (già solo "expose", nessuna modifica necessaria)
+  # ===========================================================================
+  redis:
+    image: redis:7-alpine
+    container_name: edg-redis
+    restart: unless-stopped
+    command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD}
+    volumes:
+      - redis-data:/data
+    networks:
+      - internal
+    expose:
+      - '6379'
+    healthcheck:
+      test: ['CMD', 'redis-cli', '-a', '${REDIS_PASSWORD}', 'ping']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    deploy:
+      resources:
+        limits:
+          cpus: '0.25'
+          memory: 256M
+        reservations:
+          cpus: '0.05'
+          memory: 64M
+
+  # ===========================================================================
+  # AUTH SERVICE
+  # ===========================================================================
+  auth-service:
+    build:
+      context: ./auth-service
+      dockerfile: Dockerfile
+    container_name: auth-service
+    deploy:
+      resources:
+        limits:
+          cpus: '0.50'
+          memory: 512M
+        reservations:
+          cpus: '0.10'
+          memory: 128M
+    restart: unless-stopped
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      email-service:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      GATEWAY_MODE: 'true'
+      GATEWAY_SECRET: ${GATEWAY_SECRET}
+      DB_NAME: ${MYSQL_DATABASE}
+      DB_USER: ${MYSQL_USER}
+      DB_PASSWORD: ${MYSQL_PASSWORD}
+      DB_HOST: mysql
+      DB_PORT: 3306
+      DB_SYNC: 'false'
+      JWT_SECRET: ${JWT_SECRET}
+      JWT_ACCESS_EXPIRY: 15m
+      JWT_REFRESH_EXPIRY: 7d
+      REDIS_URL: redis://:${REDIS_PASSWORD}@redis:6379
+      EMAIL_SERVICE_URL: http://email-service:3002
+      FRONTEND_URL: ${FRONTEND_URL}
+      SERVICE_NAME: EDG Auth Service
+      PORT: 3001
+      LOGIN_RATE_LIMIT_WINDOW: 16
+      LOGIN_RATE_LIMIT_MAX_ATTEMPTS: 8
+      RESET_PASSWORD_RATE_LIMIT_WINDOW: 64
+      RESET_PASSWORD_RATE_LIMIT_MAX_ATTEMPTS: 4
+      REGISTER_RATE_LIMIT_WINDOW: 64
+      REGISTER_RATE_LIMIT_MAX_ATTEMPTS: 16
+      LOG_LEVEL: info
+    expose:
+      - '3001'
+    labels:
+      - 'traefik.enable=false'
+    networks:
+      - internal
+    healthcheck:
+      test: ['CMD-SHELL', 'wget --no-verbose --tries=1 --spider http://localhost:3001/health || exit 1']
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # ===========================================================================
+  # LOG SERVICE — niente porta verso l'host, niente rete "external"
+  # (nessun frontend lo chiama direttamente, come confermato)
+  # ===========================================================================
+  log-service:
+    build:
+      context: ./log-service
+      dockerfile: Dockerfile
+    container_name: log-service
+    environment:
+      - NODE_ENV=production
+      - PORT=4000
+      - MONGODB_URI=mongodb://${MONGO_LOG_USER}:${MONGO_LOG_PASSWORD}@logger-mongo:27017/${MONGO_LOG_DATABASE}?authSource=admin
+      - MONGO_HOST=logger-mongo
+      - MONGO_PORT=27017
+      - MONGO_DATABASE=${MONGO_LOG_DATABASE}
+      - MONGO_USER=${MONGO_LOG_USER}
+      - MONGO_PASSWORD=${MONGO_LOG_PASSWORD}
+      - API_KEY_SECRET=${LOG_API_KEY_SECRET}
+      - EMAIL_SERVICE_URL=http://email-service:3002
+      - ALERT_RECIPIENT=${EMAIL_ALERTS_TO}
+      - AUTH_SERVICE_URL=http://auth-service:3001
+    depends_on:
+      - logger-mongo
+    networks:
+      - internal
+    deploy:
+      resources:
+        limits:
+          cpus: '0.50'
+          memory: 512M
+        reservations:
+          cpus: '0.10'
+          memory: 128M
+    restart: unless-stopped
+    healthcheck:
+      test: ['CMD-SHELL', 'wget --no-verbose --tries=1 --spider http://localhost:4000/health || exit 1']
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # ===========================================================================
+  # EMAIL SERVICE
+  # ===========================================================================
+  email-service:
+    build:
+      context: ./email-service
+      dockerfile: Dockerfile
+      target: production
+    container_name: email-service
+    deploy:
+      resources:
+        limits:
+          cpus: '0.50'
+          memory: 512M
+        reservations:
+          cpus: '0.10'
+          memory: 128M
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      PORT: 3002
+      EMAIL_HOST: ${EMAIL_HOST:-}
+      EMAIL_PORT: ${EMAIL_PORT:-587}
+      EMAIL_USER: ${EMAIL_USER:-}
+      EMAIL_PASS: ${EMAIL_PASS:-}
+      EMAIL_NOREPLY_FROM: ${EMAIL_NOREPLY_FROM:-noreply@edg.local}
+      EMAIL_ALERTS_FROM: ${EMAIL_ALERTS_FROM:-alerts@edg.local}
+      EMAIL_ALERTS_TO: ${EMAIL_ALERTS_TO:-}
+      FRONTEND_URL: ${FRONTEND_URL}
+      CORS_ORIGINS: http://auth-service:3001,http://log-service:3003
+    expose:
+      - '3002'
+    labels:
+      - 'traefik.enable=false'
+    networks:
+      - internal
+    healthcheck:
+      test: ['CMD-SHELL', 'wget --no-verbose --tries=1 --spider http://localhost:3002/health || exit 1']
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # ===========================================================================
+  # VEHICLE SERVICE (già production-ready nel file originale)
+  # ===========================================================================
+  vehicle-service:
+    build:
+      context: ./vehicle-service
+      dockerfile: Dockerfile
+      target: production
+    container_name: vehicle-service
+    deploy:
+      resources:
+        limits:
+          cpus: '0.50'
+          memory: 512M
+        reservations:
+          cpus: '0.10'
+          memory: 128M
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      SERVICE_NAME: EDG Vehicle Service
+      PORT: 3003
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: edg_vehicles
+      DB_USER: ${POSTGRES_VEHICLE_USER}
+      DB_PASSWORD: ${POSTGRES_VEHICLE_PASSWORD}
+      DB_SSL: 'false'
+      GATEWAY_SECRET: ${GATEWAY_SECRET}
+      LOG_SERVICE_URL: http://log-service:4000
+      LOG_API_KEY_SECRET: ${LOG_API_KEY_SECRET}
+      EMAIL_SERVICE_URL: http://email-service:3002
+      UPLOAD_PATH: /uploads/vehicles
+      TZ: Europe/Rome
+      CRON_RUN_ON_START: 'false' # produzione: niente esecuzione cron forzata all'avvio
+    volumes:
+      - vehicle-uploads:/uploads/vehicles
+    expose:
+      - '3003'
+    labels:
+      - 'traefik.enable=false'
+    networks:
+      - internal
+    healthcheck:
+      test: ['CMD-SHELL', 'wget --no-verbose --tries=1 --spider http://localhost:3003/health || exit 1']
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  #############################################################################
+  # API GATEWAY - Istanza 1 (rimossa porta 8080 di debug)
+  #############################################################################
+  api-gateway-1:
+    build:
+      context: ./api-gateway
+      dockerfile: Dockerfile
+    container_name: api-gateway-1
+    hostname: api-gateway-1
+    deploy:
+      resources:
+        limits:
+          cpus: '0.50'
+          memory: 512M
+        reservations:
+          cpus: '0.10'
+          memory: 128M
+    restart: unless-stopped
+    depends_on:
+      auth-service:
+        condition: service_healthy
+      vehicle-service:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      PORT: 8080
+      AUTH_SERVICE_URL: http://auth-service:3001
+      VEHICLE_SERVICE_URL: http://vehicle-service:3003
+      FRONTEND_PRO_URL: http://host.docker.internal:5173
+      FRONTEND_APP_URL: http://host.docker.internal:5174
+      FRONTEND_EDG_URL: http://host.docker.internal:5175
+      JWT_SECRET: ${JWT_SECRET}
+      GATEWAY_SECRET: ${GATEWAY_SECRET}
+      CORS_ORIGINS: ${CORS_ORIGINS}
+      FRONTEND_PRO_SUBDOMAINS: pro.edg.local,pro.edgdominio.com
+      FRONTEND_APP_SUBDOMAINS: app.edg.local,app.edgdominio.com
+      FRONTEND_EDG_SUBDOMAINS: edg.edg.local,edg.edgdominio.com
+      REDIS_URL: redis://:${REDIS_PASSWORD}@redis:6379
+      RATE_LIMIT_WINDOW: 16
+      RATE_LIMIT_MAX_ATTEMPTS: 1024
+      INSTANCE_ID: gateway-1
+    networks:
+      - internal
+      - external
+    healthcheck:
+      test: ['CMD-SHELL', 'wget --no-verbose --tries=1 --spider http://127.0.0.1:8080/health || exit 1']
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+    labels:
+      - 'traefik.enable=true'
+      - 'traefik.http.routers.api-gateway.rule=PathPrefix(`/`)'
+      - 'traefik.http.routers.api-gateway.entrypoints=web'
+      - 'traefik.http.routers.api-gateway.service=api-gateway'
+      - 'traefik.http.services.api-gateway.loadbalancer.server.port=8080'
+      - 'traefik.http.services.api-gateway.loadbalancer.healthcheck.path=/health'
+      - 'traefik.http.services.api-gateway.loadbalancer.healthcheck.interval=10s'
+
+  #############################################################################
+  # API GATEWAY - Istanza 2
+  #############################################################################
+  api-gateway-2:
+    build:
+      context: ./api-gateway
+      dockerfile: Dockerfile
+    container_name: api-gateway-2
+    hostname: api-gateway-2
+    deploy:
+      resources:
+        limits:
+          cpus: '0.50'
+          memory: 512M
+        reservations:
+          cpus: '0.10'
+          memory: 128M
+    restart: unless-stopped
+    depends_on:
+      auth-service:
+        condition: service_healthy
+      vehicle-service:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      PORT: 8080
+      AUTH_SERVICE_URL: http://auth-service:3001
+      VEHICLE_SERVICE_URL: http://vehicle-service:3003
+      FRONTEND_PRO_URL: http://host.docker.internal:5173
+      FRONTEND_APP_URL: http://host.docker.internal:5174
+      FRONTEND_EDG_URL: http://host.docker.internal:5175
+      JWT_SECRET: ${JWT_SECRET}
+      GATEWAY_SECRET: ${GATEWAY_SECRET}
+      CORS_ORIGINS: ${CORS_ORIGINS}
+      FRONTEND_PRO_SUBDOMAINS: pro.edg.local,pro.edgdominio.com
+      FRONTEND_APP_SUBDOMAINS: app.edg.local,app.edgdominio.com
+      FRONTEND_EDG_SUBDOMAINS: edg.edg.local,edg.edgdominio.com
+      REDIS_URL: redis://:${REDIS_PASSWORD}@redis:6379
+      RATE_LIMIT_WINDOW: 16
+      RATE_LIMIT_MAX_ATTEMPTS: 1024
+      INSTANCE_ID: gateway-2
+    networks:
+      - internal
+      - external
+    healthcheck:
+      test: ['CMD-SHELL', 'wget --no-verbose --tries=1 --spider http://127.0.0.1:8080/health || exit 1']
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+    labels:
+      - 'traefik.enable=true'
+      - 'traefik.http.routers.api-gateway.rule=PathPrefix(`/`)'
+      - 'traefik.http.routers.api-gateway.entrypoints=web'
+      - 'traefik.http.routers.api-gateway.service=api-gateway'
+      - 'traefik.http.services.api-gateway.loadbalancer.server.port=8080'
+      - 'traefik.http.services.api-gateway.loadbalancer.healthcheck.path=/health'
+      - 'traefik.http.services.api-gateway.loadbalancer.healthcheck.interval=10s'
+
+  #############################################################################
+  # ADMINER - Gestione database (MySQL + PostgreSQL in un'unica interfaccia)
+  #############################################################################
+  adminer:
+    image: adminer:5
+    container_name: edg-adminer
+    restart: unless-stopped
+    networks:
+      - internal
+      - external
+    expose:
+      - '8080'
+    labels:
+      - 'traefik.enable=true'
+      - 'traefik.http.routers.adminer.rule=PathPrefix(`/adminer`)'
+      - 'traefik.http.routers.adminer.entrypoints=web'
+      - 'traefik.http.routers.adminer.priority=100'
+      - 'traefik.http.routers.adminer.service=adminer'
+      - 'traefik.http.services.adminer.loadbalancer.server.port=8080'
+    deploy:
+      resources:
+        limits:
+          cpus: '0.25'
+          memory: 128M
+        reservations:
+          cpus: '0.05'
+          memory: 32M
+
+volumes:
+  mysql-data:
+    driver: local
+  mongo-data:
+    driver: local
+  postgres-data:
+    driver: local
+  redis-data:
+    driver: local
+  vehicle-uploads:
+    driver: local

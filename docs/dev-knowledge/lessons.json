@@ -1,5 +1,5 @@
 {
-  "lastUpdated": "2026-03-25",
+  "lastUpdated": "2026-09-07",
   "lessons": [
     {
       "id": "L001",
@@ -171,6 +171,60 @@
       "title": "Promise floating in handler — usare async/await su Promise.all condizionale",
       "problem": "Promise floating in handler: `if (condition) Promise.all([...])` non viene awaited, TypeScript/ESLint lo segnala come errore silenzioso.",
       "solution": "Rendere il handler async e usare await: `const handleRefresh = async () => { if (condition) await Promise.all([...]); }`"
+    },
+    {
+      "id": "L020",
+      "date": "2026-08-31",
+      "category": "monorepo",
+      "severity": "medium",
+      "title": "ESLint in monorepo: piu tsconfig candidati causano \"No tsconfigRootDir was set\"",
+      "problem": "In edg-system VS Code segnalava \"Parsing error: No tsconfigRootDir was set, and multiple candidate TSConfigRootDirs are present\" solo in pro-frontend. Causa: config ESLint residue in apps/*/config/linting/ copiate insieme al frontend, oltre a quella di radice. typescript-eslint non sapeva quale radice usare.",
+      "solution": "Una sola eslint.config.js, in radice del monorepo, con tsconfigRootDir esplicito: const rootDir = path.dirname(fileURLToPath(import.meta.url)) passato in languageOptions.parserOptions. Eliminare ogni altra config ESLint dai workspace. Registrare i nuovi workspace e rilanciare npm install prima di dare la colpa al linter."
+    },
+    {
+      "id": "L021",
+      "date": "2026-08-31",
+      "category": "git",
+      "severity": "critical",
+      "title": ".gitignore: .env non copre .env.development — usare .env.* con eccezione .env.example",
+      "problem": "Nel primo .gitignore di edg-system era presente solo \".env\". Il file .env.development, che contiene VITE_LOG_SERVICE_API_KEY, non risultava ignorato e sarebbe finito su GitHub al primo commit.",
+      "solution": "Usare due righe: \".env.*\" seguita da \"!.env.example\". Prima di ogni primo push verificare con \"git check-ignore -v .env .env.development .env.local\" e ispezionare \"git status --porcelain\" alla ricerca di file .env in stage."
+    },
+    {
+      "id": "L022",
+      "date": "2026-09-01",
+      "category": "monorepo",
+      "severity": "high",
+      "title": "Tailwind v4 @source in packages/ui non copre gli altri pacchetti condivisi (es. @edg/auth)",
+      "problem": "Click sull'avatar in Header non mostrava il pannello UserMenu (info utente + logout): appariva solo il backdrop scuro, il pannello sembrava sparito. Causa: packages/ui/src/styles/index.css aveva \"@source '../';\", che fa scansionare a Tailwind v4 solo packages/ui/src. Le classi usate esclusivamente in packages/auth/src/components/UserMenu.tsx (top-14, w-72, -translate-y-2 — posizione, larghezza e transizione del pannello) non venivano quindi generate nel CSS finale, mentre le classi del backdrop (fixed inset-0 bg-black/50 z-40) funzionavano perché condivise con Modal.tsx/MobileMenu.tsx/SettingsMenu.tsx in @edg/ui. Il pannello restava nel DOM ma privo di posizionamento/dimensioni/stile, quindi invisibile. Riproducibile su entrambi i frontend (app-frontend e pro-frontend), che condividono lo stesso @edg/ui/styles.css.",
+      "solution": "In packages/ui/src/styles/index.css cambiare \"@source '../';\" in \"@source '../../../';\" (risolve in packages/, non solo packages/ui/): copre così ogni pacchetto condiviso con proprie classi Tailwind (@edg/auth e i futuri), non solo @edg/ui. Regola generale: quando si aggiunge un componente con classi Tailwind proprie in un NUOVO pacchetto npm workspace, verificare che il file @source del design system risalga abbastanza da includerlo — altrimenti il componente renderizza ma appare vuoto/invisibile, senza errori console."
+    },
+    {
+      "id": "L023",
+      "date": "2026-09-01",
+      "category": "ui-components",
+      "severity": "medium",
+      "title": "CenteredPage (min-h-screen) rompe il layout se usato dentro MainLayout",
+      "problem": "TermsPage/SupportPage (pagine dentro MainLayout, sotto Header e sopra Footer) usavano CenteredPage e mostravano padding indesiderato e una scrollbar verticale. Causa: CenteredPage applica incondizionatamente min-h-screen (100vh) al contenitore. Dentro MainLayout, che ha già Header+Footer, quel 100vh aggiuntivo fa superare l'altezza reale della finestra. CenteredPage in realtà non era mai stato usato prima nel codebase: né LoginPage né NotFound lo usano, entrambi hanno un wrapper scritto a mano. NotFound (stesso contesto, dentro MainLayout) usa min-h-[50vh] proprio per questo motivo — la distinzione era già stata risolta ma non era documentata nel componente.",
+      "solution": "CenteredPage va usato SOLO per pagine standalone fuori da MainLayout (login, forgot-password: occupano davvero l'intero schermo). Per una pagina di contenuto dentro MainLayout usare invece il pattern di NotFound.tsx: un div con className 'flex h-full min-h-[50vh] flex-col items-center justify-center px-4 text-center' invece di CenteredPage. JSDoc di CenteredPage.tsx aggiornato per essere esplicito su questo confine. Regola generale: prima di riusare un componente di layout \"contenitore intero schermo\" dentro una pagina che vive già in un layout con Header/Footer, verificare cosa fa alla min-height — è un sintomo silenzioso (nessun errore console), si vede solo come scrollbar/spazio in più a runtime."
+    },
+    {
+      "id": "L024",
+      "date": "2026-09-01",
+      "category": "frontend-auth",
+      "severity": "medium",
+      "title": "authSlice riusa l'account in cache: dati aggiornati visibili solo al prossimo login",
+      "problem": "In packages/auth/src/store/authSlice.ts, sia initializeAuth (avvio app) sia refreshAccessToken (rinnovo token) recuperano un nuovo accessToken dal backend ma per il campo `account` riusano `stored.account` letto da localStorage/sessionStorage, ignorando l'oggetto `account` fresco restituito da /auth/me o /auth/refresh. Risultato: qualsiasi campo account cambiato lato backend dopo il login (roleName, permissions, modules ADR009, il nuovo tenantName aggiunto per la pagina profilo, un cambio di ruolo fatto da un admin, ecc.) non compare nella UI finché l'utente non fa logout e login di nuovo, anche se il token viene rinnovato correttamente in background.",
+      "solution": "Quando serve che l'account rifletta lo stato reale del backend \"in tempo reale\" (es. dopo un cambio ruolo/permessi/tenant fatto da un admin), aggiornare initializeAuth/refreshAccessToken in authSlice.ts per usare l'account restituito dalla risposta API (meResponse.data / refreshResponse.data.account) invece di stored.account, e riscrivere la cache in storage con il valore fresco. È un cambio di comportamento della sessione (va valutato con l'utente prima di farlo, non è un semplice bugfix): oggi è un limite noto, non ancora corretto."
+    },
+    {
+      "id": "L025",
+      "date": "2026-09-07",
+      "category": "docker",
+      "severity": "medium",
+      "title": "exec-in-container su postgres:16-alpine: workDir /app non esiste, comandi -c multi-riga rompono sh -c",
+      "problem": "Usando mcp-docker-monitor.exec-in-container sul container edg-postgres (immagine postgres:16-alpine) con il workDir di default (\"/app\"), il comando falliva con \"OCI runtime exec failed: chdir to cwd (/app) ... no such file or directory\" (l'immagine alpine di postgres non ha /app). Inoltre, passando a psql un blocco SQL multi-riga dentro l'argomento -c \"...\" tramite virgolette doppie, il comando falliva con \"sh: syntax error: unterminated quoted string\" — il wrapping shell del tool non gestisce bene i newline dentro stringhe tra doppi apici.",
+      "solution": "Per container non basati su un'immagine Node \"standard\" (es. postgres:16-alpine), passare esplicitamente workDir: \"/\" (o un'altra directory esistente) a exec-in-container. Per eseguire SQL multi-statement via psql -c, scrivere tutto su una singola riga (statement separati da \";\") invece di un blocco multi-riga — evita l'errore di parsing della shell. In alternativa, se il payload SQL è molto lungo, spezzarlo in più chiamate exec-in-container (una per tabella/blocco logico) piuttosto che un unico blob base64 molto grande, che in alcuni casi ha causato timeout."
     }
   ]
 }

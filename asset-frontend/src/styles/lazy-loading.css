@@ -1,0 +1,57 @@
+/* src/styles/lazy-loading.css */
+/* Stili opzionali per migliorare l'esperienza di lazy loading */
+
+/**
+ * Animazione fade-in per pagine lazy loaded
+ * Applicata automaticamente quando il componente viene montato
+ */
+.lazy-page-enter {
+  animation: fadeIn 0.3s ease-in-out;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/**
+ * Spinner di caricamento personalizzato
+ * Se vuoi uno spinner più elaborato, personalizza qui
+ */
+.page-loading-spinner {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/**
+ * Skeleton loader opzionale
+ * Usabile se preferisci skeleton invece di spinner
+ */
+.skeleton-loader {
+  background: linear-gradient(90deg, rgba(255, 255, 255, 0) 0%, rgba(255, 255, 255, 0.2) 50%, rgba(255, 255, 255, 0) 100%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
