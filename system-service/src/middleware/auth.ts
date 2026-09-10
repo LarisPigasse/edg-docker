@@ -4,7 +4,7 @@
 // NON gestisce JWT - la validazione JWT è responsabilità del gateway
 //
 // Il gateway invia x-user-data come JSON stringificato con i campi:
-// { accountId, email, accountType, roleId, permissions }
+// { accountId, email, accountType, tenantId, roleId, permissions }
 // =============================================================================
 import { Request, Response, NextFunction } from 'express';
 import { unauthorized, forbidden } from '../utils/response';
@@ -17,6 +17,7 @@ export interface GatewayUser {
   uuid?: string; // non inviato dal gateway, opzionale
   email: string;
   role: string; // = accountType dal gateway
+  tenantId: number | null; // null solo per account 'operatore' (accesso cross-tenant)
   roleId: number;
   permissions: string[];
 }
@@ -62,6 +63,7 @@ export function requireAuth(req: Request, res: Response, next: NextFunction): vo
       id: parsed.accountId,
       email: parsed.email,
       role: parsed.accountType || 'unknown',
+      tenantId: parsed.tenantId ?? null,
       roleId: parsed.roleId,
       permissions: parsed.permissions || [],
     };

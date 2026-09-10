@@ -13,12 +13,17 @@ const h = createCrudHandlers({
   searchFields: ['ragioneSociale', 'partitaIva', 'codiceFiscale', 'referente'],
   defaultOrder: [['ragioneSociale', 'ASC']],
   softDelete: true,
+  // ADR021: isolamento multi-tenant. Per account non-operatore, idTenant è
+  // sempre forzato lato server (vedi crudFactory) — il filtro qui sotto
+  // resta utile solo per gli operatori, che possono filtrare esplicitamente
+  // per tenant tramite query string.
   listFilters: query => {
     const where: Record<string, unknown> = {};
     if (query.tipo) where.tipo = query.tipo;
     if (query.idTenant) where.idTenant = Number(query.idTenant);
     return where;
   },
+  tenantScoped: true,
 });
 
 router.get('/', requireAuth, requirePermission('system', 'read'), h.list);

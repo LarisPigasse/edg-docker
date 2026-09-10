@@ -83,7 +83,12 @@ Anagrafica.init(
     uuidAnagrafica: {
       // Generato lato DB (DEFAULT gen_random_uuid() in migration)
       type: DataTypes.UUID,
-      allowNull: false,
+      // allowNull: true SOLO per bypassare la validazione client-side di
+      // Sequelize (che altrimenti rifiuta l'istanza prima ancora di
+      // arrivare al DB, perché il campo non è valorizzato in JS). Il
+      // vincolo NOT NULL vero resta sul DB (vedi migration): e' li' che
+      // viene davvero applicato, dopo che gen_random_uuid() lo riempie.
+      allowNull: true,
       unique: true,
     },
     tipo: {

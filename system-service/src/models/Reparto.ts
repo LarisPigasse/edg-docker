@@ -34,7 +34,12 @@ Reparto.init(
       // Nessun defaultValue qui: il valore arriva dal DEFAULT gen_random_uuid()
       // impostato in migration — cosi' la generazione resta sempre lato DB.
       type: DataTypes.UUID,
-      allowNull: false,
+      // allowNull: true SOLO per bypassare la validazione client-side di
+      // Sequelize (che altrimenti rifiuta l'istanza prima ancora di
+      // arrivare al DB, perché il campo non è valorizzato in JS). Il
+      // vincolo NOT NULL vero resta sul DB (vedi migration): e' li' che
+      // viene davvero applicato, dopo che gen_random_uuid() lo riempie.
+      allowNull: true,
       unique: true,
     },
     reparto: {

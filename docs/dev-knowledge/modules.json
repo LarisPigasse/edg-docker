@@ -1,5 +1,5 @@
 {
-  "lastUpdated": "2026-09-07",
+  "lastUpdated": "2026-09-10",
   "modules": {
     "auth-service": {
       "status": "stable",
@@ -78,8 +78,8 @@
     },
     "@edg/ui (packages/ui)": {
       "status": "stable",
-      "notes": "Estratto da pro-frontend (~172 file). Contratto: EdgConfigProvider riceve EdgAppConfig; lo store app monta uiSlice sotto chiave 'ui'. Explorer su sottopath @edg/ui/explorer, fuori dal barrel.",
-      "lastUpdated": "2026-08-31"
+      "notes": "ADR021: TableCapabilitiesProvider (Dati tecnici auto per root). DetailModal: no griglia/titoli. Input/Select: label=placeholder su valore, underline piu chiaro. Tabs: icon a sinistra label.",
+      "lastUpdated": "2026-09-10"
     },
     "@edg/auth (packages/auth)": {
       "status": "stable",
@@ -118,8 +118,8 @@
     },
     "system-service": {
       "status": "review",
-      "notes": "Container attivo e sano (Postgres edg_system, tabelle reparti/operatori/anagrafiche). Gateway (/api/system/*) verificato end-to-end: 401 pulito senza token su entrambe le istanze HA. Da validare: CRUD reale con token valido, permessi RBAC 'system' da definire, nessun record creato ancora (entityId storici rimandato a dopo).",
-      "lastUpdated": "2026-09-07"
+      "notes": "ADR022: tenantId in GatewayUser, crudFactory.tenantScoped su Anagrafiche (eccezione operatore). Solo tsc verificato — NON distribuito, serve rebuild Docker.",
+      "lastUpdated": "2026-09-10"
     }
   }
 }

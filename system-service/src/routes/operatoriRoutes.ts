@@ -16,6 +16,11 @@ const h = createCrudHandlers({
     ['nome', 'ASC'],
   ],
   softDelete: true,
+  listFilters: query => {
+    const where: Record<string, unknown> = {};
+    if (query.idReparto) where.idReparto = Number(query.idReparto);
+    return where;
+  },
 });
 
 router.get('/', requireAuth, requirePermission('system', 'read'), h.list);

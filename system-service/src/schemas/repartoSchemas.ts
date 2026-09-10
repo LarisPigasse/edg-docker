@@ -5,15 +5,15 @@ import Joi from 'joi';
 
 export const repartoSchemas = {
   create: Joi.object({
-    reparto: Joi.string().max(64).required().messages({
+    reparto: Joi.string().max(64).label('Nome reparto').required().messages({
       'string.max': 'Il nome reparto non può superare 64 caratteri',
       'any.required': 'Il nome reparto è obbligatorio',
     }),
-    isActive: Joi.boolean().default(true),
+    isActive: Joi.boolean().label('Stato attivo').default(true),
   }),
 
   update: Joi.object({
-    reparto: Joi.string().max(64),
-    isActive: Joi.boolean(),
+    reparto: Joi.string().max(64).label('Nome reparto'),
+    isActive: Joi.boolean().label('Stato attivo'),
   }).min(1),
 };

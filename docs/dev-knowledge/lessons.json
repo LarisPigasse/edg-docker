@@ -1,5 +1,5 @@
 {
-  "lastUpdated": "2026-09-07",
+  "lastUpdated": "2026-09-10",
   "lessons": [
     {
       "id": "L001",
@@ -225,6 +225,51 @@
       "title": "exec-in-container su postgres:16-alpine: workDir /app non esiste, comandi -c multi-riga rompono sh -c",
       "problem": "Usando mcp-docker-monitor.exec-in-container sul container edg-postgres (immagine postgres:16-alpine) con il workDir di default (\"/app\"), il comando falliva con \"OCI runtime exec failed: chdir to cwd (/app) ... no such file or directory\" (l'immagine alpine di postgres non ha /app). Inoltre, passando a psql un blocco SQL multi-riga dentro l'argomento -c \"...\" tramite virgolette doppie, il comando falliva con \"sh: syntax error: unterminated quoted string\" — il wrapping shell del tool non gestisce bene i newline dentro stringhe tra doppi apici.",
       "solution": "Per container non basati su un'immagine Node \"standard\" (es. postgres:16-alpine), passare esplicitamente workDir: \"/\" (o un'altra directory esistente) a exec-in-container. Per eseguire SQL multi-statement via psql -c, scrivere tutto su una singola riga (statement separati da \";\") invece di un blocco multi-riga — evita l'errore di parsing della shell. In alternativa, se il payload SQL è molto lungo, spezzarlo in più chiamate exec-in-container (una per tabella/blocco logico) piuttosto che un unico blob base64 molto grande, che in alcuni casi ha causato timeout."
+    },
+    {
+      "id": "L026",
+      "date": "2026-09-07",
+      "category": "ui-components",
+      "severity": "low",
+      "title": "useToast() da @edg/ui restituisce ToastContextValue | undefined",
+      "problem": "Il hook useToast() (packages/ui) legge il contesto React con useContext(ToastContext) senza guardia null, quindi il tipo inferito è \"ToastContextValue | undefined\". In TS strict, ogni chiamata diretta toast({...}) o toast.danger({...}) in un componente/hook consumer produce errori TS18048 ('toast' is possibly undefined) e TS2722 (cannot invoke an object which is possibly undefined) — è successo con gli 8 call site di useEntityCrud.ts nel nuovo modulo features/base.",
+      "solution": "Nei file consumer, usare sempre optional chaining sulle chiamate: toast?.({...}) e toast?.danger({...}). Non serve toccare il pacchetto condiviso @edg/ui: il fix è locale a ogni chiamata. Se in futuro si vuole evitare il problema alla radice, si può valutare di far lanciare un errore esplicito dentro useToast() quando il Provider manca, così il tipo tornerebbe non-optional — ma è una modifica architetturale da concordare, non applicata per ora.</solution>\n</invoke>\n"
+    },
+    {
+      "id": "L027",
+      "date": "2026-09-07",
+      "category": "frontend-navigation",
+      "severity": "medium",
+      "title": "EdgModuleConfig.href di un gruppo con children: getActiveModule ora considera anche gli href dei figli",
+      "problem": "Il gruppo di menu BASE (href del gruppo = href della prima sotto-voce, es. '/base/tabelle') si chiudeva navigando su una sotto-voce diversa (es. '/base/operatori'), perché EdgConfigProvider.getActiveModule marcava un modulo \"attivo\" solo se pathname.startsWith(module.href) — e '/base/operatori' non inizia per '/base/tabelle'. Il gruppo DESIGN non soffriva del problema perché il suo href era stato messo a '/design' (un prefisso ombrello, non una pagina vera), ma per questo cliccare sulla label \"DESIGN\" dava 404: '/design' non corrisponde a nessuna Route. Header.tsx e MobileMenu.tsx duplicavano ciascuno una propria versione (leggermente diversa) dello stesso controllo per lo stile del label, con lo stesso difetto.",
+      "solution": "getActiveModule (packages/ui/src/config/EdgConfigProvider.tsx) ora marca un modulo attivo se il percorso corrisponde al suo href OPPURE all'href di una delle sue children. Questo scioglie l'accoppiamento: l'href del modulo torna a essere semplicemente \"la pagina su cui atterro cliccando la label del gruppo\" (per un gruppo con children, mettilo uguale all'href della sotto-voce che vuoi come pagina predefinita — mai un percorso 'ombrello' senza una Route reale). Rimossi i due isModuleActive locali e ridondanti in Header.tsx e MobileMenu.tsx: entrambi ora si appoggiano solo al activeModule/getActiveModule centrale. Regola per i prossimi moduli con children: l'href del gruppo dev'essere sempre l'href di una sotto-voce esistente (la pagina predefinita del gruppo), mai un path inventato senza Route."
+    },
+    {
+      "id": "L028",
+      "date": "2026-09-07",
+      "category": "frontend-auth",
+      "severity": "high",
+      "title": "apiFetch (@edg/auth) non impostava Content-Type/Authorization sulla prima chiamata",
+      "problem": "apiFetch (packages/auth/src/services/apiFetch.ts) faceva fetch(url, { cache: 'no-store', ...options }) senza mai unire getAuthHeaders() — Authorization veniva aggiunto solo nel ramo di retry dopo un 401, mai sulla prima chiamata, e Content-Type non veniva mai impostato. Effetto pratico: ogni GET faceva un giro a vuoto (401 → refresh silenzioso → retry con token, invisibile all'utente ma sprecato), mentre ogni POST/PUT falliva sul serio — senza Content-Type esplicito, fetch() deduce 'text/plain' da un body stringa (JSON.stringify), express.json() lo ignora silenziosamente, req.body arriva vuoto al backend e Joi rifiuta i campi richiesti come mancanti → 400 \"Dati non validi\", fuorviante rispetto alla vera causa. Riprodotto creando un Reparto dalla pagina BASE > Tabelle: il primo modulo a usare apiFetch per scritture, quindi il bug era latente e invisibile finché non si è tentata una creazione.",
+      "solution": "apiFetch ora calcola headers = { ...getAuthHeaders(), ...options.headers } una sola volta e li usa sia sulla richiesta iniziale sia (con l'Authorization aggiornato) sul retry dopo un 401 — l'helper getAuthHeaders() esisteva già proprio per questo ma non era collegato. Da tenere a mente per qualunque nuovo modulo che chiami un microservizio dietro il gateway tramite apiFetch: ora Content-Type/Authorization sono automatici, non serve più passarli a mano nelle singole chiamate (systemApi.ts infatti non li passa mai, ed è corretto così)."
+    },
+    {
+      "id": "L029",
+      "date": "2026-09-10",
+      "category": "ui-components",
+      "severity": "low",
+      "title": "Select/Input: altezze diverse del box floating-label disallineano la sottolineatura",
+      "problem": "Select.tsx aveva il trigger a h-12 (48px) con pt-6 pb-2, mentre Input.tsx usa min-h-[56px] con pt-5 pb-2 — 8px di differenza fra i due box. Poiché la sottolineatura in entrambi i componenti è un div absolute bottom-0 rispetto al contenitore del campo, l'altezza diversa del box produceva una linea visibilmente più in alto in Select rispetto a Input, anche a parità di variante/dimensione.",
+      "solution": "Allineare sempre la geometria (altezza minima + padding verticale) di ogni nuovo componente \"a campo con floating label e sottolineatura\" a quella di Input.tsx (min-h-[56px] pt-5 pb-2), non solo il colore/stato della linea — è quel box a determinare dove cade bottom:0. Applicato a Select.tsx (ora min-h-[56px] pt-5 pb-2, label floating a top-0 come in Input). FloatingFieldShell.tsx era già calibrata così di proposito (il suo commento lo dice esplicitamente) — usarla come riferimento per componenti futuri con lo stesso pattern (DatePicker, TimePicker) invece di reinventare la geometria."
+    },
+    {
+      "id": "L030",
+      "date": "2026-09-10",
+      "category": "gateway",
+      "severity": "medium",
+      "title": "Verificare il payload reale prima di assumere che manchi un campo in una pipeline multi-servizio",
+      "problem": "Prima di proporre il fix di isolamento multi-tenant, l'ipotesi iniziale era che il gateway non inoltrasse affatto tenantId a system-service, richiedendo quindi modifiche sia a gateway che a system-service. Leggendo il codice sorgente reale di api-gateway/middleware/gatewayHeaders.js è emerso che tenantId era già presente nell'header x-user-data fin da ADR009 — il gap era solo nella normalizzazione lato system-service (GatewayUser non aveva il campo, requireAuth lo scartava).",
+      "solution": "Prima di pianificare un intervento multi-servizio basato su un'ipotesi (\"il gateway non manda X\"), leggere il codice sorgente del punto di partenza della pipeline (qui: gatewayHeaders.js) invece di dedurlo dai soli sintomi lato consumer. Ha ridotto l'intervento da \"gateway + auth-service + system-service\" a solo \"system-service\", con minor rischio e superficie di modifica."
     }
   ]
 }
