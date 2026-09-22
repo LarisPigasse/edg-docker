@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { requireAuth } from '../middleware/auth';
-import { requirePermission } from '../middleware/rbac';
+import { requirePermission, requireRole } from '../middleware/rbac';
 import { validateBody, validateParams, commonSchemas } from '../middleware/validate';
 import { createCrudHandlers } from '../utils/crudFactory';
 import Reparto from '../models/Reparto';
@@ -15,12 +15,13 @@ const h = createCrudHandlers({
   softDelete: true,
 });
 
-router.get('/', requireAuth, requirePermission('system', 'read'), h.list);
-router.get('/:id', requireAuth, requirePermission('system', 'read'), validateParams(commonSchemas.intParam), h.getById);
-router.post('/', requireAuth, requirePermission('system', 'create'), validateBody(repartoSchemas.create), h.create);
+router.get('/', requireAuth, requireRole('operatore'), requirePermission('system', 'read'), h.list);
+router.get('/:id', requireAuth, requireRole('operatore'), requirePermission('system', 'read'), validateParams(commonSchemas.intParam), h.getById);
+router.post('/', requireAuth, requireRole('operatore'), requirePermission('system', 'create'), validateBody(repartoSchemas.create), h.create);
 router.put(
   '/:id',
   requireAuth,
+  requireRole('operatore'),
   requirePermission('system', 'update'),
   validateParams(commonSchemas.intParam),
   validateBody(repartoSchemas.update),
@@ -29,10 +30,11 @@ router.put(
 router.patch(
   '/:id/toggle',
   requireAuth,
+  requireRole('operatore'),
   requirePermission('system', 'update'),
   validateParams(commonSchemas.intParam),
   h.toggleActive
 );
-router.delete('/:id', requireAuth, requirePermission('system', 'delete'), validateParams(commonSchemas.intParam), h.remove);
+router.delete('/:id', requireAuth, requireRole('operatore'), requirePermission('system', 'delete'), validateParams(commonSchemas.intParam), h.remove);
 
 export default router;

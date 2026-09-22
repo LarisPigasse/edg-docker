@@ -54,6 +54,7 @@ function injectGatewayHeaders(req, res, next) {
     roleId: req.userData.roleId,
     permissions: req.userData.permissions || [],
     modules: req.userData.modules || [], // ADR009: informativo per i microservizi a valle, il controllo reale è moduleGuard
+    sessionId: req.userData.sessionId || null, // usato da SessionController per non far revocare all'admin la propria sessione corrente
   });
 
   next();

@@ -1,3 +1,10 @@
+// Deve essere il primo import: applica una patch a Express che inoltra
+// automaticamente all'error handler globale ogni rifiuto di promise da un
+// handler asincrono (list/create/update/... in crudFactory). Senza, un errore
+// imprevisto in un handler async e' una promise non gestita che con Node 22
+// termina il processo: vedi incidente reparti del 16/09/2026.
+import 'express-async-errors';
+
 import express, { Application, Request, Response, NextFunction } from 'express';
 import cors from 'cors';
 import helmet from 'helmet';

@@ -91,6 +91,27 @@ COMMENT ON COLUMN anagrafiche.id_tenant IS 'Riferimento applicativo al tenant di
 COMMENT ON TABLE anagrafiche IS 'Anagrafica di partner, clienti e agenti esterni (sempre aziende)';
 
 -- ============================================================================
+-- PROPRIETA' TABELLE
+-- ============================================================================
+-- Questo script va eseguito manualmente (es. da DBeaver) connessi come utente
+-- amministrativo ($POSTGRES_USER, vedi postgres/init/01-init.sh) - non e' mai
+-- stato eseguito da system-service stesso. Le tabelle risultano quindi di
+-- proprieta' dell'amministrativo, non dell'utente applicativo: bastano i
+-- GRANT per le operazioni ordinarie (SELECT/INSERT/UPDATE/DELETE), ma una
+-- futura migration reale che alteri la struttura (ALTER TABLE/CONSTRAINT)
+-- fallirebbe con "must be owner of table" - successo il 17/09/2026 sulla
+-- migration che ha rimosso 'agente' da anagrafiche.tipo. Il trasferimento di
+-- proprieta' qui sotto chiude il problema alla radice, per sempre: da questo
+-- punto in poi anche le migration sequelize-cli eseguite dal servizio stesso
+-- possono alterare liberamente queste tre tabelle. Le sequence dei SERIAL
+-- (id_reparto/id_operatore/id_anagrafica) sono "OWNED BY" la rispettiva
+-- colonna: Postgres le trasferisce da solo insieme alla tabella, un ALTER
+-- SEQUENCE separato non e' permesso ("is linked to table") ne' necessario.
+ALTER TABLE reparti OWNER TO system_service_user;
+ALTER TABLE operatori OWNER TO system_service_user;
+ALTER TABLE anagrafiche OWNER TO system_service_user;
+
+-- ============================================================================
 -- VERIFICATION QUERIES
 -- ============================================================================
 

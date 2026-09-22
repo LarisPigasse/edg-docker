@@ -1,5 +1,5 @@
 {
-  "lastUpdated": "2026-09-10",
+  "lastUpdated": "2026-09-22",
   "lessons": [
     {
       "id": "L001",
@@ -270,6 +270,42 @@
       "title": "Verificare il payload reale prima di assumere che manchi un campo in una pipeline multi-servizio",
       "problem": "Prima di proporre il fix di isolamento multi-tenant, l'ipotesi iniziale era che il gateway non inoltrasse affatto tenantId a system-service, richiedendo quindi modifiche sia a gateway che a system-service. Leggendo il codice sorgente reale di api-gateway/middleware/gatewayHeaders.js è emerso che tenantId era già presente nell'header x-user-data fin da ADR009 — il gap era solo nella normalizzazione lato system-service (GatewayUser non aveva il campo, requireAuth lo scartava).",
       "solution": "Prima di pianificare un intervento multi-servizio basato su un'ipotesi (\"il gateway non manda X\"), leggere il codice sorgente del punto di partenza della pipeline (qui: gatewayHeaders.js) invece di dedurlo dai soli sintomi lato consumer. Ha ridotto l'intervento da \"gateway + auth-service + system-service\" a solo \"system-service\", con minor rischio e superficie di modifica."
+    },
+    {
+      "id": "L031",
+      "date": "2026-09-14",
+      "category": "testing",
+      "severity": "low",
+      "title": "ADR022 validato live: isolamento multi-tenant su Anagrafiche conforme",
+      "problem": "Serviva verificare che il fix di isolamento multi-tenant (ADR022, tenantScoped in crudFactory su system-service/anagraficheRoutes) funzionasse davvero end-to-end dopo il rebuild/deploy del container, non solo a livello di tsc. Nel database esisteva un solo tenant reale (id 1, Express Delivery Group) quindi non era possibile testare l'isolamento senza dati di un secondo tenant. Inoltre e' emerso che nessun ruolo esistente (root/admin/user/guest) ha il permesso 'system.*' richiesto da requirePermission('system', <azione>) sulle route anagrafiche/operatori/reparti, tranne root tramite il suo wildcard globale '*' — quindi ad oggi solo account con roleId=1 (o con un ruolo dedicato che includa system.*) possono raggiungere quelle route, indipendentemente da accountType.",
+      "solution": "Creato un fixture di test permanente e riutilizzabile (richiesto esplicitamente dall'utente, \"Tenant Demo... lo utilizzero' sempre per le prove\"): tenant id=2 slug='demo' in tenants; ruolo id=5 name='demo-system-client' con permission 'system.*' in role_permissions (ruolo dedicato, per NON alterare i permessi dei ruoli reali root/admin/user/guest); 3 account di test con password TestEdg2026!: cliente-test@expressdeliverygroup.com (id13, accountType cliente, tenantId 1), cliente-test@tenant-demo.local (id14, accountType cliente, tenantId 2), operatore-test@expressdeliverygroup.com (id15, accountType operatore, tenantId 1). Procedura di test: login via POST /auth/login sul gateway (localhost:8080 da dentro il container api-gateway-1, via exec-in-container), poi chiamate autenticate su /api/system/anagrafiche. Risultato: 10/10 asserzioni passate — un cliente di un tenant riceve 404 (non 403) su GET/PUT/PATCH-toggle/DELETE di un record di un altro tenant; una POST con idTenant spoofato nel body viene comunque salvata con l'idTenant reale dell'utente; un account 'operatore' vede e opera su record di entrambi i tenant (eccezione cross-tenant confermata). Nota operativa per test futuri: mcp-docker-monitor.exec-in-container blocca (errore Italiano generico tipo 'Accesso negato'/'Nome di directory non valido', in ~20-30ms, senza eseguire nulla) i comandi 'node -e' che contengono chiamate di rete dirette (fetch, http.request) — bypassabile scrivendo lo script in un file (es. via 'echo BASE64 | base64 -d > file.js', per evitare problemi di quoting multi-riga) ed eseguendolo con 'node file.js'; busybox wget nel container non supporta --method quindi va bene solo per GET/POST semplici."
+    },
+    {
+      "id": "L032",
+      "date": "2026-09-14",
+      "category": "gateway",
+      "severity": "high",
+      "title": "Nuova sotto-risorsa /auth/* va registrata a mano in PROTECTED_AUTH_ROUTES",
+      "problem": "Aggiungendo un nuovo router su auth-service (es. /auth/tenants), le richieste ricevevano 403 \"Accesso diretto non consentito\" da verifyGateway anche con token root valido. Causa: api-gateway/gateway.js instrada /auth/* verso authProxy (passthrough NON autenticato, senza iniezione di x-gateway-secret/x-user-data) a meno che il path non sia elencato esplicitamente in PROTECTED_AUTH_ROUTES o riconosciuto da isAdminRoute. La nuova rotta non era in questa lista, quindi bypassava la validazione JWT invece di riceverla.",
+      "solution": "Ogni volta che si aggiunge un nuovo router protetto sotto /auth/* (es. futuri /auth/roles per il pannello SISTEMA), aggiungere il suo path a PROTECTED_AUTH_ROUTES in api-gateway/gateway.js e ricompilare ENTRAMBI i container della coppia HA (api-gateway-1 e api-gateway-2). Verificare sempre con una chiamata autenticata reale dopo il rebuild, non assumere che basti il rebuild del solo servizio backend."
+    },
+    {
+      "id": "L033",
+      "date": "2026-09-14",
+      "category": "docker",
+      "severity": "low",
+      "title": "exec-in-container: api-gateway non ha /app, usare workDir \"/\"",
+      "problem": "exec-in-container usa workDir=\"/app\" di default. Nei container api-gateway (immagine più minimale, plain JS senza build step) questa directory non esiste, quindi ogni comando fallisce subito con \"chdir to cwd (/app) ... no such file or directory\" (exit code 127), anche per comandi semplici come \"node --version\".",
+      "solution": "Per i container api-gateway-1/api-gateway-2, specificare sempre workDir: \"/\" esplicitamente nella chiamata a exec-in-container."
+    },
+    {
+      "id": "L034",
+      "date": "2026-09-22",
+      "category": "dev-process",
+      "severity": "medium",
+      "title": "La documentazione di un modulo può essere molto più indietro del codice reale",
+      "problem": "Esplorando log-service per una richiesta di revisione del sistema di log, README.md e CHANGELOG.md descrivono l'alerting (regole, cooldown, invio email) come \"Fase 2 - In Progress\"/pianificato. In realtà AlertManager.ts, AlertRule/AlertHistory, seedAlertRules.ts e l'integrazione con l'endpoint /email/alert di email-service sono già scritti, wired in logController.ts e funzionanti — inclusa una regola già seedata per il brute-force login (10 tentativi falliti in 15 minuti). Stesso pattern già visto in questa sessione su edg-system: il campo `permission` di BASE in navigation.config.ts è dichiarato ma mai letto (dead code commentato come \"in attesa di un filtro generico\"), e il blocco/sblocco utente esisteva completo lato backend senza alcuna UI collegata.",
+      "solution": "Prima di giudicare \"cosa manca\" o \"cosa è già fatto\" in un modulo di questo progetto, verificare sempre il codice sorgente reale (grep di utilizzo, non solo esistenza del file; lettura dei controller che dovrebbero invocare una funzionalità) invece di fidarsi di README/CHANGELOG/commenti di stato — qui la conseguenza pratica è che auth-service (la fonte più importante di eventi di sicurezza: login, login falliti, cambio password) non invia oggi alcun evento a log-service, quindi la regola brute-force già pronta non può mai scattare, pur essendo tutta l'infrastruttura di allarme già completa e distribuita."
     }
   ]
 }

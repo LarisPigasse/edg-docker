@@ -12,8 +12,8 @@ type ValidationTarget = 'body' | 'query' | 'params';
 // Messaggi Joi in italiano, condivisi da TUTTE le validazioni del servizio.
 //
 // Joi applica prima gli eventuali `.messages()` definiti sul singolo campo di
-// uno schema (più specifici, es. "Il tipo deve essere 'partner', 'cliente' o
-// 'agente'"), e ripiega su questi solo per i codici di errore non
+// uno schema (più specifici, es. "Il tipo deve essere 'partner' o
+// 'cliente'"), e ripiega su questi solo per i codici di errore non
 // personalizzati. Così ogni campo — anche in uno schema futuro, anche senza
 // alcuna personalizzazione — ha comunque un messaggio in italiano invece del
 // testo tecnico di default di Joi (es. '"provincia" length must be less than

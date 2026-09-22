@@ -1,12 +1,12 @@
 // =============================================================================
-// EDG System Service - Schema Joi: Anagrafica (partner / cliente / agente)
+// EDG System Service - Schema Joi: Anagrafica (partner / cliente)
 // =============================================================================
 import Joi from 'joi';
 
 export const anagraficaSchemas = {
   create: Joi.object({
-    tipo: Joi.string().valid('partner', 'cliente', 'agente').label('Tipo').required().messages({
-      'any.only': "Il tipo deve essere 'partner', 'cliente' o 'agente'",
+    tipo: Joi.string().valid('partner', 'cliente').label('Tipo').required().messages({
+      'any.only': "Il tipo deve essere 'partner' o 'cliente'",
       'any.required': 'Il tipo è obbligatorio',
     }),
     idTenant: Joi.number().integer().positive().label('Tenant').required().messages({
@@ -29,7 +29,7 @@ export const anagraficaSchemas = {
   }),
 
   update: Joi.object({
-    tipo: Joi.string().valid('partner', 'cliente', 'agente').label('Tipo'),
+    tipo: Joi.string().valid('partner', 'cliente').label('Tipo'),
     idTenant: Joi.number().integer().positive().label('Tenant'),
     ragioneSociale: Joi.string().max(256).label('Ragione sociale'),
     partitaIva: Joi.string().max(32).label('Partita IVA').allow(null, ''),

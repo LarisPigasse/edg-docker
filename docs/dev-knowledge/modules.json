@@ -1,15 +1,15 @@
 {
-  "lastUpdated": "2026-09-10",
+  "lastUpdated": "2026-09-22",
   "modules": {
     "auth-service": {
       "status": "stable",
-      "notes": "Aggiunto: sessionId nel JWT al login, Redis blacklist account+session, cron cleanup sessioni 03:00, GET /accounts/roles, hard delete endpoint.",
-      "lastUpdated": "2026-03-24"
+      "notes": "Aggiunto CRUD Tenant (crudFactory+Joi+protectField) dietro requireRoot(), per pannello SISTEMA. 11/11 test live OK. Gateway aggiornato (/tenants in PROTECTED_AUTH_ROUTES). Prossimo: frontend SISTEMA, poi Account e Ruoli/Permessi.",
+      "lastUpdated": "2026-09-14"
     },
     "log-service": {
-      "status": "stable",
-      "notes": "MongoDB, query con filtri, paginazione, statistiche. EDGLogger disponibile per tutti i servizi.",
-      "lastUpdated": "2026-03-16"
+      "status": "in-progress",
+      "notes": "Server+alerting completi e deployati (MongoDB, 6 categorie/59 sottotipi, AlertManager con regole/cooldown/soglie, invio email via email-service già funzionante, brute-force login già seedato). Gap reale: auth-service non emette NESSUN evento (0 integrazione); system/vehicle-service usano un logger flat parallelo senza categoria/criticità, bypassando lo schema ricco. Manca dashboard di consultazione.",
+      "lastUpdated": "2026-09-22"
     },
     "email-service": {
       "status": "stable",
@@ -117,9 +117,14 @@
       "lastUpdated": "2026-08-31"
     },
     "system-service": {
-      "status": "review",
-      "notes": "ADR022: tenantId in GatewayUser, crudFactory.tenantScoped su Anagrafiche (eccezione operatore). Solo tsc verificato — NON distribuito, serve rebuild Docker.",
-      "lastUpdated": "2026-09-10"
+      "status": "stable",
+      "notes": "ADR022 + hardening requireRole('operatore') su Reparti/Operatori distribuiti e validati live il 14/09 (5/5 test). Reparti/Operatori ora 403 per non-operatore a prescindere da RBAC; Anagrafiche resta l'unica risorsa tenantScoped.",
+      "lastUpdated": "2026-09-14"
+    },
+    "pro-frontend (modulo SISTEMA)": {
+      "status": "in-progress",
+      "notes": "Aggiunta pagina Account (creazione con password generata, modifica, attiva/disattiva con conferma, statistiche). Backend AccountController allineato al formato standard + nuovi endpoint (create, toggle). Da validare: rebuild auth-service + verifica utente su npm run dev:pro. Prossimo dopo conferma: Ruoli/Permessi.",
+      "lastUpdated": "2026-09-14"
     }
   }
 }

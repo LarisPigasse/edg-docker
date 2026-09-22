@@ -1,14 +1,18 @@
 // =============================================================================
 // EDG System Service - Modello Anagrafica
-// Copre partner, clienti e agenti (nella pratica sempre aziende) — un'unica
-// tabella perche' i campi sono sostanzialmente gli stessi per i tre tipi.
-// Il campo `tipo` resta un CHECK (non una tabella primitiva) perche' i tre
-// valori ammessi sono strutturali e non destinati ad ampliarsi.
+// Copre partner e clienti (nella pratica sempre aziende) — un'unica tabella
+// perche' i campi sono sostanzialmente gli stessi per i due tipi. Gli agenti
+// sono operatori interni di reparto, non un tipo di anagrafica (vedi
+// discussione del 17/09/2026). Il campo `tipo` resta un CHECK (non una
+// tabella primitiva) perche' i valori ammessi sono strutturali e non
+// destinati ad ampliarsi.
 // =============================================================================
 import { DataTypes, Model, Optional } from 'sequelize';
 import { sequelize } from '../config/database';
 
-export type TipoAnagrafica = 'partner' | 'cliente' | 'agente';
+// Gli agenti sono operatori interni di reparto, non un tipo di anagrafica
+// - vedi discussione del 17/09/2026.
+export type TipoAnagrafica = 'partner' | 'cliente';
 
 interface AnagraficaAttributes {
   idAnagrafica: number;
@@ -95,7 +99,7 @@ Anagrafica.init(
       type: DataTypes.STRING(20),
       allowNull: false,
       validate: {
-        isIn: [['partner', 'cliente', 'agente']],
+        isIn: [['partner', 'cliente']],
       },
     },
     idTenant: {

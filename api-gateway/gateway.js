@@ -65,7 +65,7 @@ const VEHICLE_SERVICE = process.env.VEHICLE_SERVICE_URL || 'http://vehicle-servi
 const SYSTEM_SERVICE = process.env.SYSTEM_SERVICE_URL || 'http://system-service:3004';
 
 // Route protette che richiedono JWT validation + gateway headers
-const PROTECTED_AUTH_ROUTES = ['/change-password', '/logout-all', '/me', '/sessions', '/blocked-users', '/users', '/accounts'];
+const PROTECTED_AUTH_ROUTES = ['/change-password', '/logout-all', '/me', '/sessions', '/blocked-users', '/users', '/accounts', '/tenants'];
 
 // Helper per check route admin (wildcard match)
 function isAdminRoute(path) {

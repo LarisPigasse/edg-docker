@@ -110,8 +110,13 @@ export function createCrudHandlers<M extends Model>(opts: CrudFactoryOptions<M>)
 
       successResponse(res, rows, undefined, buildPaginationMeta(count, page, limit));
     } catch (err) {
+      // Un errore qui (query fallita, tabella mancante, DB irraggiungibile...)
+      // non e' mai un "non trovato" - zero risultati validi sono gia' gestiti
+      // sopra da findAndCountAll con una risposta 200 e lista vuota. Si
+      // propaga all'errorHandler globale, che distingue il tipo di errore
+      // reale (validazione, vincolo, DB, ...) invece di mascherarlo da 404.
       logger.error('crud.list', `Errore lista ${resourceName}`, { error: String(err) });
-      notFound(res, resourceName);
+      throw err;
     }
   };
 
@@ -129,8 +134,12 @@ export function createCrudHandlers<M extends Model>(opts: CrudFactoryOptions<M>)
 
       successResponse(res, record);
     } catch (err) {
+      // Stesso criterio di list(): il "non trovato" legittimo e' gia'
+      // gestito sopra (record assente o fuori tenant). Qui arrivano solo
+      // errori inattesi, che l'errorHandler globale sa classificare meglio
+      // di un generico 404.
       logger.error('crud.getById', `Errore get ${resourceName}`, { id: req.params.id, error: String(err) });
-      notFound(res, resourceName);
+      throw err;
     }
   };
 
