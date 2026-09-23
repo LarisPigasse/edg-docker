@@ -25,13 +25,17 @@ ENV NODE_ENV production
 
 # Usa un utente non-root per sicurezza (SENZA specificare GID e UID fissi)
 RUN addgroup appgroup && adduser -S -G appgroup appuser
-USER appuser
+
 WORKDIR /app
 
 # Copia solo i file essenziali (compilato, package.json, node_modules)
 COPY --from=builder /app/package.json /app/package-lock.json ./
 COPY --from=builder /app/dist ./dist
 COPY --from=builder /app/node_modules ./node_modules
+
+RUN mkdir -p logs && chown -R appuser:appgroup /app
+
+USER appuser
 
 # Espone la porta definita in server.ts (4000 di default)
 EXPOSE 4000

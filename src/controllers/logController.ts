@@ -2,6 +2,7 @@
 import { Request, Response } from 'express';
 import AzioneLog, { IAzioneLog } from '../models/azioneLog';
 import { computeDiff } from '../utils/diffUtils';
+import AlertManager from '../services/AlertManager';
 
 /**
  * Helper: costruisce la query MongoDB dai filtri comuni
@@ -48,6 +49,11 @@ export const creaLog = async (req: Request, res: Response): Promise<void> => {
 
     const nuovoLog = new AzioneLog(logData);
     await nuovoLog.save();
+
+    // Hook asincrono: valuta le regole di alerting senza bloccare la risposta
+    AlertManager.evaluate(nuovoLog.toObject()).catch((err) =>
+      console.error('[logController] AlertManager error:', err.message)
+    );
 
     res.status(201).json(nuovoLog);
   } catch (error: any) {

@@ -6,6 +6,8 @@ import dotenv from "dotenv";
 import mongoose from "mongoose";
 import connectDB from "./config/database";
 import logRoutes from "./routes/logRoutes";
+import alertRoutes from "./routes/alertRoutes";
+import systemRoutes from "./routes/systemRoutes";
 
 dotenv.config();
 
@@ -19,6 +21,8 @@ app.use(express.json());
 
 // Routes
 app.use("/api/log", logRoutes);
+app.use("/api/alert", alertRoutes);
+app.use("/api/system", systemRoutes);
 app.get("/", (req, res) => {
   res.json({ message: "EdgLogger API" });
 });

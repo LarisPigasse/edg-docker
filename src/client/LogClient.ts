@@ -164,7 +164,7 @@ export class LogClient {
   private async sendToApi(
     payload: LogEventPayload
   ): Promise<LogClientResponse> {
-    const response = await this.client.post("/api/logs", payload);
+    const response = await this.client.post("/api/log/azione", payload);
 
     return {
       success: true,
