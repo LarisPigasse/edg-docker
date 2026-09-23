@@ -281,6 +281,8 @@ services:
 
       # Logging
       LOG_LEVEL: info
+      LOG_SERVICE_URL: http://log-service:4000
+      LOG_API_KEY_SECRET: ${LOG_API_KEY_SECRET}
     expose:
       - '3001'
     labels:
@@ -314,6 +316,7 @@ services:
       - MONGO_PASSWORD=${MONGO_LOG_PASSWORD}
       # API Key per protezione endpoint di scrittura
       - API_KEY_SECRET=${LOG_API_KEY_SECRET}
+      - GATEWAY_SECRET=${GATEWAY_SECRET}
       # Alerting
       - EMAIL_SERVICE_URL=http://email-service:3002
       - ALERT_RECIPIENT=${EMAIL_ALERTS_TO}
@@ -323,9 +326,10 @@ services:
       - logger-mongo
     networks:
       - internal
-      - external
-    ports:
-      - '4001:4000' # Porta esterna 4001, interna 4000
+    # NOTA: nessuna porta pubblicata verso l'host (a differenza di prima,
+    # quando esponeva 4001:4000 per essere chiamato direttamente dal
+    # frontend). Ora, come vehicle-service e system-service, e' raggiungibile
+    # solo dalla rete Docker interna, tramite il gateway.
     deploy:
       resources:
         limits:
@@ -517,6 +521,8 @@ services:
         condition: service_healthy
       system-service:
         condition: service_healthy
+      log-service:
+        condition: service_healthy
     environment:
       # Gateway Configuration
       NODE_ENV: development
@@ -526,6 +532,7 @@ services:
       AUTH_SERVICE_URL: http://auth-service:3001
       VEHICLE_SERVICE_URL: http://vehicle-service:3003
       SYSTEM_SERVICE_URL: http://system-service:3004
+      LOG_SERVICE_URL: http://log-service:4000
       FRONTEND_PRO_URL: http://host.docker.internal:5173
       FRONTEND_APP_URL: http://host.docker.internal:5174
       FRONTEND_EDG_URL: http://host.docker.internal:5175
@@ -603,6 +610,8 @@ services:
         condition: service_healthy
       system-service:
         condition: service_healthy
+      log-service:
+        condition: service_healthy
     environment:
       # Gateway Configuration
       NODE_ENV: development
@@ -612,6 +621,7 @@ services:
       AUTH_SERVICE_URL: http://auth-service:3001
       VEHICLE_SERVICE_URL: http://vehicle-service:3003
       SYSTEM_SERVICE_URL: http://system-service:3004
+      LOG_SERVICE_URL: http://log-service:4000
       FRONTEND_PRO_URL: http://host.docker.internal:5173
       FRONTEND_APP_URL: http://host.docker.internal:5174
       FRONTEND_EDG_URL: http://host.docker.internal:5175

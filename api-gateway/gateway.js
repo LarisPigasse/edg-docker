@@ -63,6 +63,7 @@ const PORT = parseInt(process.env.PORT || '8080', 10);
 const AUTH_SERVICE = process.env.AUTH_SERVICE_URL || 'http://auth-service:3001';
 const VEHICLE_SERVICE = process.env.VEHICLE_SERVICE_URL || 'http://vehicle-service:3003';
 const SYSTEM_SERVICE = process.env.SYSTEM_SERVICE_URL || 'http://system-service:3004';
+const LOG_SERVICE = process.env.LOG_SERVICE_URL || 'http://log-service:4000';
 
 // Route protette che richiedono JWT validation + gateway headers
 const PROTECTED_AUTH_ROUTES = ['/change-password', '/logout-all', '/me', '/sessions', '/blocked-users', '/users', '/accounts', '/tenants'];
@@ -395,6 +396,178 @@ app.use('/api/vehicles', async (req, res, next) => {
           }
         }
       });
+    });
+  });
+});
+
+// =============================================================================
+// PROXY VERSO LOG-SERVICE (logs, alert, system health)
+// Route protette: richiedono JWT validation + gateway headers, stesso schema
+// di vehicle-service/system-service. In precedenza il frontend chiamava
+// log-service direttamente sulla sua porta dedicata (VITE_LOG_SERVICE_URL),
+// bypassando gateway e RBAC: le GET erano senza autenticazione e le
+// scritture protette solo da una API key statica esposta nel bundle
+// frontend. Ora passa da qui come tutti gli altri servizi.
+// NIENTE requireModule: logs/alert/system-health sono gestione interna
+// sempre disponibile per chi ha il permesso RBAC, non un modulo attivabile
+// per tenant (ADR009) — stesso ragionamento gia' applicato a system-service.
+//
+// NOTA: /api/system/health e' servito da log-service (aggrega lo stato di
+// tutti i servizi leggendo i log), non da system-service — per questo il
+// blocco specifico /api/system/health e' registrato PRIMA del blocco
+// generico /api/system qui sotto (Express instrada i middleware nell'ordine
+// di registrazione: la route piu' specifica deve precedere quella generica).
+// =============================================================================
+
+app.options('/api/system/health', corsMiddleware); // ← preflight OPTIONS
+app.use('/api/system/health', corsMiddleware); // ← CORS headers su ogni risposta
+
+app.use('/api/system/health', async (req, res, next) => {
+  // Valida JWT
+  return jwtValidatorMiddleware(req, res, async err => {
+    if (err || res.headersSent) return;
+
+    // Controllo blacklist Redis
+    const accountId = req.userData?.accountId;
+    if (accountId && (await isAccountBlocked(accountId))) {
+      return res.status(401).json({ success: false, error: 'Account disattivato' });
+    }
+    const sessionId = req.userData?.sessionId;
+    if (sessionId && (await isSessionBlocked(sessionId))) {
+      return res.status(401).json({ success: false, error: 'Sessione revocata' });
+    }
+
+    // Inietta gateway headers (x-gateway-secret, x-user-data)
+    injectGatewayHeaders(req, res, async err => {
+      if (err || res.headersSent) return;
+
+      try {
+        const clientIp = req.headers['x-forwarded-for'] || req.ip || req.connection.remoteAddress;
+
+        const response = await axios({
+          method: req.method,
+          url: `${LOG_SERVICE}/api/system/health`,
+          data: ['GET', 'DELETE'].includes(req.method) ? undefined : req.body,
+          headers: {
+            'Content-Type': 'application/json',
+            'x-gateway-secret': req.headers['x-gateway-secret'],
+            'x-user-data': req.headers['x-user-data'],
+            'x-forwarded-for': clientIp,
+            'x-real-ip': clientIp,
+          },
+        });
+
+        res.status(response.status).json(response.data);
+      } catch (error) {
+        if (error.response) {
+          res.status(error.response.status).json(error.response.data);
+        } else {
+          console.error(`❌ [GATEWAY] Error forwarding to log-service (system/health):`, error.message);
+          res.status(503).json({ error: 'Log Service Unavailable' });
+        }
+      }
+    });
+  });
+});
+
+app.options('/api/log/*', corsMiddleware); // ← preflight OPTIONS
+app.use('/api/log', corsMiddleware); // ← CORS headers su ogni risposta
+
+app.use('/api/log', async (req, res, next) => {
+  // Valida JWT
+  return jwtValidatorMiddleware(req, res, async err => {
+    if (err || res.headersSent) return;
+
+    // Controllo blacklist Redis
+    const accountId = req.userData?.accountId;
+    if (accountId && (await isAccountBlocked(accountId))) {
+      return res.status(401).json({ success: false, error: 'Account disattivato' });
+    }
+    const sessionId = req.userData?.sessionId;
+    if (sessionId && (await isSessionBlocked(sessionId))) {
+      return res.status(401).json({ success: false, error: 'Sessione revocata' });
+    }
+
+    // Inietta gateway headers (x-gateway-secret, x-user-data)
+    injectGatewayHeaders(req, res, async err => {
+      if (err || res.headersSent) return;
+
+      try {
+        const clientIp = req.headers['x-forwarded-for'] || req.ip || req.connection.remoteAddress;
+
+        const response = await axios({
+          method: req.method,
+          url: `${LOG_SERVICE}/api/log${req.url}`,
+          data: ['GET', 'DELETE'].includes(req.method) ? undefined : req.body,
+          headers: {
+            'Content-Type': 'application/json',
+            'x-gateway-secret': req.headers['x-gateway-secret'],
+            'x-user-data': req.headers['x-user-data'],
+            'x-forwarded-for': clientIp,
+            'x-real-ip': clientIp,
+          },
+        });
+
+        res.status(response.status).json(response.data);
+      } catch (error) {
+        if (error.response) {
+          res.status(error.response.status).json(error.response.data);
+        } else {
+          console.error(`❌ [GATEWAY] Error forwarding to log-service (log):`, error.message);
+          res.status(503).json({ error: 'Log Service Unavailable' });
+        }
+      }
+    });
+  });
+});
+
+app.options('/api/alert/*', corsMiddleware); // ← preflight OPTIONS
+app.use('/api/alert', corsMiddleware); // ← CORS headers su ogni risposta
+
+app.use('/api/alert', async (req, res, next) => {
+  // Valida JWT
+  return jwtValidatorMiddleware(req, res, async err => {
+    if (err || res.headersSent) return;
+
+    // Controllo blacklist Redis
+    const accountId = req.userData?.accountId;
+    if (accountId && (await isAccountBlocked(accountId))) {
+      return res.status(401).json({ success: false, error: 'Account disattivato' });
+    }
+    const sessionId = req.userData?.sessionId;
+    if (sessionId && (await isSessionBlocked(sessionId))) {
+      return res.status(401).json({ success: false, error: 'Sessione revocata' });
+    }
+
+    // Inietta gateway headers (x-gateway-secret, x-user-data)
+    injectGatewayHeaders(req, res, async err => {
+      if (err || res.headersSent) return;
+
+      try {
+        const clientIp = req.headers['x-forwarded-for'] || req.ip || req.connection.remoteAddress;
+
+        const response = await axios({
+          method: req.method,
+          url: `${LOG_SERVICE}/api/alert${req.url}`,
+          data: ['GET', 'DELETE'].includes(req.method) ? undefined : req.body,
+          headers: {
+            'Content-Type': 'application/json',
+            'x-gateway-secret': req.headers['x-gateway-secret'],
+            'x-user-data': req.headers['x-user-data'],
+            'x-forwarded-for': clientIp,
+            'x-real-ip': clientIp,
+          },
+        });
+
+        res.status(response.status).json(response.data);
+      } catch (error) {
+        if (error.response) {
+          res.status(error.response.status).json(error.response.data);
+        } else {
+          console.error(`❌ [GATEWAY] Error forwarding to log-service (alert):`, error.message);
+          res.status(503).json({ error: 'Log Service Unavailable' });
+        }
+      }
     });
   });
 });
