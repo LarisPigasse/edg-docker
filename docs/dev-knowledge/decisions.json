@@ -297,6 +297,24 @@
       "decision": "Aggiunta prop opzionale optionSize?: 'sm' | 'md' al componente Select condiviso, default 'md' (nessun impatto sugli usi esistenti nell'app). Riduce il testo sia delle voci nel menu aperto (classe sull'Item) sia del valore nel campo chiuso — quest'ultimo impostato sul SelectPrimitive.Trigger, non su Select.Value (vedi lezione: Select.Value di Radix ignora il proprio className).",
       "rationale": "Estende il componente condiviso in modo retrocompatibile invece di duplicare Select con uno stile ad-hoc solo per Logs — riusabile da qualunque altro filtro stretto in futuro nell'app.",
       "status": "accepted"
+    },
+    {
+      "id": "ADR034",
+      "date": "2026-09-28",
+      "title": "Log a due livelli: audit esplicito per \"chi ha fatto cosa\", richieste HTTP solo come rete di sicurezza filtrata",
+      "context": "Il 97% della collection azionelogs (312/322 documenti) erano http_request GET → 200 prodotti dal request logger di system-service/vehicle-service: rumore senza valore di audit. A regime (circa 64 utenti) la stima era di circa 131k documenti al giorno, 80–90 GB all'anno con 19 indici. Requisito dell'utente: conservare esplicitamente, qualunque sia l'esito, tutte le creazioni, modifiche e cancellazioni degli operatori e tutti i login riusciti.",
+      "decision": "Due livelli. (1) AUDIT (logger.audit): è la fonte di verità di \"chi ha fatto cosa\". Ogni scrittura, riuscita o fallita, e ogni login devono avere un evento esplicito con attore e risorsa (da completare: passi 1b in auth-service e 1c per l'attore sugli errori di crudFactory). (2) TECNICO (logger.request, categoria SYSTEM): shouldPersistRequest(), identica nei logger.ts di auth/system/vehicle-service, scarta solo le letture (GET/HEAD/OPTIONS) riuscite e sotto LOG_SLOW_REQUEST_MS (default 1024). Scritture sempre, qualsiasi status >= 400 sempre, richieste lente sempre (meta.slow). auth-service riceve per la prima volta un request logger (customMiddleware in app.ts), con QUIET_ON_SUCCESS per /auth/login (già coperto da auth.login_success) e /auth/refresh (tecnico). Retention con TTL, archivio e riduzione degli indici sono passi successivi, da decidere separatamente.",
+      "rationale": "Una riga \"POST /x → 201\" non dice in modo esplicito chi ha fatto cosa: lo fa l'audit. Tenere comunque le scritture a livello tecnico dà una rete di sicurezza se una nuova rotta dimentica l'audit, e cattura i rifiuti a monte del controller (403, 400 Joi) con un volume trascurabile. Scartare solo le letture riuscite elimina circa il 95% del volume senza perdere informazioni di sicurezza o di responsabilità.",
+      "status": "accepted"
+    },
+    {
+      "id": "ADR035",
+      "date": "2026-09-28",
+      "title": "Monorepo backend: auth-service e log-service integrati in edg-docker con la loro storia",
+      "context": "auth-service (github edg-auth-service) e log-service (github EdgLogger) erano repository annidati in edg-docker ed esclusi dal .gitignore, pensati per l'autonomia dei servizi. Effetti: auth-service è rimasto dal 24/03 al 28/09 senza commit e con un index.lock orfano senza che nessuno se ne accorgesse. Modifiche trasversali come ADR034 finivano divise su più repository. Il .gitignore conteneva anche un frammento di README incollato per errore.",
+      "decision": "Due repository in totale: edg-docker = tutto il backend e l'infrastruttura, edg-system = tutti i frontend. auth-service e log-service entrano in edg-docker con `git subtree add` (storia preservata). I repository GitHub originali vengono archiviati. I frontend legacy annidati (app-frontend, pro-frontend, edg-frontend) restano esclusi e vanno eliminati, non integrati (ADR010). Il .gitignore è stato ripulito dal frammento di README.",
+      "rationale": "I servizi si rilasciano insieme con un solo docker-compose, quindi versioni separate non danno vantaggi. Un solo repository rende visibili le modifiche non committate e permette commit atomici trasversali. L'autonomia resta garantita dalla struttura: package.json, Dockerfile e .gitignore propri, nessuna importazione reciproca. Se servirà, un servizio si potrà estrarre di nuovo con `git subtree split`.",
+      "status": "accepted"
     }
   ]
 }

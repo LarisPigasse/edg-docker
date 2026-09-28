@@ -333,6 +333,33 @@
       "title": "system-service/vehicle-service: SERVICE_NAME da env collide col banner descrittivo di docker-compose",
       "problem": "system-service/vehicle-service/logger.ts fanno const SERVICE_NAME = process.env.SERVICE_NAME || 'system-service', ma docker-compose.yml imposta SERVICE_NAME a un nome descrittivo (\"EDG System Service\"/\"EDG Vehicle Service\"), non a uno slug — quindi payload.service (e di conseguenza azione.entita, tags) per questi due servizi mostra il nome descrittivo invece dello slug. auth-service invece hardcoda lo slug apposta, con un commento che spiega la collisione.",
       "solution": "Se in futuro si vuole uno slug pulito anche per system-service/vehicle-service, hardcodarlo come in auth-service invece di leggerlo da env, oppure rinominare la variabile env usata da docker-compose per il banner in qualcosa come SERVICE_DISPLAY_NAME."
+    },
+    {
+      "id": "L038",
+      "date": "2026-09-28",
+      "category": "dev-process",
+      "severity": "medium",
+      "title": "git dalla VM di device_bash: index.lock orfano e falsi diff CRLF su edg-docker",
+      "problem": "Un semplice `git status` lanciato via device_bash su ~/mnt/edg-docker ha tentato di aggiornare l'indice e ha lasciato .git/index.lock vuoto (unlink non permesso senza delete permission), che blocca ogni comando git sul PC Windows. Inoltre la VM mostra 217 file \"modificati\" (30401+/30401-) che sono solo differenze di fine riga CRLF: con --ignore-cr-at-eol il diff è vuoto. edg-system invece risulta pulito.",
+      "solution": "Dalla VM usare solo git in sola lettura che non tocca l'indice: `git --no-optional-locks status`, `git log`, `git diff --ignore-cr-at-eol`. Mai commit/add/checkout dalla VM: le operazioni git di scrittura le fa l'utente su Windows. Se compare \"unable to unlink index.lock\", verificare e rimuovere subito il lock (richiede device_request_delete_permission). Ignorare i 217 falsi diff CRLF di edg-docker."
+    },
+    {
+      "id": "L039",
+      "date": "2026-09-28",
+      "category": "express",
+      "severity": "medium",
+      "title": "In res.on('finish') req.url/req.path sono relativi al router montato",
+      "problem": "Nel request logger a livello app, dentro res.on('finish'), req.url e req.path sono già stati riscritti da Express relativamente al router montato. Per esempio 'POST /' invece di 'POST /api/system/operatori', oppure '/refresh' invece di '/auth/refresh'. La risposta termina dentro il router, quindi Express non ripristina mai l'URL completo. Effetti: in system-service e vehicle-service i log http_request riportavano path troncati; in auth-service QUIET_ON_SUCCESS non riconosceva /auth/refresh e lo registrava comunque.",
+      "solution": "Nella callback 'finish' usare sempre req.originalUrl per il messaggio. Se serve req.path (senza query), catturarlo in una costante all'ingresso del middleware, prima di next()."
+    },
+    {
+      "id": "L040",
+      "date": "2026-09-28",
+      "category": "dev-process",
+      "severity": "low",
+      "title": "Spostare cartelle montate nella sessione Cowork: Move-Item lascia residui",
+      "problem": "Durante l'integrazione ADR035, `Move-Item edg-docker\\auth-service _archivio-repo\\` su Windows ha fallito con \"Impossibile creare un file, se il file esiste già\". Il contenuto era stato spostato quasi tutto (repository integro nella destinazione), ma in origine era rimasta una cartella .git vuota. Quelle cartelle erano aperte dal mount della sessione Cowork, che aveva eseguito git in auth-service, quindi la rinomina atomica non era possibile e PowerShell ha ripiegato su copia ed eliminazione elemento per elemento.",
+      "solution": "Prima di spostare o rinominare da Windows cartelle su cui la sessione ha lavorato, verificare lo stato di origine e destinazione: git fsck, log e diff nella destinazione. Solo dopo rimuovere le cartelle residue vuote in origine, via device_bash con rmdir, che fallisce se non sono vuote. Non ripetere Move-Item alla cieca: la destinazione esiste già."
     }
   ]
 }
