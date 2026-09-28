@@ -14,6 +14,7 @@ const buildQuery = (params: Record<string, any>): any => {
   if (params.categoria) query.categoria = params.categoria;
   if (params.criticita) query.criticita = params.criticita;
   if (params.userId) query['origine.id'] = params.userId;
+  if (params.tenantId) query['origine.dettagli.tenantId'] = Number(params.tenantId);
   if (params.entita) query['azione.entita'] = params.entita;
   if (params.esito) query['risultato.esito'] = params.esito;
 
