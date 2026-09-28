@@ -315,6 +315,15 @@
       "decision": "Due repository in totale: edg-docker = tutto il backend e l'infrastruttura, edg-system = tutti i frontend. auth-service e log-service entrano in edg-docker con `git subtree add` (storia preservata). I repository GitHub originali vengono archiviati. I frontend legacy annidati (app-frontend, pro-frontend, edg-frontend) restano esclusi e vanno eliminati, non integrati (ADR010). Il .gitignore è stato ripulito dal frammento di README.",
       "rationale": "I servizi si rilasciano insieme con un solo docker-compose, quindi versioni separate non danno vantaggi. Un solo repository rende visibili le modifiche non committate e permette commit atomici trasversali. L'autonomia resta garantita dalla struttura: package.json, Dockerfile e .gitignore propri, nessuna importazione reciproca. Se servirà, un servizio si potrà estrarre di nuovo con `git subtree split`.",
       "status": "accepted"
+    },
+    {
+      "id": "ADR036",
+      "date": "2026-09-28",
+      "title": "Rotazione dei log Docker in produzione: al massimo 64 MB per container",
+      "context": "docker-compose.prod.yml non aveva limiti di logging: con il driver json-file predefinito, stdout e stderr di ogni container crescono senza limite sul disco del server Ubuntu. È emerso analizzando la crescita dei log (ADR034).",
+      "decision": "Ancora YAML x-logging (&default-logging: json-file, max-size 16m, max-file 4) applicata a tutti i 13 servizi di docker-compose.prod.yml con `logging: *default-logging`. Il docker-compose.yml di sviluppo resta invariato. Entra in vigore alla ricreazione dei container (`docker compose -f docker-compose.prod.yml up -d`).",
+      "rationale": "La regola sta nel compose invece che in /etc/docker/daemon.json, così resta versionata nel repository e vale per ogni deploy da zero. Il json-file mantiene `docker logs` invariato. 64 MB per container bastano per la diagnostica recente; lo storico con valore di audit sta in MongoDB (log-service), non nei log dei container.",
+      "status": "accepted"
     }
   ]
 }

@@ -15,7 +15,21 @@
 #   - api-gateway-1: rimossa la porta 8080 di debug CORS (era temporanea)
 #   - NODE_ENV: production ovunque (vehicle-service lo aveva già)
 #   - CORS_ORIGINS: letto da .env (dominio reale, non i placeholder .edg.local)
+#   - Rotazione log Docker su tutti i servizi: max 64 MB per container (ADR036)
 # =============================================================================
+
+# -----------------------------------------------------------------------------
+# Rotazione dei log Docker (stdout/stderr dei container)
+# Senza limiti il driver json-file cresce all'infinito sul disco del server.
+# Qui: al massimo 4 file da 16 MB per container = 64 MB. Lo storico che conta
+# (audit) sta in MongoDB/log-service, non qui — vedi ADR034/ADR036.
+# Applicata a ogni servizio con  logging: *default-logging
+# -----------------------------------------------------------------------------
+x-logging: &default-logging
+  driver: json-file
+  options:
+    max-size: '16m'
+    max-file: '4'
 
 networks:
   internal:
@@ -30,6 +44,7 @@ services:
   # LOAD BALANCER - Traefik (solo provider Docker in produzione)
   #############################################################################
   traefik:
+    logging: *default-logging
     image: traefik:v2.11
     container_name: traefik
     command:
@@ -70,6 +85,7 @@ services:
   # DATABASE (MySQL) — niente porta verso l'host
   # ===========================================================================
   mysql:
+    logging: *default-logging
     image: mysql:8.0
     container_name: auth-mysql
     deploy:
@@ -99,6 +115,7 @@ services:
   # DATABASE LOGGER (MongoDB) — niente porta verso l'host
   # ===========================================================================
   logger-mongo:
+    logging: *default-logging
     image: mongo:7.0
     container_name: log-mongo
     deploy:
@@ -128,6 +145,7 @@ services:
   # DATABASE POSTGRESQL — niente porta verso l'host (resta "expose" interno)
   # ===========================================================================
   postgres:
+    logging: *default-logging
     image: postgres:16-alpine
     container_name: edg-postgres
     deploy:
@@ -165,6 +183,7 @@ services:
   # CACHE - Redis (già solo "expose", nessuna modifica necessaria)
   # ===========================================================================
   redis:
+    logging: *default-logging
     image: redis:7-alpine
     container_name: edg-redis
     restart: unless-stopped
@@ -193,6 +212,7 @@ services:
   # AUTH SERVICE
   # ===========================================================================
   auth-service:
+    logging: *default-logging
     build:
       context: ./auth-service
       dockerfile: Dockerfile
@@ -258,6 +278,7 @@ services:
   # (nessun frontend lo chiama direttamente, come confermato)
   # ===========================================================================
   log-service:
+    logging: *default-logging
     build:
       context: ./log-service
       dockerfile: Dockerfile
@@ -300,6 +321,7 @@ services:
   # EMAIL SERVICE
   # ===========================================================================
   email-service:
+    logging: *default-logging
     build:
       context: ./email-service
       dockerfile: Dockerfile
@@ -343,6 +365,7 @@ services:
   # VEHICLE SERVICE (già production-ready nel file originale)
   # ===========================================================================
   vehicle-service:
+    logging: *default-logging
     build:
       context: ./vehicle-service
       dockerfile: Dockerfile
@@ -401,6 +424,7 @@ services:
   # dimenticata qui.
   # ===========================================================================
   system-service:
+    logging: *default-logging
     build:
       context: ./system-service
       dockerfile: Dockerfile
@@ -448,6 +472,7 @@ services:
   # API GATEWAY - Istanza 1 (rimossa porta 8080 di debug)
   #############################################################################
   api-gateway-1:
+    logging: *default-logging
     build:
       context: ./api-gateway
       dockerfile: Dockerfile
@@ -513,6 +538,7 @@ services:
   # API GATEWAY - Istanza 2
   #############################################################################
   api-gateway-2:
+    logging: *default-logging
     build:
       context: ./api-gateway
       dockerfile: Dockerfile
@@ -578,6 +604,7 @@ services:
   # ADMINER - Gestione database (MySQL + PostgreSQL in un'unica interfaccia)
   #############################################################################
   adminer:
+    logging: *default-logging
     image: adminer:5
     container_name: edg-adminer
     restart: unless-stopped

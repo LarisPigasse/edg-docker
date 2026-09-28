@@ -2,13 +2,13 @@
   "lastUpdated": "2026-09-28",
   "modules": {
     "auth-service": {
-      "status": "stable",
-      "notes": "Aggiunto CRUD Tenant (crudFactory+Joi+protectField) dietro requireRoot(), per pannello SISTEMA. 11/11 test live OK. Gateway aggiornato (/tenants in PROTECTED_AUTH_ROUTES). Prossimo: frontend SISTEMA, poi Account e Ruoli/Permessi.",
-      "lastUpdated": "2026-09-14"
+      "status": "review",
+      "notes": "Integrato in edg-docker (ADR035). Request logger aggiunto (ADR034). Mancano audit su Account (6 azioni), Tenant (4) e logout: prossimo passo 1b.",
+      "lastUpdated": "2026-09-28"
     },
     "log-service": {
       "status": "stable",
-      "notes": "Categoria/actor arricchiti (auth/system/vehicle logger.ts), filtro tenantId, dashboard Logs completa e verificata live: colonne Utente/Tenant/Account, modali allargate. entità/idEntità restano segnaposto tecnici (ADR031, non bloccante).",
+      "notes": "ADR034 live: GET riuscite non piu' salvate; scritture, errori e lente si'. Path completi (L039). Da fare: audit auth-service (1b), attore sugli errori (1c), TTL/archivio, dieta indici.",
       "lastUpdated": "2026-09-28"
     },
     "email-service": {
