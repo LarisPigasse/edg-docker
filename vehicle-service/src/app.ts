@@ -45,7 +45,9 @@ app.use((req: Request, res: Response, next: NextFunction) => {
 
   const start = Date.now();
   res.on('finish', () => {
-    logger.request(req.method, req.url, res.statusCode, Date.now() - start, req.user);
+    // originalUrl, non url: in 'finish' req.url e' relativo al router montato
+    // (es. 'POST /' invece di 'POST /api/system/operatori') — lezione L039.
+    logger.request(req.method, req.originalUrl, res.statusCode, Date.now() - start, req.user);
   });
   next();
 });

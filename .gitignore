@@ -53,42 +53,16 @@ npm-debug.log*
 Thumbs.db
 
 # ===========================================================================
-# MICROSERVIZI CON REPOSITORY SEPARATI (esclusi da questo repo)
+# FRONTEND LEGACY CON REPOSITORY PROPRI (esclusi da questo repo)
+# Superati da edg-system (ADR010): da eliminare, non da integrare.
 # ===========================================================================
-auth-service/
-log-service/
 app-frontend/
 pro-frontend/
 edg-frontend/
 
 # ===========================================================================
-# MICROSERVIZI INCLUSI IN QUESTO REPO (NON escludere)
+# BACKEND: tutti i microservizi sono inclusi in questo repo (monorepo backend)
+# auth-service e log-service integrati con la loro storia (git subtree) —
+# vedi ADR035. Ogni servizio resta autonomo: proprio package.json,
+# Dockerfile e .gitignore, nessuna importazione reciproca.
 # ===========================================================================
-# email-service/      ← NON escludere, è parte di questo repo
-# api-gateway/        ← NON escludere, è parte di questo repo
-```
-
----
-
-## 📦 Struttura Repository EDG Platform
-```
-┌─────────────────────────────────────────────────────────┐
-│                   EDG SYSTEM                            │
-└─────────────────────────────────────────────────────────┘
-
-Repository Separati:
-├── edg-auth-service          (repo indipendente)
-├── edg-log-service           (repo indipendente)
-├── edg-app-frontend          (repo indipendente)
-├── edg-pro-frontend          (repo indipendente)
-└── edg-edg-frontend          (repo indipendente)
-
-Repository Principale (edg-docker):
-└── edg-docker/
-    ├── docker-compose.yml    (orchestration)
-    ├── .env.example          (configurazione)
-    ├── .gitignore
-    ├── email-service/        ✅ Incluso qui
-    ├── api-gateway/          ✅ Incluso qui
-    ├── traefik/              (configurazione)
-    └── README.md

@@ -117,6 +117,25 @@ async function send(payload: LogPayload): Promise<void> {
 }
 
 // ---------------------------------------------------------------------------
+// Politica di persistenza delle richieste HTTP (ADR034)
+// "Chi ha fatto cosa" e' garantito dagli eventi di audit espliciti
+// (logger.audit): questo livello tecnico e' una rete di sicurezza. Si scarta
+// SOLO la lettura riuscita e veloce:
+//   - metodi di scrittura (POST/PUT/PATCH/DELETE) -> sempre, qualunque esito
+//   - qualunque metodo con statusCode >= 400       -> sempre (401/403/4xx/5xx)
+//   - qualunque metodo piu' lento di SLOW_REQUEST_MS -> sempre (meta.slow)
+// Funzione identica in auth-service, system-service e vehicle-service.
+// ---------------------------------------------------------------------------
+const SLOW_REQUEST_MS = Number(process.env.LOG_SLOW_REQUEST_MS) || 1024;
+const READ_METHODS = new Set(['GET', 'HEAD', 'OPTIONS']);
+
+function shouldPersistRequest(method: string, statusCode: number, duration: number): boolean {
+  if (statusCode >= 400) return true;
+  if (duration >= SLOW_REQUEST_MS) return true;
+  return !READ_METHODS.has(method.toUpperCase());
+}
+
+// ---------------------------------------------------------------------------
 // API pubblica
 // ---------------------------------------------------------------------------
 export const logger = {
@@ -164,19 +183,32 @@ export const logger = {
     });
   },
 
-  // Log richiesta HTTP completata (usato dall'app.ts request logger).
-  // Sempre categoria SYSTEM: è un log tecnico generato automaticamente per
-  // ogni chiamata, non un'azione applicativa.
+  // Log richiesta HTTP completata (usato dal request logger in app.ts).
+  // Sempre categoria SYSTEM: e' un log tecnico generato automaticamente, non
+  // un'azione applicativa. Filtrato da shouldPersistRequest() (ADR034): le
+  // letture riuscite e veloci non arrivano a log-service — in development
+  // restano visibili solo in console.
   request(method: string, url: string, statusCode: number, duration: number, actor?: LogActor | null): void {
+    const message = `${method} ${url} → ${statusCode} (${duration}ms)`;
+
+    if (!shouldPersistRequest(method, statusCode, duration)) {
+      if (IS_DEV) console.log(`· [${SERVICE_NAME}] http_request: ${message}`);
+      return;
+    }
+
     const level: LogLevel = statusCode >= 500 ? 'error' : statusCode >= 400 ? 'warn' : 'info';
     void send({
       level,
       service: SERVICE_NAME,
       action: 'http_request',
-      message: `${method} ${url} → ${statusCode} (${duration}ms)`,
+      message,
       actor,
       statusCode,
       duration,
+      meta: {
+        method: method.toUpperCase(),
+        ...(duration >= SLOW_REQUEST_MS ? { slow: true } : {}),
+      },
       categoria: 'SYSTEM',
     });
   },
