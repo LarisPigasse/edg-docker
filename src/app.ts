@@ -80,8 +80,12 @@ const QUIET_ON_SUCCESS = new Set(['/auth/login', '/auth/refresh']);
 const requestLogger = (app: Application): void => {
   app.use((req: Request, res: Response, next: NextFunction) => {
     const start = Date.now();
+    // Path completo catturato ORA: in 'finish' Express ha gia' riscritto
+    // req.url/req.path relativi al router montato (es. '/refresh' invece di
+    // '/auth/refresh') — vedi lezione L039.
+    const path = req.path;
     res.on('finish', () => {
-      if (res.statusCode < 400 && QUIET_ON_SUCCESS.has(req.path)) return;
+      if (res.statusCode < 400 && QUIET_ON_SUCCESS.has(path)) return;
       // req.account e' valorizzato da authenticate() (middleware/authMiddleware.ts)
       // solo sulle route protette: sulle altre la richiesta risulta di 'sistema'.
       const account = (req as any).account;
