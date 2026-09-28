@@ -1,0 +1,230 @@
+// =============================================================================
+// EDG Auth Service - Logger Service
+// Invia log al log-service centralizzato (MongoDB) via POST /api/log/azione.
+// Fallback silenzioso su console se il servizio non è raggiungibile — il
+// logging non deve mai far fallire una richiesta di autenticazione.
+//
+// Stesso identico pattern di vehicle-service/system-service
+// (src/services/logger.ts in quei due progetti): un solo punto di invio
+// (send) che traduce un payload semplice nei campi legacy richiesti dallo
+// schema Mongoose AzioneLog (origine/azione/risultato.esito), più un'API
+// pubblica condivisa (info/warn/error/debug/audit/request).
+//
+// Usa il fetch globale di Node (stabile da Node 18+, qui Node 20 — vedi
+// Dockerfile) invece del pacchetto axios (non una dipendenza di
+// auth-service) o node-fetch: stesso approccio già in uso in questo
+// servizio per EmailServiceClient.
+// =============================================================================
+
+// ---------------------------------------------------------------------------
+// Tipi
+// ---------------------------------------------------------------------------
+type LogLevel = 'info' | 'warn' | 'error' | 'debug';
+
+/** Le 6 categorie note a log-service (src/types/eventCategories.ts) — qui come
+ *  union di stringhe, non enum: evita di dipendere dal pacchetto di log-service
+ *  solo per questo tipo. */
+type EventCategory = 'AUTH' | 'DATA' | 'EMAIL' | 'SYSTEM' | 'AUDIT' | 'SECURITY';
+
+/** Chi ha generato l'evento — id/email/tenantId dell'account coinvolto (chi
+ *  effettua il login, o l'admin che compie l'azione), assemblati dal chiamante
+ *  a partire da account/req.account: nessuna query aggiuntiva nel percorso di
+ *  logging. tenantId assente per gli eventi non legati a un account (vedi
+ *  origine.tipo 'sistema' in send()). */
+interface LogActor {
+  id: number;
+  email?: string | null;
+  tenantId?: number | null;
+}
+
+interface LogPayload {
+  level: LogLevel;
+  service: string;
+  action: string;
+  message: string;
+  categoria: EventCategory;
+  actor?: LogActor | null;
+  meta?: Record<string, unknown>;
+  duration?: number;
+  statusCode?: number;
+}
+
+// ---------------------------------------------------------------------------
+// Configurazione
+// ---------------------------------------------------------------------------
+const LOG_SERVICE_URL = process.env.LOG_SERVICE_URL || 'http://log-service:4000';
+const LOG_API_KEY = process.env.LOG_API_KEY_SECRET || '';
+// NOTA: non legge process.env.SERVICE_NAME — quella variabile e' gia'
+// usata da core/config/environment.ts per un nome descrittivo
+// ("EDG Auth Service", per banner/health), non per lo slug che deve
+// finire nei log come identificativo del servizio. Qui serve lo slug,
+// coerente con vehicle-service/system-service ('vehicle-service',
+// 'system-service' — anche loro costanti, non da env).
+const SERVICE_NAME = 'auth-service';
+const IS_DEV = process.env.NODE_ENV === 'development';
+
+// ---------------------------------------------------------------------------
+// Invio al log-service (fire and forget)
+// ---------------------------------------------------------------------------
+async function send(payload: LogPayload): Promise<void> {
+  // In development logga sempre su console
+  if (IS_DEV) {
+    const icon = { info: 'ℹ️', warn: '⚠️', error: '❌', debug: '🔍' }[payload.level];
+    console.log(`${icon} [${payload.service}] ${payload.action}: ${payload.message}`, payload.meta || '');
+  }
+
+  const esito: 'successo' | 'fallito' | 'parziale' =
+    payload.level === 'error' ? 'fallito' : payload.level === 'warn' ? 'parziale' : 'successo';
+  const criticita = payload.level === 'error' ? 'error' : payload.level === 'warn' ? 'warning' : 'info';
+
+  const body = {
+    timestamp: new Date().toISOString(),
+    categoria: payload.categoria,
+    criticita,
+    origine: {
+      tipo: payload.actor?.id != null ? 'utente' : 'sistema',
+      id: payload.actor?.id != null ? String(payload.actor.id) : payload.service,
+      dettagli: {
+        ...(payload.actor?.email ? { email: payload.actor.email } : {}),
+        ...(payload.actor?.tenantId != null ? { tenantId: payload.actor.tenantId } : {}),
+      },
+    },
+    azione: {
+      tipo: 'custom',
+      entita: payload.service,
+      idEntita: payload.action,
+      operazione: payload.message,
+      dettagli: {
+        ...payload.meta,
+        ...(payload.duration !== undefined ? { duration: payload.duration } : {}),
+        ...(payload.statusCode !== undefined ? { statusCode: payload.statusCode } : {}),
+      },
+    },
+    risultato: {
+      esito,
+      messaggio: payload.message,
+    },
+    contesto: {
+      ambiente: process.env.NODE_ENV || 'development',
+    },
+    tags: [payload.service, payload.level],
+  };
+
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 2000); // Non bloccare se il log-service è lento
+
+  try {
+    await fetch(`${LOG_SERVICE_URL}/api/log/azione`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': LOG_API_KEY,
+      },
+      body: JSON.stringify(body),
+      signal: controller.signal,
+    });
+  } catch {
+    // Fallback silenzioso — il logging non deve mai far fallire il servizio
+    if (!IS_DEV) {
+      console.error(`[Logger] Log-service non raggiungibile: ${payload.action}`);
+    }
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Politica di persistenza delle richieste HTTP (ADR034)
+// "Chi ha fatto cosa" e' garantito dagli eventi di audit espliciti
+// (logger.audit): questo livello tecnico e' una rete di sicurezza. Si scarta
+// SOLO la lettura riuscita e veloce:
+//   - metodi di scrittura (POST/PUT/PATCH/DELETE) -> sempre, qualunque esito
+//   - qualunque metodo con statusCode >= 400       -> sempre (401/403/4xx/5xx)
+//   - qualunque metodo piu' lento di SLOW_REQUEST_MS -> sempre (meta.slow)
+// Funzione identica in auth-service, system-service e vehicle-service.
+// ---------------------------------------------------------------------------
+const SLOW_REQUEST_MS = Number(process.env.LOG_SLOW_REQUEST_MS) || 1024;
+const READ_METHODS = new Set(['GET', 'HEAD', 'OPTIONS']);
+
+function shouldPersistRequest(method: string, statusCode: number, duration: number): boolean {
+  if (statusCode >= 400) return true;
+  if (duration >= SLOW_REQUEST_MS) return true;
+  return !READ_METHODS.has(method.toUpperCase());
+}
+
+// ---------------------------------------------------------------------------
+// API pubblica — stessa interfaccia di vehicle-service/system-service, per
+// coerenza tra i microservizi EDG.
+// ---------------------------------------------------------------------------
+export const logger = {
+  info(action: string, message: string, meta?: Record<string, unknown>, categoria: EventCategory = 'AUTH', actor?: LogActor | null): void {
+    void send({ level: 'info', service: SERVICE_NAME, action, message, meta, categoria, actor });
+  },
+
+  warn(action: string, message: string, meta?: Record<string, unknown>, categoria: EventCategory = 'AUTH', actor?: LogActor | null): void {
+    void send({ level: 'warn', service: SERVICE_NAME, action, message, meta, categoria, actor });
+  },
+
+  error(action: string, message: string, meta?: Record<string, unknown>, categoria: EventCategory = 'AUTH', actor?: LogActor | null): void {
+    void send({ level: 'error', service: SERVICE_NAME, action, message, meta, categoria, actor });
+  },
+
+  debug(action: string, message: string, meta?: Record<string, unknown>): void {
+    if (IS_DEV) {
+      void send({ level: 'debug', service: SERVICE_NAME, action, message, meta, categoria: 'SYSTEM' });
+    }
+  },
+
+  // Log azione con attore autenticato — usato per gli eventi di audit
+  // (login, cambio password, blocco/sblocco, revoca sessione, permessi ruolo).
+  // In questo servizio la categoria di default è AUTH: è il dominio di
+  // auth-service, a differenza di system-service/vehicle-service dove il
+  // default è DATA.
+  audit(
+    action: string,
+    message: string,
+    actor: LogActor,
+    meta?: Record<string, unknown>,
+    categoria: EventCategory = 'AUTH'
+  ): void {
+    void send({
+      level: 'info',
+      service: SERVICE_NAME,
+      action,
+      message,
+      actor,
+      meta: { ...meta, audit: true },
+      categoria,
+    });
+  },
+
+  // Log richiesta HTTP completata (usato dal request logger in app.ts).
+  // Sempre categoria SYSTEM: e' un log tecnico generato automaticamente, non
+  // un'azione applicativa. Filtrato da shouldPersistRequest() (ADR034): le
+  // letture riuscite e veloci non arrivano a log-service — in development
+  // restano visibili solo in console.
+  request(method: string, url: string, statusCode: number, duration: number, actor?: LogActor | null): void {
+    const message = `${method} ${url} → ${statusCode} (${duration}ms)`;
+
+    if (!shouldPersistRequest(method, statusCode, duration)) {
+      if (IS_DEV) console.log(`· [${SERVICE_NAME}] http_request: ${message}`);
+      return;
+    }
+
+    const level: LogLevel = statusCode >= 500 ? 'error' : statusCode >= 400 ? 'warn' : 'info';
+    void send({
+      level,
+      service: SERVICE_NAME,
+      action: 'http_request',
+      message,
+      actor,
+      statusCode,
+      duration,
+      meta: {
+        method: method.toUpperCase(),
+        ...(duration >= SLOW_REQUEST_MS ? { slow: true } : {}),
+      },
+      categoria: 'SYSTEM',
+    });
+  },
+};

@@ -58,9 +58,16 @@ const authenticateFromGateway = (req: Request, res: Response, next: NextFunction
         accountId: user.accountId,
         email: user.email,
         accountType: user.accountType,
+        tenantId: user.tenantId ?? null, // ADR009
         roleId: user.roleId,
         permissions: user.permissions || [],
+        modules: user.modules || [], // ADR009
+        sessionId: user.sessionId ?? null,
       };
+      // sessionId anche a livello top — SessionController.revokeSession lo
+      // legge da qui per impedire all'admin di revocare la propria sessione
+      // corrente (stesso schema della modalità standalone, vedi sotto).
+      (req as any).sessionId = user.sessionId ?? null;
 
       console.log(`✅ [AUTH] Gateway mode: utente autenticato (${user.email})`);
       next();
@@ -98,16 +105,25 @@ const authenticateFromJWT = async (req: Request, res: Response, next: NextFuncti
     // Controllo blacklist Redis — account disattivato di recente
     const isBlocked = await redisService.isAccountBlocked(payload.accountId);
     if (isBlocked) {
-      res.status(401).json({
-        success: false,
-        error: 'Account disattivato',
-      });
+      res.status(401).json({ success: false, error: 'Account disattivato' });
       return;
+    }
+
+    // Controllo blacklist Redis — sessione revocata di recente
+    if (payload.sessionId) {
+      const isSessionBlocked = await redisService.isSessionBlocked(payload.sessionId);
+      if (isSessionBlocked) {
+        res.status(401).json({ success: false, error: 'Sessione revocata' });
+        return;
+      }
     }
 
     // ✅ Aggiungi dati account alla request (codice originale)
     (req as any).accountId = payload.accountId;
     (req as any).account = payload;
+    // sessionId — usato da SessionController.revokeSession per impedire
+    // all'admin di revocare la propria sessione corrente.
+    (req as any).sessionId = payload.sessionId ?? null;
 
     console.log(`✅ [AUTH] Standalone mode: utente autenticato (${payload.email})`);
     next();

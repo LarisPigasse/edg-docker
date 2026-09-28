@@ -15,9 +15,11 @@ const VALID_MODULES = ['spedizioni', 'gestione', 'report', 'sistema', '*'] as co
 const VALID_ACTIONS = ['read', 'create', 'update', 'delete', 'approve', 'export', '*'] as const;
 
 /**
- * Account types validi
+ * Account types validi. Allineati a AccountType (auth.types.ts) e allo
+ * schema Joi realmente applicato (accountSchemas.ts): 'partner' e 'agente'
+ * non sono mai stati account type distinti, vedi discussione del 17/09/2026.
  */
-const VALID_ACCOUNT_TYPES = ['operatore', 'partner', 'cliente', 'agente'] as const;
+const VALID_ACCOUNT_TYPES = ['operatore', 'cliente'] as const;
 
 // ============================================================================
 // VALIDATION UTILS

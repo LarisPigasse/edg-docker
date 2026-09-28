@@ -100,8 +100,11 @@ export const extractUserData = (req: Request, res: Response, next: NextFunction)
       accountId: userData.accountId,
       email: userData.email,
       accountType: userData.accountType,
+      tenantId: userData.tenantId ?? null, // ADR009
       roleId: userData.roleId,
       permissions: userData.permissions || [],
+      modules: userData.modules || [], // ADR009
+      sessionId: userData.sessionId ?? null,
     };
 
     next();

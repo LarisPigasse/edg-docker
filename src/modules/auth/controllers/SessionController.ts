@@ -3,6 +3,7 @@
 import { Request, Response } from 'express';
 import { Op } from 'sequelize';
 import { redisService } from '../../../core/services/RedisService';
+import { logger } from '../../../services/logger';
 
 export class SessionController {
   constructor(
@@ -110,6 +111,13 @@ export class SessionController {
       // Blacklist Redis → blocco immediato dell'access token ancora valido
       await redisService.blockSession(session.id);
 
+      logger.audit(
+        'auth.session_revoked',
+        `Sessione #${session.id} revocata (account #${session.accountId})`,
+        { id: (req as any).accountId, email: (req as any).account?.email, tenantId: (req as any).account?.tenantId },
+        { sessionId: session.id, targetAccountId: session.accountId }
+      );
+
       res.json({
         success: true,
         message: 'Sessione revocata',
@@ -177,6 +185,13 @@ export class SessionController {
       // Blacklist Redis → blocco immediato degli access token ancora validi
       await redisService.blockAccount(account.id);
 
+      logger.audit(
+        'auth.account_blocked',
+        `Account bloccato: ${account.email}` + (blockedUntil ? ` fino a ${blockedUntil.toISOString()}` : ' (permanente)'),
+        { id: currentUserId, email: (req as any).account?.email, tenantId: (req as any).account?.tenantId },
+        { targetAccountId: account.id, targetEmail: account.email, reason: reason || null, blockedUntil }
+      );
+
       res.json({
         success: true,
         message: blockedUntil ? `Utente bloccato fino a ${blockedUntil.toISOString()}` : 'Utente bloccato permanentemente',
@@ -213,6 +228,13 @@ export class SessionController {
         blockedUntil: null,
         blockReason: null,
       });
+
+      logger.audit(
+        'auth.account_unblocked',
+        `Account sbloccato: ${account.email}`,
+        { id: (req as any).accountId, email: (req as any).account?.email, tenantId: (req as any).account?.tenantId },
+        { targetAccountId: account.id, targetEmail: account.email }
+      );
 
       res.json({
         success: true,

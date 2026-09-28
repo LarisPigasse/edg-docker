@@ -11,6 +11,8 @@ import {
   createResetTokenModel,
   createRoleModel,
   createRolePermissionModel,
+  createTenantModel,
+  createTenantModuleModel,
   setupAuthAssociations,
 } from './modules/auth/models';
 
@@ -20,7 +22,9 @@ import { AuthController } from './modules/auth/controllers/AuthController';
 import { SessionController } from './modules/auth/controllers/SessionController';
 import { createAuthRouter } from './modules/auth/routes/auth.routes';
 import { createAccountRouter } from './modules/auth/routes/account.routes';
-import { Router } from 'express';
+import { createTenantRouter } from './modules/auth/routes/tenant.routes';
+import { Router, Application, Request, Response, NextFunction } from 'express';
+import { logger } from './services/logger';
 
 // ============================================================================
 // CONFIGURAZIONE AUTH SERVICE
@@ -44,11 +48,52 @@ const AuthModuleConfig: ServerModule = {
   name: 'auth',
   path: '/auth',
   router: placeholderRouter,
-  models: [createRoleModel, createRolePermissionModel, createAccountModel, createSessionModel, createResetTokenModel],
+  models: [
+    createRoleModel,
+    createRolePermissionModel,
+    createTenantModel,
+    createTenantModuleModel,
+    createAccountModel,
+    createSessionModel,
+    createResetTokenModel,
+  ],
   associations: setupAuthAssociations,
 };
 
 console.log(' AuthModuleConfig creato con placeholder router');
+
+// ============================================================================
+// REQUEST LOGGER (ADR034)
+// ============================================================================
+// Stesso ruolo del request logger di system-service/vehicle-service: rete di
+// sicurezza tecnica, filtrata da shouldPersistRequest() in services/logger.ts
+// (letture riuscite e veloci scartate). Registrato come customMiddleware:
+// EDGServer lo monta nel costruttore, dopo / e /health (quindi gli health
+// check non passano mai di qui) e prima di tutte le route applicative.
+//
+// QUIET_ON_SUCCESS: scritture che, se riuscite, sono gia' coperte da un evento
+// di audit esplicito (login -> auth.login_success) o sono puramente tecniche
+// (refresh del token, ripetuto in automatico dal frontend). In caso di errore
+// (>= 400) vengono comunque registrate.
+const QUIET_ON_SUCCESS = new Set(['/auth/login', '/auth/refresh']);
+
+const requestLogger = (app: Application): void => {
+  app.use((req: Request, res: Response, next: NextFunction) => {
+    const start = Date.now();
+    res.on('finish', () => {
+      if (res.statusCode < 400 && QUIET_ON_SUCCESS.has(req.path)) return;
+      // req.account e' valorizzato da authenticate() (middleware/authMiddleware.ts)
+      // solo sulle route protette: sulle altre la richiesta risulta di 'sistema'.
+      const account = (req as any).account;
+      const actor =
+        account?.accountId != null
+          ? { id: account.accountId, email: account.email, tenantId: account.tenantId ?? null }
+          : null;
+      logger.request(req.method, req.originalUrl, res.statusCode, Date.now() - start, actor);
+    });
+    next();
+  });
+};
 
 // ============================================================================
 // CREAZIONE SERVER (senza route ancora)
@@ -58,6 +103,7 @@ console.log('\n [APP] Fase 2: Creazione server');
 const server = createServer({
   config,
   modules: [AuthModuleConfig],
+  customMiddleware: [requestLogger],
 });
 console.log(' Server creato (route non ancora registrate)');
 
@@ -88,15 +134,17 @@ const startServer = async () => {
     const ResetToken = models.find((m: any) => m.name === 'ResetToken');
     const Role = models.find((m: any) => m.name === 'Role');
     const RolePermission = models.find((m: any) => m.name === 'RolePermission');
+    const Tenant = models.find((m: any) => m.name === 'Tenant');
+    const TenantModule = models.find((m: any) => m.name === 'TenantModule');
 
-    if (!Account || !Session || !ResetToken || !Role || !RolePermission) {
+    if (!Account || !Session || !ResetToken || !Role || !RolePermission || !Tenant || !TenantModule) {
       throw new Error('Errore: modelli richiesti non trovati dopo inizializzazione');
     }
     console.log('  Tutti i modelli trovati');
 
     // 3. INIZIALIZZA la logica di business (Service e Controller)
     console.log('\n [APP] Fase 5: Creazione Service e Controller');
-    const authService = new AuthService(Account, Session, ResetToken, Role, RolePermission);
+    const authService = new AuthService(Account, Session, ResetToken, Role, RolePermission, TenantModule, Tenant);
     console.log('  AuthService creato');
 
     const authController = new AuthController(authService);
@@ -141,9 +189,15 @@ const startServer = async () => {
     // 5.1 CREA E REGISTRA ROUTER ACCOUNTS
     console.log('\n🔧 [APP] Fase 8.1: Creazione e registrazione router accounts');
     const app = server.getApp();
-    const accountRouter = createAccountRouter(Account, Role, Session);
+    const accountRouter = createAccountRouter(Account, Role, Session, Tenant, RolePermission);
     app.use('/auth/accounts', accountRouter);
     console.log('   ✅ Router accounts creato e registrato!');
+
+    // 5.1bis CREA E REGISTRA ROUTER TENANTS (menu "SISTEMA", solo root)
+    console.log('\n🔧 [APP] Fase 8.1bis: Creazione e registrazione router tenants');
+    const tenantRouter = createTenantRouter(Tenant);
+    app.use('/auth/tenants', tenantRouter);
+    console.log('   ✅ Router tenants creato e registrato!');
 
     // 5.2 CRON JOB — pulizia sessioni e token scaduti
     console.log('\n🔧 [APP] Fase 8.2: Setup cron job pulizia sessioni');

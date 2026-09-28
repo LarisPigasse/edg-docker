@@ -13,6 +13,7 @@ import { TokenService } from './TokenService';
 import { emailServiceClient } from '../../../clients/EmailServiceClient';
 import { parseUserAgent } from '../utils/deviceDetection';
 import { geolocateIP } from '../utils/geolocation';
+import { logger } from '../../../services/logger';
 
 export class AuthService {
   private tokenService: TokenService;
@@ -22,7 +23,9 @@ export class AuthService {
     private sessionModel: any,
     private resetTokenModel: any,
     private roleModel: any,
-    private rolePermissionModel: any // ✅ AGGIUNTO: model RolePermission
+    private rolePermissionModel: any, // ✅ AGGIUNTO: model RolePermission
+    private tenantModuleModel: any, // ✅ NUOVO (ADR009): model TenantModule
+    private tenantModel: any // ✅ NUOVO: model Tenant, solo per leggere il nome (pagina profilo)
   ) {
     this.tokenService = new TokenService();
   }
@@ -110,11 +113,23 @@ export class AuthService {
     });
 
     if (!account) {
+      logger.warn(
+        'auth.login_failed',
+        `Login fallito: email non trovata (${data.email})`,
+        { ip: ipAddress, userAgent, reason: 'email_non_trovata' }
+      );
       throw new Error('Credenziali non valide');
     }
 
     // Verifica stato account
     if (!account.isActive) {
+      logger.warn(
+        'auth.login_failed',
+        `Login fallito: account disattivato (${data.email})`,
+        { ip: ipAddress, userAgent, reason: 'account_disattivato' },
+        undefined,
+        { id: account.id, email: account.email, tenantId: account.tenantId }
+      );
       throw new Error('Account disattivato');
     }
 
@@ -122,11 +137,20 @@ export class AuthService {
     const isPasswordValid = await PasswordUtils.verify(data.password, account.password);
 
     if (!isPasswordValid) {
+      logger.warn(
+        'auth.login_failed',
+        `Login fallito: password errata (${data.email})`,
+        { ip: ipAddress, userAgent, reason: 'password_errata' },
+        undefined,
+        { id: account.id, email: account.email, tenantId: account.tenantId }
+      );
       throw new Error('Credenziali non valide');
     }
 
-    // Estrai permessi dal ruolo
+    // Estrai permessi dal ruolo e moduli attivi del tenant
     const permissions = await this.loadAccountPermissions(account.id);
+    const modules = await this.loadTenantModules(account.tenantId);
+    const tenantName = await this.loadTenantName(account.tenantId);
 
     const refreshToken = this.tokenService.generateRefreshToken();
 
@@ -157,13 +181,22 @@ export class AuthService {
       accountId: account.id,
       email: account.email,
       accountType: account.accountType,
+      tenantId: account.tenantId,
       roleId: account.roleId,
       permissions,
+      modules,
       sessionId: session.id,
     });
 
     // Aggiorna ultimo login
     await account.update({ lastLogin: new Date() });
+
+    logger.audit(
+      'auth.login_success',
+      `Login riuscito: ${account.email}`,
+      { id: account.id, email: account.email, tenantId: account.tenantId },
+      { ip: ipAddress, userAgent, sessionId: session.id, roleId: account.roleId }
+    );
 
     return {
       accessToken,
@@ -172,9 +205,12 @@ export class AuthService {
         id: account.id,
         email: account.email,
         accountType: account.accountType,
+        tenantId: account.tenantId, // ✅ NUOVO (ADR009)
         roleId: account.roleId,
         permissions, // ✅ AGGIUNTO: Permessi inclusi nella response
         roleName: account.role?.name, // ✅ AGGIUNTO: Nome del ruolo incluso nella response
+        modules, // ✅ NUOVO (ADR009): moduli attivi del tenant, solo per UX frontend
+        tenantName, // ✅ NUOVO: nome del tenant, solo per la pagina profilo
       },
     };
   }
@@ -225,16 +261,20 @@ export class AuthService {
       throw new Error('Account disattivato');
     }
 
-    // Carica permessi
+    // Carica permessi e moduli del tenant
     const permissions = await this.loadAccountPermissions(account.id);
+    const modules = await this.loadTenantModules(account.tenantId);
+    const tenantName = await this.loadTenantName(account.tenantId);
 
-    // Genera nuovo access token con permissions
+    // Genera nuovo access token con permissions e modules
     const accessToken = this.tokenService.generateAccessToken({
       accountId: account.id,
       email: account.email,
       accountType: account.accountType,
+      tenantId: account.tenantId,
       roleId: account.roleId,
       permissions,
+      modules,
       sessionId: session.id,
     });
 
@@ -252,9 +292,12 @@ export class AuthService {
         id: account.id,
         email: account.email,
         accountType: account.accountType,
+        tenantId: account.tenantId, // ✅ NUOVO (ADR009)
         roleId: account.roleId,
         permissions, // ✅ AGGIUNTO: Permessi inclusi nella response
         roleName: account.role?.name, // ✅ AGGIUNTO: Nome del ruolo incluso nella response
+        modules, // ✅ NUOVO (ADR009): moduli attivi del tenant, solo per UX frontend
+        tenantName, // ✅ NUOVO: nome del tenant, solo per la pagina profilo
       },
     };
   }
@@ -390,6 +433,8 @@ export class AuthService {
     const passwordHash = await PasswordUtils.hash(newPassword);
     await account.update({ password: passwordHash });
 
+    logger.audit('auth.password_changed', `Password modificata: ${account.email}`, { id: account.id, email: account.email, tenantId: account.tenantId });
+
     // Revoca tutte le sessioni (opzionale)
     await this.logoutAll(accountId);
   }
@@ -418,6 +463,36 @@ export class AuthService {
   // ============================================================================
   // HELPER METHODS PER RBAC
   // ============================================================================
+
+  /**
+   * Carica i moduli attivi di un tenant (ADR009).
+   * Il tenant di sistema EDG ha un unico modulo '*' (wildcard): tutti i moduli attivi.
+   */
+  private async loadTenantModules(tenantId: number): Promise<string[]> {
+    if (!tenantId) {
+      return [];
+    }
+
+    const tenantModules = await this.tenantModuleModel.findAll({
+      where: { tenantId },
+    });
+
+    return tenantModules.map((tm: any) => tm.module);
+  }
+
+  /**
+   * Carica il nome del tenant, solo per la visualizzazione nella pagina profilo.
+   * Non è un dato di sicurezza: l'autorizzazione si basa esclusivamente su tenantId/modules.
+   */
+  private async loadTenantName(tenantId: number): Promise<string | null> {
+    if (!tenantId) {
+      return null;
+    }
+
+    const tenant = await this.tenantModel.findByPk(tenantId);
+
+    return tenant?.name ?? null;
+  }
 
   /**
    * Carica i permessi di un account dal suo ruolo

@@ -14,8 +14,9 @@
     "lint:fix": "eslint . --ext .ts --fix",
     "db:sync": "DB_SYNC=true npm run dev",
     "seed:roles": "ts-node src/modules/auth/seed/roles.seed.ts",
+    "seed:tenants": "ts-node src/modules/auth/seed/tenants.seed.ts",
     "seed:root": "ts-node src/modules/auth/seed/root-account.seed.ts",
-    "seed:all": "npm run seed:roles && npm run seed:root",
+    "seed:all": "npm run seed:roles && npm run seed:tenants && npm run seed:root",
     "clean": "rm -rf dist",
     "create-service": "node scripts/create-service.js"
   },
@@ -39,6 +40,7 @@
     "express-rate-limit": "^7.4.1",
     "helmet": "^8.1.0",
     "ioredis": "^5.3.2",
+    "joi": "^18.2.9",
     "jsonwebtoken": "^9.0.2",
     "mysql2": "^3.14.0",
     "node-cron": "^3.0.3",

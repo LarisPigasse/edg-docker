@@ -44,6 +44,18 @@ export const createAccountModel = (sequelize: Sequelize) => {
         field: 'entityId',
         comment: "UUID dell'entità specifica (operatore_id, partner_id, etc.)",
       },
+      tenantId: {
+        type: DataTypes.INTEGER,
+        allowNull: true,
+        field: 'tenantId',
+        references: {
+          model: 'tenants',
+          key: 'id',
+        },
+        onDelete: 'RESTRICT',
+        onUpdate: 'CASCADE',
+        comment: 'Tenant di appartenenza (ADR009). Mai NULL a regime: gli account interni EDG puntano al tenant di sistema.',
+      },
       roleId: {
         type: DataTypes.INTEGER,
         allowNull: false,
@@ -106,6 +118,7 @@ export const createAccountModel = (sequelize: Sequelize) => {
         { fields: ['accountType'], name: 'idx_account_type' },
         { fields: ['entityId'], name: 'idx_entity_id' },
         { fields: ['accountType', 'entityId'], name: 'idx_account_type_entity' },
+        { fields: ['tenantId'], name: 'idx_account_tenant_id' },
         { fields: ['roleId'], name: 'idx_role_id' },
         { fields: ['isActive'], name: 'idx_is_active' },
         { fields: ['email'], name: 'idx_email' },

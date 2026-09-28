@@ -9,5 +9,9 @@ export { createResetTokenModel } from './ResetToken';
 export { createRoleModel } from './Role';
 export { createRolePermissionModel } from './RolePermission';
 
+// Modelli multi-tenant (ADR009)
+export { createTenantModel } from './Tenant';
+export { createTenantModuleModel } from './TenantModule';
+
 // Associazioni
 export { setupAuthAssociations } from './associations';

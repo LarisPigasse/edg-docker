@@ -8,9 +8,12 @@ import {
   createRolePermissionModel,
   createSessionModel,
   createResetTokenModel,
+  createTenantModel,
+  createTenantModuleModel,
   setupAuthAssociations 
 } from '../models';
 import { PasswordUtils } from '../utils';
+import { seedSystemTenant } from './tenants.seed';
 
 // ============================================================================
 // CONFIGURAZIONE ACCOUNT ROOT
@@ -58,11 +61,22 @@ async function createRootAccount() {
     const ResetToken = createResetTokenModel(sequelize);
     const Role = createRoleModel(sequelize);
     const RolePermission = createRolePermissionModel(sequelize);
+    const Tenant = createTenantModel(sequelize);
+    const TenantModule = createTenantModuleModel(sequelize);
 
     // Setup associazioni (passa tutti i modelli)
-    setupAuthAssociations([Account, Session, ResetToken, Role, RolePermission]);
+    setupAuthAssociations([Account, Session, ResetToken, Role, RolePermission, Tenant, TenantModule]);
+
+    // Assicura che le tabelle esistano (idempotente, come fanno gia' roles.seed.ts
+    // e tenants.seed.ts prima di operare sul DB) - necessario su un database vuoto
+    await sequelize.sync();
 
     console.log('✅ Modelli registrati\n');
+
+    // 3.1 Assicura che il tenant di sistema EDG esista (idempotente)
+    console.log('🔍 Verifica tenant di sistema "edg"...');
+    const systemTenant = await seedSystemTenant(Tenant, TenantModule);
+    console.log(`✅ Tenant di sistema pronto (ID: ${systemTenant.id})\n`);
 
     // 4. Verifica che esista il ruolo "root"
     console.log('🔍 Verifica ruolo "root"...');
@@ -112,6 +126,7 @@ async function createRootAccount() {
       password: passwordHash,
       accountType: ROOT_ACCOUNT.accountType,
       entityId: uuidv4(), // UUID fittizio per l'entità root
+      tenantId: systemTenant.id, // Tenant di sistema EDG (ADR009)
       roleId: (rootRole as any).id,
       isActive: true,
       isVerified: true, // Già verificato (è root)
