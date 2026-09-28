@@ -1,5 +1,5 @@
 {
-  "lastUpdated": "2026-09-22",
+  "lastUpdated": "2026-09-28",
   "modules": {
     "auth-service": {
       "status": "stable",
@@ -7,9 +7,9 @@
       "lastUpdated": "2026-09-14"
     },
     "log-service": {
-      "status": "in-progress",
-      "notes": "Server+alerting completi e deployati (MongoDB, 6 categorie/59 sottotipi, AlertManager con regole/cooldown/soglie, invio email via email-service già funzionante, brute-force login già seedato). Gap reale: auth-service non emette NESSUN evento (0 integrazione); system/vehicle-service usano un logger flat parallelo senza categoria/criticità, bypassando lo schema ricco. Manca dashboard di consultazione.",
-      "lastUpdated": "2026-09-22"
+      "status": "stable",
+      "notes": "Categoria/actor arricchiti (auth/system/vehicle logger.ts), filtro tenantId, dashboard Logs completa e verificata live: colonne Utente/Tenant/Account, modali allargate. entità/idEntità restano segnaposto tecnici (ADR031, non bloccante).",
+      "lastUpdated": "2026-09-28"
     },
     "email-service": {
       "status": "stable",
@@ -78,8 +78,8 @@
     },
     "@edg/ui (packages/ui)": {
       "status": "stable",
-      "notes": "ADR021: TableCapabilitiesProvider (Dati tecnici auto per root). DetailModal: no griglia/titoli. Input/Select: label=placeholder su valore, underline piu chiaro. Tabs: icon a sinistra label.",
-      "lastUpdated": "2026-09-10"
+      "notes": "Select.tsx: nuova prop optionSize ('sm'|'md'), applicata a Trigger (non a Select.Value, ignora className - vedi lezione). TechnicalDetailsModal: grid 2 colonne label:value, size lg/xxl.",
+      "lastUpdated": "2026-09-28"
     },
     "@edg/auth (packages/auth)": {
       "status": "stable",
@@ -92,9 +92,9 @@
       "lastUpdated": "2026-08-31"
     },
     "pro-frontend (edg-system)": {
-      "status": "in-progress",
-      "notes": "Frontend operatori EDG, porta 5173, icon 'iconPro'. Copia vuota di app-frontend piu sezione /design (tema, componenti) solo in DEV. Moduli accounts/system/vehicles ancora da migrare.",
-      "lastUpdated": "2026-08-31"
+      "status": "stable",
+      "notes": "Correzione nota obsoleta: Account/Ruoli/Sessioni/Logs sono già implementati e funzionanti in edg-system, non da migrare. LogsPage completata: 3 colonne risolte, filtri tenant, select compatte.",
+      "lastUpdated": "2026-09-28"
     },
     "asset-frontend (edg-docker)": {
       "status": "review",

@@ -144,8 +144,7 @@ export const create = async (req: Request, res: Response): Promise<void> => {
     logger.audit(
       'notification.create',
       `Notifica manuale #${record.id}: ${record.title}`,
-      req.user!.id,
-      req.user!.uuid ?? req.user!.email
+      req.user!
     );
 
     createdResponse(res, record, 'Notifica creata');
@@ -168,8 +167,7 @@ export const remove = async (req: Request, res: Response): Promise<void> => {
     logger.audit(
       'notification.delete',
       `Eliminata notifica #${req.params.id}`,
-      req.user!.id,
-      req.user!.uuid ?? req.user!.email
+      req.user!
     );
 
     successResponse(res, null, 'Notifica eliminata');

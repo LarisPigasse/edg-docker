@@ -108,8 +108,7 @@ export const create = async (req: Request, res: Response): Promise<void> => {
     logger.audit(
       'maintenanceRecord.create',
       `Intervento #${record.id} — veicolo #${req.body.vehicleId}`,
-      req.user!.id,
-      req.user!.uuid ?? req.user!.email,
+      req.user!,
       { type: req.body.maintenanceTypeId, km: req.body.kmAtService }
     );
 
@@ -178,8 +177,7 @@ export const update = async (req: Request, res: Response): Promise<void> => {
     logger.audit(
       'maintenanceRecord.update',
       `Aggiornato intervento #${record.id}`,
-      req.user!.id,
-      req.user!.uuid ?? req.user!.email
+      req.user!
     );
 
     successResponse(res, full, 'Intervento aggiornato');
@@ -201,8 +199,7 @@ export const remove = async (req: Request, res: Response): Promise<void> => {
     logger.audit(
       'maintenanceRecord.delete',
       `Eliminato intervento #${req.params.id}`,
-      req.user!.id,
-      req.user!.uuid ?? req.user!.email
+      req.user!
     );
     successResponse(res, null, 'Intervento eliminato');
   } catch (err) {

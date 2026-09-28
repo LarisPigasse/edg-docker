@@ -86,8 +86,7 @@ export const create = async (req: Request, res: Response): Promise<void> => {
     logger.audit(
       'driverCompliance.create',
       `Conformità #${record.id} — driver #${req.body.driverId}`,
-      req.user!.id,
-      req.user!.uuid ?? req.user!.email
+      req.user!
     );
 
     createdResponse(res, full, 'Conformità creata');
@@ -137,8 +136,7 @@ export const renew = async (req: Request, res: Response): Promise<void> => {
     logger.audit(
       'driverCompliance.renew',
       `Rinnovata conformità #${record.id} → ${req.body.expiresAt}`,
-      req.user!.id,
-      req.user!.uuid ?? req.user!.email
+      req.user!
     );
 
     successResponse(res, record, 'Conformità rinnovata');
@@ -159,8 +157,7 @@ export const remove = async (req: Request, res: Response): Promise<void> => {
     logger.audit(
       'driverCompliance.delete',
       `Eliminata conformità #${req.params.id}`,
-      req.user!.id,
-      req.user!.uuid ?? req.user!.email
+      req.user!
     );
     successResponse(res, null, 'Conformità eliminata');
   } catch (err) {

@@ -1,5 +1,5 @@
 {
-  "lastUpdated": "2026-09-22",
+  "lastUpdated": "2026-09-28",
   "decisions": [
     {
       "id": "ADR001",
@@ -260,6 +260,42 @@
       "context": "Nella pagina Account mancava un filtro per ruolo (esisteva solo per tenant e stato), e la colonna \"Collegato a\" ripeteva il tipo anagrafica già visibile nella colonna \"Tipo\" (es. \"Cliente Demo — Cliente\").",
       "decision": "Aggiunto filtro \"Filtra per ruolo\" (stesso schema del filtro tenant, combinabile liberamente con esso; il backend supportava già roleId in query, nessuna modifica server necessaria). Estratta la mappatura nome-ruolo→etichetta leggibile (Root/Admin/Operatore/Guest), già introdotta per RuoliPage, in un file condiviso constants/roleLabels.ts, applicata anche alla colonna Ruolo di AccountPage (prima mostrava il nome tecnico non formattato). In useEntityDirectory.ts aggiunta una seconda funzione getShortLabel (nome anagrafica senza suffisso tipo), usata solo dalla colonna/PDF \"Collegato a\" di AccountPage: il selettore EntityLinkSelect nel form di creazione/modifica continua a usare la versione con suffisso, perché lì clienti e partner compaiono mescolati nello stesso elenco (condividono oggi lo stesso accountType 'cliente') e il suffisso resta necessario per distinguerli in fase di scelta.",
       "rationale": "Un solo punto di formattazione per le etichette dei ruoli evita la duplicazione tra le due pagine che le mostrano. Mantenere due varianti dell'etichetta anagrafica (con e senza suffisso) invece di una sola risolve la ridondanza segnalata dall'utente senza perdere l'informazione dove serve davvero (il selettore). Emersa nel farlo una lacuna preesistente non ancora affrontata: accountType 'partner' non è gestito da EntityLinkSelect/useEntityDirectory (solo 'operatore' e 'cliente'), quindi clienti e partner condividono oggi lo stesso accountType 'cliente' — coerente con la discussione in corso su come Express Delivery Group modella la distinzione cliente/partner (una capacità di rivendita, non un'identità separata).",
+      "status": "accepted"
+    },
+    {
+      "id": "ADR030",
+      "date": "2026-09-28",
+      "title": "Colonne Utente/Tenant/Account nella pagina Logs risolte lato frontend, non arricchendo ulteriormente i logger",
+      "context": "La tabella Logs mostrava solo l'id numerico grezzo dell'account in colonna \"Utente\" — poco comprensibile. Serviva mostrare il nome dell'operatore/ragione sociale collegati, il tenant e l'email, come tre colonne distinte (Utente/Tenant/Account).",
+      "decision": "Risolte interamente a runtime nel frontend: nuovo hook useAccountDirectory (apps/pro-frontend/src/features/base/api/) che mappa origine.id → Account.entityId/accountType, combinato con useEntityDirectory già esistente (usato da AccountPage per la colonna \"Collegato a\") per ottenere il nome leggibile. Nessuna modifica ai tre logger.ts.",
+      "rationale": "Riusa un'infrastruttura già esistente e testata invece di inventarne una nuova; evita un quarto giro di rebuild dei tre servizi backend; funziona retroattivamente anche sui log scritti prima di qualunque arricchimento, perché origine.id è sempre stato presente (a differenza di dettagli.email/tenantId, aggiunti solo il 24/09). Il match usa origine.id (stabile, numerico) invece dell'email (che può cambiare nel tempo).",
+      "status": "accepted"
+    },
+    {
+      "id": "ADR031",
+      "date": "2026-09-28",
+      "title": "azione.entita/idEntita nei log restano segnaposto tecnici (servizio+azione), non l'entità di business coinvolta",
+      "context": "L'utente root si aspettava che \"Entità\" nel dettaglio di un log mostrasse l'oggetto coinvolto nell'azione (es. l'account bloccato, il veicolo creato) — invece mostra sempre il nome del servizio (es. \"EDG System Service\"/\"auth-service\") e il nome tecnico dell'azione (es. \"http_request\", \"auth.account_blocked\"), identico per ogni riga dello stesso tipo.",
+      "decision": "Chiarita e documentata la semantica attuale senza modificarla in questa sessione: nel metodo generico audit()/send() dei tre logger.ts, entita=payload.service e idEntita=payload.action, sempre. I dati per una vera entità di business esistono già in vari call site ma non sono promossi a questi campi: crudFactory.ts ha resourceName+newId (es. \"Veicolo #42\"), SessionController.blockUser ha targetAccountId+targetEmail — oggi finiscono solo nel messaggio testuale o sepolti in azione.dettagli (JSON grezzo).",
+      "rationale": "Estendere audit() per accettare un'entità esplicita è un refactor più ampio, che tocca tutti i call site nei tre servizi backend — non richiesto in questa sessione (l'utente ha chiesto solo di capire e ha accettato lo stato attuale). Da riprendere come intervento dedicato quando servirà filtrare/cercare i log per entità di business reale, non solo per servizio.",
+      "status": "accepted"
+    },
+    {
+      "id": "ADR032",
+      "date": "2026-09-28",
+      "title": "Filtro Tenant sui log: nuovo query param su campo già scritto, nessuna migrazione dati",
+      "context": "Mancava un modo per filtrare la tabella Logs per tenant.",
+      "decision": "Aggiunto tenantId a LogSearchParams (frontend) e a buildQuery in log-service/src/controllers/logController.ts: query['origine.dettagli.tenantId'] = Number(params.tenantId). Richiede rebuild di log-service (fatto). Select \"Tenant\" in LogFilters.tsx popolata da useTenantDirectory, stessa fonte già usata per la colonna Tenant in tabella.",
+      "rationale": "dettagli.tenantId è già scritto dai tre logger arricchiti dal 24/09 (campo Mixed in Mongoose, query diretta senza migrazione). Filtra correttamente solo sui log successivi a quella data — quelli precedenti non hanno tenantId in dettagli e restano esclusi da qualunque filtro tenant, coerente con la stessa limitazione già nota per la colonna Tenant in tabella.",
+      "status": "accepted"
+    },
+    {
+      "id": "ADR033",
+      "date": "2026-09-28",
+      "title": "Select.tsx (@edg/ui): nuova prop optionSize per menu a tendina con poco spazio orizzontale",
+      "context": "Nella barra filtri Logs le select sono strette (w-40/w-48) ma con etichette anche lunghe (nomi tenant, nomi operatori risolti) — a dimensione piena il testo occupava troppo spazio sia nelle opzioni del menu aperto sia nel valore mostrato a campo chiuso.",
+      "decision": "Aggiunta prop opzionale optionSize?: 'sm' | 'md' al componente Select condiviso, default 'md' (nessun impatto sugli usi esistenti nell'app). Riduce il testo sia delle voci nel menu aperto (classe sull'Item) sia del valore nel campo chiuso — quest'ultimo impostato sul SelectPrimitive.Trigger, non su Select.Value (vedi lezione: Select.Value di Radix ignora il proprio className).",
+      "rationale": "Estende il componente condiviso in modo retrocompatibile invece di duplicare Select con uno stile ad-hoc solo per Logs — riusabile da qualunque altro filtro stretto in futuro nell'app.",
       "status": "accepted"
     }
   ]

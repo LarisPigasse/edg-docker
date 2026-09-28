@@ -125,8 +125,7 @@ export const create = async (req: Request, res: Response): Promise<void> => {
     logger.audit(
       'vehicle.create',
       `Creato veicolo #${vehicle.id} ${vehicle.brand} ${vehicle.model}`,
-      req.user!.id,
-      req.user!.uuid ?? req.user!.email,
+      req.user!,
       { plate: vehicle.plate }
     );
 
@@ -170,7 +169,7 @@ export const update = async (req: Request, res: Response): Promise<void> => {
 
     const full = await Vehicle.findByPk(vehicle.id, { include: DEFAULT_INCLUDE });
 
-    logger.audit('vehicle.update', `Aggiornato veicolo #${vehicle.id}`, req.user!.id, req.user!.uuid ?? req.user!.email, {
+    logger.audit('vehicle.update', `Aggiornato veicolo #${vehicle.id}`, req.user!, {
       changes: Object.keys(req.body),
     });
 
@@ -199,8 +198,7 @@ export const updateStatus = async (req: Request, res: Response): Promise<void> =
     logger.audit(
       'vehicle.status',
       `Stato veicolo #${vehicle.id}: ${prevStatus} → ${req.body.status}`,
-      req.user!.id,
-      req.user!.uuid ?? req.user!.email,
+      req.user!,
       { notes: req.body.notes }
     );
 
@@ -228,8 +226,7 @@ export const remove = async (req: Request, res: Response): Promise<void> => {
     logger.audit(
       'vehicle.decommission',
       `Dismesso veicolo #${vehicle.id} ${vehicle.brand} ${vehicle.model}`,
-      req.user!.id,
-      req.user!.uuid ?? req.user!.email
+      req.user!
     );
 
     successResponse(res, null, 'Veicolo dismesso');

@@ -103,8 +103,7 @@ export const create = async (req: Request, res: Response): Promise<void> => {
     logger.audit(
       'vehicleAssignment.create',
       `Assegnato veicolo #${req.body.vehicleId} a driver #${req.body.driverId}`,
-      req.user!.id,
-      req.user!.uuid ?? req.user!.email
+      req.user!
     );
 
     createdResponse(res, full, 'Assegnazione creata');
@@ -130,7 +129,7 @@ export const end = async (req: Request, res: Response): Promise<void> => {
 
     await record.update({ endedAt: req.body.endedAt ?? new Date(), notes: req.body.notes ?? record.notes });
 
-    logger.audit('vehicleAssignment.end', `Chiusa assegnazione #${record.id}`, req.user!.id, req.user!.uuid ?? req.user!.email);
+    logger.audit('vehicleAssignment.end', `Chiusa assegnazione #${record.id}`, req.user!);
 
     const full = await VehicleAssignment.findByPk(record.id, { include: INCLUDE });
     successResponse(res, full, 'Assegnazione terminata');

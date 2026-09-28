@@ -87,8 +87,7 @@ export const create = async (req: Request, res: Response): Promise<void> => {
     logger.audit(
       'kmReading.create',
       `Lettura km #${reading.id} — veicolo #${req.body.vehicleId}: ${req.body.readingValue} km`,
-      req.user!.id,
-      req.user!.uuid ?? req.user!.email
+      req.user!
     );
 
     createdResponse(res, reading, 'Lettura km registrata');

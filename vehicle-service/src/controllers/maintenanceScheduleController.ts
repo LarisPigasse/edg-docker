@@ -91,8 +91,7 @@ export const create = async (req: Request, res: Response): Promise<void> => {
     logger.audit(
       'maintenanceSchedule.create',
       `Programmazione #${record.id} creata — veicolo #${req.body.vehicleId}`,
-      req.user!.id,
-      req.user!.uuid ?? req.user!.email
+      req.user!
     );
 
     const full = await MaintenanceSchedule.findByPk(record.id, { include: INCLUDE });
@@ -116,8 +115,7 @@ export const update = async (req: Request, res: Response): Promise<void> => {
     logger.audit(
       'maintenanceSchedule.update',
       `Aggiornato schedule #${record.id}`,
-      req.user!.id,
-      req.user!.uuid ?? req.user!.email,
+      req.user!,
       { changes: Object.keys(req.body) }
     );
 
@@ -140,8 +138,7 @@ export const remove = async (req: Request, res: Response): Promise<void> => {
     logger.audit(
       'maintenanceSchedule.delete',
       `Eliminata programmazione #${req.params.id}`,
-      req.user!.id,
-      req.user!.uuid ?? req.user!.email
+      req.user!
     );
     successResponse(res, null, 'Programmazione eliminata');
   } catch (err) {

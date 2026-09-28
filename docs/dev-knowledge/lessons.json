@@ -1,5 +1,5 @@
 {
-  "lastUpdated": "2026-09-22",
+  "lastUpdated": "2026-09-28",
   "lessons": [
     {
       "id": "L001",
@@ -306,6 +306,33 @@
       "title": "La documentazione di un modulo può essere molto più indietro del codice reale",
       "problem": "Esplorando log-service per una richiesta di revisione del sistema di log, README.md e CHANGELOG.md descrivono l'alerting (regole, cooldown, invio email) come \"Fase 2 - In Progress\"/pianificato. In realtà AlertManager.ts, AlertRule/AlertHistory, seedAlertRules.ts e l'integrazione con l'endpoint /email/alert di email-service sono già scritti, wired in logController.ts e funzionanti — inclusa una regola già seedata per il brute-force login (10 tentativi falliti in 15 minuti). Stesso pattern già visto in questa sessione su edg-system: il campo `permission` di BASE in navigation.config.ts è dichiarato ma mai letto (dead code commentato come \"in attesa di un filtro generico\"), e il blocco/sblocco utente esisteva completo lato backend senza alcuna UI collegata.",
       "solution": "Prima di giudicare \"cosa manca\" o \"cosa è già fatto\" in un modulo di questo progetto, verificare sempre il codice sorgente reale (grep di utilizzo, non solo esistenza del file; lettura dei controller che dovrebbero invocare una funzionalità) invece di fidarsi di README/CHANGELOG/commenti di stato — qui la conseguenza pratica è che auth-service (la fonte più importante di eventi di sicurezza: login, login falliti, cambio password) non invia oggi alcun evento a log-service, quindi la regola brute-force già pronta non può mai scattare, pur essendo tutta l'infrastruttura di allarme già completa e distribuita."
+    },
+    {
+      "id": "L035",
+      "date": "2026-09-28",
+      "category": "ui-components",
+      "severity": "medium",
+      "title": "Radix Select.Value ignora il proprio className — non applicarlo lì",
+      "problem": "Passare className a <SelectPrimitive.Value> (da @radix-ui/react-select) non ha alcun effetto visibile: il componente lo destruttura dalle props ma non lo riapplica mai allo span interno (verificato nel sorgente in node_modules/@radix-ui/react-select/dist/index.mjs, funzione SelectValue). Il tentativo iniziale di ridurre la dimensione del testo del valore selezionato tramite questo className è stato silenzioso e ha richiesto un secondo giro per essere diagnosticato.",
+      "solution": "Impostare la dimensione del testo sul SelectPrimitive.Trigger (il contenitore) invece che su Select.Value — Value non ha una propria font-size che la sovrascriva, quindi la eredita per cascata CSS dal trigger."
+    },
+    {
+      "id": "L036",
+      "date": "2026-09-28",
+      "category": "typescript",
+      "severity": "low",
+      "title": "node_modules/@edg/* con symlink corrotti — usare config con path alias per verificare",
+      "problem": "node_modules/@edg/ui e node_modules/@edg/auth in edg-system risultano symlink danneggiati (errore I/O anche su readlink, timestamp 8 settembre — preesistente, non causato da modifiche di sessione): tsc --noEmit -p apps/pro-frontend e npm run type-check falliscono con decine di TS2307 su @edg/ui/@edg/auth, anche su file mai toccati.",
+      "solution": "Verificare comunque il codice creando una tsconfig temporanea che estende tsconfig.app.json con 'paths' espliciti verso packages/ui/src/index.ts e packages/auth/src/index.ts (bypassando node_modules), lanciare tsc --noEmit -p su quella, poi ELIMINARLA subito (richiede device_request_delete_permission se non già concessa in sessione). Non tentare di riparare i symlink stessi senza che l'utente lo chieda esplicitamente."
+    },
+    {
+      "id": "L037",
+      "date": "2026-09-28",
+      "category": "logging",
+      "severity": "low",
+      "title": "system-service/vehicle-service: SERVICE_NAME da env collide col banner descrittivo di docker-compose",
+      "problem": "system-service/vehicle-service/logger.ts fanno const SERVICE_NAME = process.env.SERVICE_NAME || 'system-service', ma docker-compose.yml imposta SERVICE_NAME a un nome descrittivo (\"EDG System Service\"/\"EDG Vehicle Service\"), non a uno slug — quindi payload.service (e di conseguenza azione.entita, tags) per questi due servizi mostra il nome descrittivo invece dello slug. auth-service invece hardcoda lo slug apposta, con un commento che spiega la collisione.",
+      "solution": "Se in futuro si vuole uno slug pulito anche per system-service/vehicle-service, hardcodarlo come in auth-service invece di leggerlo da env, oppure rinominare la variabile env usata da docker-compose per il banner in qualcosa come SERVICE_DISPLAY_NAME."
     }
   ]
 }

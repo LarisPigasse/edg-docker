@@ -101,8 +101,7 @@ export const upload = async (req: Request, res: Response): Promise<void> => {
     logger.audit(
       'attachment.upload',
       `Upload allegato #${record.id} — ${entityType}#${entityId}: ${req.file.originalname}`,
-      req.user!.id,
-      req.user!.uuid ?? req.user!.email,
+      req.user!,
       { size: req.file.size, mime: req.file.mimetype }
     );
 
@@ -137,8 +136,7 @@ export const remove = async (req: Request, res: Response): Promise<void> => {
     logger.audit(
       'attachment.delete',
       `Eliminato allegato #${req.params.id} (${record.filename})`,
-      req.user!.id,
-      req.user!.uuid ?? req.user!.email
+      req.user!
     );
 
     successResponse(res, null, 'Allegato eliminato');

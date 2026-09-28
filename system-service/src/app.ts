@@ -45,7 +45,7 @@ app.use((req: Request, res: Response, next: NextFunction) => {
 
   const start = Date.now();
   res.on('finish', () => {
-    logger.request(req.method, req.url, res.statusCode, Date.now() - start, req.user?.id);
+    logger.request(req.method, req.url, res.statusCode, Date.now() - start, req.user);
   });
   next();
 });

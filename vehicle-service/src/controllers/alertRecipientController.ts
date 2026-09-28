@@ -105,8 +105,7 @@ export const create = async (req: Request, res: Response): Promise<void> => {
     logger.audit(
       'alertRecipient.create',
       `Destinatario avvisi #${recipient.id} creato (${recipient.email})`,
-      req.user!.id,
-      req.user!.uuid ?? req.user!.email
+      req.user!
     );
 
     createdResponse(res, full, 'Destinatario creato');
@@ -148,8 +147,7 @@ export const update = async (req: Request, res: Response): Promise<void> => {
     logger.audit(
       'alertRecipient.update',
       `Aggiornato destinatario #${record.id}`,
-      req.user!.id,
-      req.user!.uuid ?? req.user!.email
+      req.user!
     );
 
     successResponse(res, full, 'Destinatario aggiornato');
@@ -172,8 +170,7 @@ export const remove = async (req: Request, res: Response): Promise<void> => {
     logger.audit(
       'alertRecipient.delete',
       `Eliminato destinatario #${req.params.id}`,
-      req.user!.id,
-      req.user!.uuid ?? req.user!.email
+      req.user!
     );
     successResponse(res, null, 'Destinatario eliminato');
   } catch (err) {

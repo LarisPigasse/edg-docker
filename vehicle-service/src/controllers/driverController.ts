@@ -95,8 +95,7 @@ export const create = async (req: Request, res: Response): Promise<void> => {
     logger.audit(
       'driver.create',
       `Creato autista #${driver.id} ${driver.firstName} ${driver.lastName}`,
-      req.user!.id,
-      req.user!.uuid ?? req.user!.email
+      req.user!
     );
 
     createdResponse(res, driver, 'Autista creato con successo');
@@ -128,7 +127,7 @@ export const update = async (req: Request, res: Response): Promise<void> => {
 
     await driver.update(req.body);
 
-    logger.audit('driver.update', `Aggiornato autista #${driver.id}`, req.user!.id, req.user!.uuid ?? req.user!.email, {
+    logger.audit('driver.update', `Aggiornato autista #${driver.id}`, req.user!, {
       changes: Object.keys(req.body),
     });
 
@@ -157,8 +156,7 @@ export const toggleActive = async (req: Request, res: Response): Promise<void> =
     logger.audit(
       'driver.toggle',
       `Autista #${driver.id} → ${newState ? 'attivato' : 'disattivato'}`,
-      req.user!.id,
-      req.user!.uuid ?? req.user!.email
+      req.user!
     );
 
     successResponse(res, driver, `Autista ${newState ? 'attivato' : 'disattivato'}`);
@@ -188,8 +186,7 @@ export const remove = async (req: Request, res: Response): Promise<void> => {
     logger.audit(
       'driver.terminate',
       `Terminato autista #${driver.id} ${driver.firstName} ${driver.lastName}`,
-      req.user!.id,
-      req.user!.uuid ?? req.user!.email
+      req.user!
     );
 
     successResponse(res, null, 'Autista disattivato');

@@ -10,13 +10,28 @@ import axios from 'axios';
 // ---------------------------------------------------------------------------
 type LogLevel = 'info' | 'warn' | 'error' | 'debug';
 
+/** Le 6 categorie note a log-service (src/types/eventCategories.ts) — qui come
+ *  union di stringhe, non enum: evita di dipendere dal pacchetto di log-service
+ *  solo per questo tipo. */
+type EventCategory = 'AUTH' | 'DATA' | 'EMAIL' | 'SYSTEM' | 'AUDIT' | 'SECURITY';
+
+/** Chi ha generato l'evento — stessi campi già presenti su req.user (vedi
+ *  middleware/auth.ts), passati così come sono: nessuna query aggiuntiva nel
+ *  percorso di logging. tenantId assente per gli eventi non legati a un
+ *  account (vedi origine.tipo 'sistema' in send()). */
+interface LogActor {
+  id: number;
+  email?: string | null;
+  tenantId?: number | null;
+}
+
 interface LogPayload {
   level: LogLevel;
   service: string;
   action: string;
   message: string;
-  userId?: number | null;
-  userUuid?: string | null;
+  categoria: EventCategory;
+  actor?: LogActor | null;
   meta?: Record<string, unknown>;
   duration?: number;
   statusCode?: number;
@@ -40,21 +55,59 @@ async function send(payload: LogPayload): Promise<void> {
     console.log(`${icon} [${payload.service}] ${payload.action}: ${payload.message}`, payload.meta || '');
   }
 
-  try {
-    await axios.post(
-      `${LOG_SERVICE_URL}/logs`,
-      {
-        ...payload,
-        timestamp: new Date().toISOString(),
+  // NOTA (fix 2026-09-22): l'unica rotta esposta da log-service per scrivere
+  // un evento è POST /api/log/azione (vedi src/routes/logRoutes.ts), protetta
+  // da apiKeyAuth. Il payload deve rispettare i campi legacy obbligatori dello
+  // schema Mongoose AzioneLog (origine/azione/risultato.esito) — non basta
+  // inoltrare il LogPayload "piatto" così com'è, altrimenti la richiesta
+  // fallisce a monte con un 404 sull'URL sbagliato (bug precedente, che ha
+  // reso questa integrazione silenziosamente muta per giorni) o comunque
+  // con un errore di validazione Mongoose se si corregge solo l'URL.
+  const esito: 'successo' | 'fallito' | 'parziale' =
+    payload.level === 'error' ? 'fallito' : payload.level === 'warn' ? 'parziale' : 'successo';
+  const criticita = payload.level === 'error' ? 'error' : payload.level === 'warn' ? 'warning' : 'info';
+
+  const body = {
+    timestamp: new Date().toISOString(),
+    categoria: payload.categoria,
+    criticita,
+    origine: {
+      tipo: payload.actor?.id != null ? 'utente' : 'sistema',
+      id: payload.actor?.id != null ? String(payload.actor.id) : payload.service,
+      dettagli: {
+        ...(payload.actor?.email ? { email: payload.actor.email } : {}),
+        ...(payload.actor?.tenantId != null ? { tenantId: payload.actor.tenantId } : {}),
       },
-      {
-        headers: {
-          'Content-Type': 'application/json',
-          'x-api-key': LOG_API_KEY,
-        },
-        timeout: 2000, // Non bloccare se il log-service è lento
-      }
-    );
+    },
+    azione: {
+      tipo: 'custom',
+      entita: payload.service,
+      idEntita: payload.action,
+      operazione: payload.message,
+      dettagli: {
+        ...payload.meta,
+        ...(payload.duration !== undefined ? { duration: payload.duration } : {}),
+        ...(payload.statusCode !== undefined ? { statusCode: payload.statusCode } : {}),
+      },
+    },
+    risultato: {
+      esito,
+      messaggio: payload.message,
+    },
+    contesto: {
+      ambiente: process.env.NODE_ENV || 'development',
+    },
+    tags: [payload.service, payload.level],
+  };
+
+  try {
+    await axios.post(`${LOG_SERVICE_URL}/api/log/azione`, body, {
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': LOG_API_KEY,
+      },
+      timeout: 2000, // Non bloccare se il log-service è lento
+    });
   } catch {
     // Fallback silenzioso — il logging non deve mai far fallire il servizio
     if (!IS_DEV) {
@@ -67,60 +120,64 @@ async function send(payload: LogPayload): Promise<void> {
 // API pubblica
 // ---------------------------------------------------------------------------
 export const logger = {
-  info(action: string, message: string, meta?: Record<string, unknown>, userId?: number): void {
-    void send({ level: 'info', service: SERVICE_NAME, action, message, userId, meta });
+  /** categoria di default DATA: quasi tutte le chiamate info/warn/error in
+   *  questo servizio riguardano operazioni sui dati di business (vedi
+   *  crudFactory.ts) — si passa un valore esplicito solo dove non è così
+   *  (es. auth.* in auth-service). */
+  info(action: string, message: string, meta?: Record<string, unknown>, categoria: EventCategory = 'DATA', actor?: LogActor | null): void {
+    void send({ level: 'info', service: SERVICE_NAME, action, message, meta, categoria, actor });
   },
 
-  warn(action: string, message: string, meta?: Record<string, unknown>, userId?: number): void {
-    void send({ level: 'warn', service: SERVICE_NAME, action, message, userId, meta });
+  warn(action: string, message: string, meta?: Record<string, unknown>, categoria: EventCategory = 'DATA', actor?: LogActor | null): void {
+    void send({ level: 'warn', service: SERVICE_NAME, action, message, meta, categoria, actor });
   },
 
-  error(action: string, message: string, meta?: Record<string, unknown>, userId?: number): void {
-    void send({ level: 'error', service: SERVICE_NAME, action, message, userId, meta });
+  error(action: string, message: string, meta?: Record<string, unknown>, categoria: EventCategory = 'DATA', actor?: LogActor | null): void {
+    void send({ level: 'error', service: SERVICE_NAME, action, message, meta, categoria, actor });
   },
 
   debug(action: string, message: string, meta?: Record<string, unknown>): void {
     if (IS_DEV) {
-      void send({ level: 'debug', service: SERVICE_NAME, action, message, meta });
+      void send({ level: 'debug', service: SERVICE_NAME, action, message, meta, categoria: 'SYSTEM' });
     }
   },
 
-  // Log azione con tempo di esecuzione — utile per operazioni critiche
+  // Log azione con tempo di esecuzione — utile per operazioni critiche.
+  // actor viene quasi sempre passato come req.user così com'è (vedi
+  // middleware/auth.ts): contiene già id/email/tenantId, nessun campo da
+  // assemblare a mano.
   audit(
     action: string,
     message: string,
-    userId: number,
-    userUuid: string,
-    meta?: Record<string, unknown>
+    actor: LogActor,
+    meta?: Record<string, unknown>,
+    categoria: EventCategory = 'DATA'
   ): void {
     void send({
       level: 'info',
       service: SERVICE_NAME,
       action,
       message,
-      userId,
-      userUuid,
+      actor,
       meta: { ...meta, audit: true },
+      categoria,
     });
   },
 
-  // Log richiesta HTTP completata (usato dall'app.ts request logger)
-  request(
-    method: string,
-    url: string,
-    statusCode: number,
-    duration: number,
-    userId?: number
-  ): void {
+  // Log richiesta HTTP completata (usato dall'app.ts request logger).
+  // Sempre categoria SYSTEM: è un log tecnico generato automaticamente per
+  // ogni chiamata, non un'azione applicativa.
+  request(method: string, url: string, statusCode: number, duration: number, actor?: LogActor | null): void {
     const level: LogLevel = statusCode >= 500 ? 'error' : statusCode >= 400 ? 'warn' : 'info';
     void send({
       level,
       service: SERVICE_NAME,
       action: 'http_request',
       message: `${method} ${url} → ${statusCode} (${duration}ms)`,
-      userId,
+      actor,
       statusCode,
       duration,
+      categoria: 'SYSTEM',
     });
   },
 };

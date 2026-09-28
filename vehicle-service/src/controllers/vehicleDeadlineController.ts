@@ -86,8 +86,7 @@ export const create = async (req: Request, res: Response): Promise<void> => {
     logger.audit(
       'vehicleDeadline.create',
       `Scadenza #${record.id} creata — veicolo #${req.body.vehicleId}`,
-      req.user!.id,
-      req.user!.uuid ?? req.user!.email
+      req.user!
     );
 
     const full = await VehicleDeadline.findByPk(record.id, { include: INCLUDE });
@@ -144,8 +143,7 @@ export const renew = async (req: Request, res: Response): Promise<void> => {
     logger.audit(
       'vehicleDeadline.renew',
       `Rinnovata scadenza #${record.id} → ${req.body.expiryDate}`,
-      req.user!.id,
-      req.user!.uuid ?? req.user!.email
+      req.user!
     );
 
     successResponse(res, record, 'Scadenza rinnovata');
@@ -166,8 +164,7 @@ export const remove = async (req: Request, res: Response): Promise<void> => {
     logger.audit(
       'vehicleDeadline.delete',
       `Eliminata scadenza #${req.params.id}`,
-      req.user!.id,
-      req.user!.uuid ?? req.user!.email
+      req.user!
     );
     successResponse(res, null, 'Scadenza eliminata');
   } catch (err) {

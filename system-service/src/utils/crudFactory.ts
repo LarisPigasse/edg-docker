@@ -158,8 +158,7 @@ export function createCrudHandlers<M extends Model>(opts: CrudFactoryOptions<M>)
       logger.audit(
         'crud.create',
         `Creato ${resourceName} #${newId}`,
-        req.user!.id,
-        req.user!.uuid ?? req.user!.email,
+        req.user!,
         { body: req.body }
       );
 
@@ -187,8 +186,7 @@ export function createCrudHandlers<M extends Model>(opts: CrudFactoryOptions<M>)
       logger.audit(
         'crud.update',
         `Aggiornato ${resourceName} #${req.params.id}`,
-        req.user!.id,
-        req.user!.uuid ?? req.user!.email,
+        req.user!,
         { body: req.body }
       );
 
@@ -224,8 +222,7 @@ export function createCrudHandlers<M extends Model>(opts: CrudFactoryOptions<M>)
           logger.audit(
             'crud.delete',
             `Eliminato ${resourceName} #${req.params.id}`,
-            req.user!.id,
-            req.user!.uuid ?? req.user!.email
+            req.user!
           );
           successResponse(res, null, `${resourceName} eliminato definitivamente`);
           return;
@@ -240,8 +237,7 @@ export function createCrudHandlers<M extends Model>(opts: CrudFactoryOptions<M>)
         logger.audit(
           'crud.deactivate',
           `Disattivato ${resourceName} #${req.params.id} (referenziato altrove, eliminazione non consentita)`,
-          req.user!.id,
-          req.user!.uuid ?? req.user!.email
+          req.user!
         );
         successResponse(res, null, `${resourceName} disattivato: è referenziato altrove e non può essere eliminato`);
       } else {
@@ -249,8 +245,7 @@ export function createCrudHandlers<M extends Model>(opts: CrudFactoryOptions<M>)
         logger.audit(
           'crud.delete',
           `Eliminato ${resourceName} #${req.params.id}`,
-          req.user!.id,
-          req.user!.uuid ?? req.user!.email
+          req.user!
         );
         successResponse(res, null, `${resourceName} eliminato`);
       }
@@ -279,8 +274,7 @@ export function createCrudHandlers<M extends Model>(opts: CrudFactoryOptions<M>)
       logger.audit(
         'crud.toggle',
         `Toggle ${resourceName} #${req.params.id} → ${!current}`,
-        req.user!.id,
-        req.user!.uuid ?? req.user!.email
+        req.user!
       );
 
       successResponse(res, record, `${resourceName} ${!current ? 'attivato' : 'disattivato'}`);
