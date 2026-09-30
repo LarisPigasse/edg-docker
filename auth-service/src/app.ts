@@ -24,7 +24,13 @@ import { createAuthRouter } from './modules/auth/routes/auth.routes';
 import { createAccountRouter } from './modules/auth/routes/account.routes';
 import { createTenantRouter } from './modules/auth/routes/tenant.routes';
 import { Router, Application, Request, Response, NextFunction } from 'express';
-import { logger } from './services/logger';
+import { installCrashHandlers, logger } from './services/logger';
+import { requestActor } from './services/requestActor';
+import { requestContextMiddleware } from './services/requestContext';
+import { runJob } from './services/jobRunner';
+
+// Prima di tutto: un errore non gestito va segnalato a log-service prima di uscire (ADR043)
+installCrashHandlers();
 
 // ============================================================================
 // CONFIGURAZIONE AUTH SERVICE
@@ -72,10 +78,18 @@ console.log(' AuthModuleConfig creato con placeholder router');
 // check non passano mai di qui) e prima di tutte le route applicative.
 //
 // QUIET_ON_SUCCESS: scritture che, se riuscite, sono gia' coperte da un evento
-// di audit esplicito (login -> auth.login_success) o sono puramente tecniche
-// (refresh del token, ripetuto in automatico dal frontend). In caso di errore
-// (>= 400) vengono comunque registrate.
-const QUIET_ON_SUCCESS = new Set(['/auth/login', '/auth/refresh']);
+// di audit esplicito (login, logout, reset e cambio password — ADR039) o sono
+// puramente tecniche (refresh del token, ripetuto in automatico dal
+// frontend). In caso di errore (>= 400) vengono comunque registrate.
+const QUIET_ON_SUCCESS = new Set([
+  '/auth/login',
+  '/auth/refresh',
+  '/auth/logout',
+  '/auth/logout-all',
+  '/auth/request-reset-password',
+  '/auth/reset-password',
+  '/auth/change-password',
+]);
 
 const requestLogger = (app: Application): void => {
   app.use((req: Request, res: Response, next: NextFunction) => {
@@ -86,14 +100,8 @@ const requestLogger = (app: Application): void => {
     const path = req.path;
     res.on('finish', () => {
       if (res.statusCode < 400 && QUIET_ON_SUCCESS.has(path)) return;
-      // req.account e' valorizzato da authenticate() (middleware/authMiddleware.ts)
-      // solo sulle route protette: sulle altre la richiesta risulta di 'sistema'.
-      const account = (req as any).account;
-      const actor =
-        account?.accountId != null
-          ? { id: account.accountId, email: account.email, tenantId: account.tenantId ?? null }
-          : null;
-      logger.request(req.method, req.originalUrl, res.statusCode, Date.now() - start, actor);
+      // Autore da req.account (solo route protette): sulle altre risulta 'sistema'
+      logger.request(req.method, req.originalUrl, res.statusCode, Date.now() - start, requestActor(req));
     });
     next();
   });
@@ -107,7 +115,8 @@ console.log('\n [APP] Fase 2: Creazione server');
 const server = createServer({
   config,
   modules: [AuthModuleConfig],
-  customMiddleware: [requestLogger],
+  // Contesto della richiesta per primo (ADR039): l'ID dell'api-gateway arriva al logger
+  customMiddleware: [app => app.use(requestContextMiddleware), requestLogger],
 });
 console.log(' Server creato (route non ancora registrate)');
 
@@ -208,15 +217,12 @@ const startServer = async () => {
     // Ogni giorno alle 03:00 (Europe/Rome)
     cron.schedule(
       '0 3 * * *',
-      async () => {
-        console.log('🧹 [CRON] Avvio pulizia sessioni e token scaduti...');
-        try {
-          await authService.cleanupExpired();
-          console.log('✅ [CRON] Pulizia completata');
-        } catch (err) {
-          console.error('❌ [CRON] Errore durante pulizia:', err);
-        }
-      },
+      // Eseguito e tracciato da runJob (ADR039): job.completed / job.failed in log-service
+      () =>
+        runJob('auth.cleanup-expired', 'Pulizia sessioni e token scaduti', async () => {
+          const { sessions, resetTokens } = await authService.cleanupExpired();
+          return `${sessions} sessioni e ${resetTokens} token di reset eliminati`;
+        }),
       { timezone: 'Europe/Rome' }
     );
     console.log('   ✅ Cron job registrato (ogni giorno alle 03:00 Europe/Rome)');

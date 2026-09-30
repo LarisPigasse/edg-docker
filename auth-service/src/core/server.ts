@@ -5,6 +5,7 @@ import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
 import { ServiceConfig, isDevelopment } from './config/environment';
 import { DatabaseManager } from './config/database';
+import { BUILD_INFO } from '../services/buildInfo';
 
 export interface ServerModule {
   name: string;
@@ -152,6 +153,7 @@ export class EDGServer {
             service: this.config.serviceName,
             database: dbHealth.details,
             uptime: process.uptime(),
+            build: BUILD_INFO,
             timestamp: new Date().toISOString(),
           },
         };

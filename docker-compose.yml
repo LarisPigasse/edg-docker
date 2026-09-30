@@ -222,6 +222,10 @@ services:
     build:
       context: ./auth-service
       dockerfile: Dockerfile
+      # Commit della build, mostrato nella scheda Salute (ADR044).
+      # Sul server: GIT_COMMIT=$(git rev-parse --short HEAD) docker compose ... build
+      args:
+        GIT_COMMIT: ${GIT_COMMIT:-}
     container_name: auth-service
     deploy:
       resources:
@@ -303,6 +307,10 @@ services:
     build:
       context: ./log-service
       dockerfile: Dockerfile
+      # Commit della build, mostrato nella scheda Salute (ADR044).
+      # Sul server: GIT_COMMIT=$(git rev-parse --short HEAD) docker compose ... build
+      args:
+        GIT_COMMIT: ${GIT_COMMIT:-}
     container_name: log-service
     environment:
       - NODE_ENV=development
@@ -319,7 +327,7 @@ services:
       - GATEWAY_SECRET=${GATEWAY_SECRET}
       # Alerting
       - EMAIL_SERVICE_URL=http://email-service:3002
-      - ALERT_RECIPIENT=${EMAIL_ALERTS_TO}
+      # Destinatari alert: anagrafica in log-service, ripiego su EMAIL_ALERTS_TO di email-service (ADR038)
       # System health check
       - AUTH_SERVICE_URL=http://auth-service:3001
     depends_on:
@@ -354,6 +362,10 @@ services:
       context: ./email-service
       dockerfile: Dockerfile
       target: production
+      # Commit della build, mostrato nella scheda Salute (ADR044).
+      # Sul server: GIT_COMMIT=$(git rev-parse --short HEAD) docker compose ... build
+      args:
+        GIT_COMMIT: ${GIT_COMMIT:-}
     container_name: email-service
     deploy:
       resources:
@@ -407,6 +419,10 @@ services:
       context: ./vehicle-service
       dockerfile: Dockerfile
       target: production
+      # Commit della build, mostrato nella scheda Salute (ADR044).
+      # Sul server: GIT_COMMIT=$(git rev-parse --short HEAD) docker compose ... build
+      args:
+        GIT_COMMIT: ${GIT_COMMIT:-}
     container_name: vehicle-service
     deploy:
       resources:
@@ -457,6 +473,10 @@ services:
       context: ./system-service
       dockerfile: Dockerfile
       target: production
+      # Commit della build, mostrato nella scheda Salute (ADR044).
+      # Sul server: GIT_COMMIT=$(git rev-parse --short HEAD) docker compose ... build
+      args:
+        GIT_COMMIT: ${GIT_COMMIT:-}
     container_name: system-service
     deploy:
       resources:
@@ -503,6 +523,10 @@ services:
     build:
       context: ./api-gateway
       dockerfile: Dockerfile
+      # Commit della build, mostrato nella scheda Salute (ADR044).
+      # Sul server: GIT_COMMIT=$(git rev-parse --short HEAD) docker compose ... build
+      args:
+        GIT_COMMIT: ${GIT_COMMIT:-}
     container_name: api-gateway-1
     hostname: api-gateway-1
     deploy:
@@ -592,6 +616,10 @@ services:
     build:
       context: ./api-gateway
       dockerfile: Dockerfile
+      # Commit della build, mostrato nella scheda Salute (ADR044).
+      # Sul server: GIT_COMMIT=$(git rev-parse --short HEAD) docker compose ... build
+      args:
+        GIT_COMMIT: ${GIT_COMMIT:-}
     container_name: api-gateway-2
     hostname: api-gateway-2
     deploy:

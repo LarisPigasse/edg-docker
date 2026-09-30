@@ -1,5 +1,5 @@
 {
-  "lastUpdated": "2026-09-28",
+  "lastUpdated": "2026-09-29",
   "lessons": [
     {
       "id": "L001",
@@ -360,6 +360,33 @@
       "title": "Spostare cartelle montate nella sessione Cowork: Move-Item lascia residui",
       "problem": "Durante l'integrazione ADR035, `Move-Item edg-docker\\auth-service _archivio-repo\\` su Windows ha fallito con \"Impossibile creare un file, se il file esiste già\". Il contenuto era stato spostato quasi tutto (repository integro nella destinazione), ma in origine era rimasta una cartella .git vuota. Quelle cartelle erano aperte dal mount della sessione Cowork, che aveva eseguito git in auth-service, quindi la rinomina atomica non era possibile e PowerShell ha ripiegato su copia ed eliminazione elemento per elemento.",
       "solution": "Prima di spostare o rinominare da Windows cartelle su cui la sessione ha lavorato, verificare lo stato di origine e destinazione: git fsck, log e diff nella destinazione. Solo dopo rimuovere le cartelle residue vuote in origine, via device_bash con rmdir, che fallisce se non sono vuote. Non ripetere Move-Item alla cieca: la destinazione esiste già."
+    },
+    {
+      "id": "L041",
+      "date": "2026-09-29",
+      "category": "logging",
+      "severity": "high",
+      "title": "Alerting inerte: regole mai caricate e disallineate dai log reali",
+      "problem": "L'alerting di log-service non ha mai inviato un alert. (1) alertrules era vuota: le regole esistevano solo in seedAlertRules.ts, da lanciare a mano, non collegato a package.json né all'avvio. (2) Anche caricate, le regole non potevano scattare: cercavano esito 'fallito' mentre il logger salva i login falliti come warn (esito 'parziale'); cercavano criticita 'critical', che nessun logger emette; cercavano il tipo di evento in sottoCategoria, che restava vuoto (il tipo stava in azione.idEntita). (3) Un servizio caduto non genera log, quindi la regola \"servizio non raggiungibile\", valutata solo su eventi in arrivo, era impossibile per costruzione.",
+      "solution": "Regole predefinite create all'avvio con systemKey e versione (services/alerting/defaultRules.ts). I logger valorizzano sottoCategoria = tipo di evento e le regole lavorano su quello. La salute dei servizi è osservata da un processo in background che emette eventi health.down e health.recovered (ADR038). Regola generale: ogni regola deve essere verificata con un evento reale end-to-end, non solo compilata. Una regola che non può corrispondere a nessun log esistente è un difetto silenzioso."
+    },
+    {
+      "id": "L042",
+      "date": "2026-09-29",
+      "category": "monitoring",
+      "severity": "low",
+      "title": "Sonde di protocollo MySQL/Postgres dell'HealthMonitor: impatto misurato, trascurabile",
+      "problem": "Si temeva che le sonde senza autenticazione di log-service (ADR038) disturbassero i database: righe \"incomplete startup packet\" in Postgres e connessioni abortite fino al blocco dell'host in MySQL (max_connect_errors 100). Misurato dopo circa 2 ore di esercizio a 32 s: Postgres nessuna riga di log (la SSLRequest seguita dalla chiusura non viene registrata); MySQL nessuna riga di log e host_cache vuota, quindi nessun rischio di blocco (la chiusura dopo aver ricevuto l'handshake non conta come errore di connessione dell'host). L'unico effetto è l'incremento di Aborted_connects, circa +6 ogni 90 s, di cui metà dovuto al healthcheck Docker `mysqladmin ping` senza credenziali, già presente.",
+      "solution": "Nessuna modifica: le sonde restano dirette sui database e la frequenza resta 32 s. Questo mantiene un controllo indipendente dai microservizi. Aborted_connects non è utilizzabile come metrica di sicurezza su MySQL già a causa del healthcheck Docker. Prima di \"correggere\" un presunto effetto collaterale, misurarlo: log del container, contatori di stato, performance_schema.host_cache."
+    },
+    {
+      "id": "L043",
+      "date": "2026-09-29",
+      "category": "ui-components",
+      "severity": "low",
+      "title": "Refresh su dati calcolati in background: deve ricalcolare, non solo rileggere",
+      "problem": "Nella pagina SISTEMA → Info il pulsante di aggiornamento rileggeva lo snapshot che l'HealthMonitor calcola ogni 32 s (GET /api/system/health). La lettura era istantanea e restituiva lo stesso stato e lo stesso \"ultimo controllo\": all'utente il pulsante sembrava non avere alcun effetto.",
+      "solution": "Separare le due intenzioni. GET per l'aggiornamento automatico (legge lo snapshot); POST /api/system/health per il pulsante (\"controlla adesso\": HealthMonitor.checkNow() esegue subito un giro, si aggancia a quello in corso e non ne riesegue uno se l'ultimo ha meno di 2 s). Il gateway inoltra già il metodo HTTP così com'è. Regola generale: un pulsante di refresh deve produrre un cambiamento osservabile, oppure dire esplicitamente che il dato è già il più recente."
     }
   ]
 }

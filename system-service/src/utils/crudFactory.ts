@@ -7,7 +7,7 @@ import { Request, Response } from 'express';
 import { Model, ModelStatic, WhereOptions, Order, Op } from 'sequelize';
 import { successResponse, createdResponse, notFound, buildPaginationMeta, parsePagination } from './response';
 import { NotFoundError } from './errors';
-import { logger } from '../services/logger';
+import { logger, snapshot } from '../services/logger';
 
 // ---------------------------------------------------------------------------
 // Configurazione factory
@@ -115,7 +115,7 @@ export function createCrudHandlers<M extends Model>(opts: CrudFactoryOptions<M>)
       // sopra da findAndCountAll con una risposta 200 e lista vuota. Si
       // propaga all'errorHandler globale, che distingue il tipo di errore
       // reale (validazione, vincolo, DB, ...) invece di mascherarlo da 404.
-      logger.error('crud.list', `Errore lista ${resourceName}`, { error: String(err) });
+      logger.error('crud.list', `Errore lista ${resourceName}`, { error: String(err) }, 'DATA', req.user);
       throw err;
     }
   };
@@ -138,7 +138,7 @@ export function createCrudHandlers<M extends Model>(opts: CrudFactoryOptions<M>)
       // gestito sopra (record assente o fuori tenant). Qui arrivano solo
       // errori inattesi, che l'errorHandler globale sa classificare meglio
       // di un generico 404.
-      logger.error('crud.getById', `Errore get ${resourceName}`, { id: req.params.id, error: String(err) });
+      logger.error('crud.getById', `Errore get ${resourceName}`, { id: req.params.id, error: String(err) }, 'DATA', req.user);
       throw err;
     }
   };
@@ -155,16 +155,14 @@ export function createCrudHandlers<M extends Model>(opts: CrudFactoryOptions<M>)
       const record = await model.create(req.body as M['_creationAttributes']);
 
       const newId = (record as unknown as Record<string, unknown>)[model.primaryKeyAttribute];
-      logger.audit(
-        'crud.create',
-        `Creato ${resourceName} #${newId}`,
-        req.user!,
-        { body: req.body }
-      );
+      logger.auditChange('crud.create', `Creato ${resourceName} #${newId}`, req.user!, {
+        precedente: null,
+        nuovo: snapshot(record),
+      }, { id: newId });
 
       createdResponse(res, record, `${resourceName} creato con successo`);
     } catch (err) {
-      logger.error('crud.create', `Errore creazione ${resourceName}`, { body: req.body, error: String(err) });
+      logger.error('crud.create', `Errore creazione ${resourceName}`, { body: req.body, error: String(err) }, 'DATA', req.user);
       throw err; // Propagato all'errorHandler globale
     }
   };
@@ -181,18 +179,17 @@ export function createCrudHandlers<M extends Model>(opts: CrudFactoryOptions<M>)
         return;
       }
 
+      const precedente = snapshot(record);
       await record.update(req.body);
 
-      logger.audit(
-        'crud.update',
-        `Aggiornato ${resourceName} #${req.params.id}`,
-        req.user!,
-        { body: req.body }
-      );
+      logger.auditChange('crud.update', `Aggiornato ${resourceName} #${req.params.id}`, req.user!, {
+        precedente,
+        nuovo: snapshot(record),
+      }, { id: req.params.id });
 
       successResponse(res, record, `${resourceName} aggiornato con successo`);
     } catch (err) {
-      logger.error('crud.update', `Errore aggiornamento ${resourceName}`, { id: req.params.id, error: String(err) });
+      logger.error('crud.update', `Errore aggiornamento ${resourceName}`, { id: req.params.id, error: String(err) }, 'DATA', req.user);
       throw err;
     }
   };
@@ -217,13 +214,13 @@ export function createCrudHandlers<M extends Model>(opts: CrudFactoryOptions<M>)
         // sulla disattivazione: un solo criterio, valido per qualunque
         // relazione presente o futura, senza doverla conoscere qui — è il DB
         // stesso a sapere, in ogni istante, se un record è "in uso".
+        const precedente = snapshot(record);
         try {
           await record.destroy();
-          logger.audit(
-            'crud.delete',
-            `Eliminato ${resourceName} #${req.params.id}`,
-            req.user!
-          );
+          logger.auditChange('crud.delete', `Eliminato ${resourceName} #${req.params.id}`, req.user!, {
+            precedente,
+            nuovo: null,
+          }, { id: req.params.id });
           successResponse(res, null, `${resourceName} eliminato definitivamente`);
           return;
         } catch (err) {
@@ -234,23 +231,25 @@ export function createCrudHandlers<M extends Model>(opts: CrudFactoryOptions<M>)
         }
 
         await record.update({ isActive: false } as Partial<M['_attributes']>);
-        logger.audit(
+        logger.auditChange(
           'crud.deactivate',
           `Disattivato ${resourceName} #${req.params.id} (referenziato altrove, eliminazione non consentita)`,
-          req.user!
+          req.user!,
+          { precedente, nuovo: snapshot(record) },
+          { id: req.params.id }
         );
         successResponse(res, null, `${resourceName} disattivato: è referenziato altrove e non può essere eliminato`);
       } else {
+        const precedente = snapshot(record);
         await record.destroy();
-        logger.audit(
-          'crud.delete',
-          `Eliminato ${resourceName} #${req.params.id}`,
-          req.user!
-        );
+        logger.auditChange('crud.delete', `Eliminato ${resourceName} #${req.params.id}`, req.user!, {
+          precedente,
+          nuovo: null,
+        }, { id: req.params.id });
         successResponse(res, null, `${resourceName} eliminato`);
       }
     } catch (err) {
-      logger.error('crud.delete', `Errore eliminazione ${resourceName}`, { id: req.params.id, error: String(err) });
+      logger.error('crud.delete', `Errore eliminazione ${resourceName}`, { id: req.params.id, error: String(err) }, 'DATA', req.user);
       throw err;
     }
   };
@@ -269,17 +268,20 @@ export function createCrudHandlers<M extends Model>(opts: CrudFactoryOptions<M>)
       }
 
       const current = (record as unknown as { isActive: boolean }).isActive;
+      const precedente = snapshot(record);
       await record.update({ isActive: !current } as Partial<M['_attributes']>);
 
-      logger.audit(
+      logger.auditChange(
         'crud.toggle',
-        `Toggle ${resourceName} #${req.params.id} → ${!current}`,
-        req.user!
+        `${resourceName} #${req.params.id} ${!current ? 'attivato' : 'disattivato'}`,
+        req.user!,
+        { precedente, nuovo: snapshot(record) },
+        { id: req.params.id, isActive: !current }
       );
 
       successResponse(res, record, `${resourceName} ${!current ? 'attivato' : 'disattivato'}`);
     } catch (err) {
-      logger.error('crud.toggle', `Errore toggle ${resourceName}`, { id: req.params.id, error: String(err) });
+      logger.error('crud.toggle', `Errore toggle ${resourceName}`, { id: req.params.id, error: String(err) }, 'DATA', req.user);
       throw err;
     }
   };

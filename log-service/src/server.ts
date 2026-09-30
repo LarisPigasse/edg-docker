@@ -8,6 +8,9 @@ import connectDB from "./config/database";
 import logRoutes from "./routes/logRoutes";
 import alertRoutes from "./routes/alertRoutes";
 import systemRoutes from "./routes/systemRoutes";
+import { ensureDefaultRules } from "./services/alerting/defaultRules";
+import HealthMonitor from "./services/health/HealthMonitor";
+import { requestContextMiddleware } from "./services/requestContext";
 
 dotenv.config();
 
@@ -18,6 +21,8 @@ const PORT = process.env.PORT || 4000;
 app.use(helmet());
 app.use(cors());
 app.use(express.json());
+// ID della richiesta dall'api-gateway per gli eventi locali (ADR039)
+app.use(requestContextMiddleware);
 
 // Routes
 app.use("/api/log", logRoutes);
@@ -58,6 +63,21 @@ const startServer = async () => {
   try {
     // Connessione al database
     await connectDB();
+
+    // Regole di alerting predefinite (ADR038): mai bloccante per l'avvio
+    try {
+      const { created, version } = await ensureDefaultRules();
+      console.log(
+        created.length
+          ? `[Alerting] Regole predefinite create (v${version}): ${created.join(', ')}`
+          : `[Alerting] Regole predefinite aggiornate (v${version})`
+      );
+    } catch (err: any) {
+      console.error(`[Alerting] Regole predefinite non create: ${err.message}`);
+    }
+
+    // Osservazione continua della salute della piattaforma (ADR038)
+    HealthMonitor.start();
 
     // Avvio server
     app.listen(PORT, () => {

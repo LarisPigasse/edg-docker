@@ -2,6 +2,27 @@
 import { Request, Response } from 'express';
 import AlertRule from '../models/AlertRule';
 import AlertHistory from '../models/AlertHistory';
+import AlertRecipient from '../models/AlertRecipient';
+import mongoose from 'mongoose';
+import { auditLocal } from '../services/auditLocal';
+import { listEventTypes } from '../services/alerting/eventTypes';
+
+/**
+ * Normalizza recipientIds: solo ObjectId validi di destinatari esistenti.
+ * Restituisce null se il campo non e' presente nel body; lancia un errore
+ * leggibile se contiene id sconosciuti.
+ */
+async function normalizeRecipientIds(value: unknown): Promise<mongoose.Types.ObjectId[] | null> {
+  if (value === undefined) return null;
+  if (!Array.isArray(value)) throw Object.assign(new Error('recipientIds deve essere un elenco'), { status: 400 });
+  const ids = [...new Set(value.map(String))];
+  if (ids.some(id => !mongoose.Types.ObjectId.isValid(id))) {
+    throw Object.assign(new Error('recipientIds contiene identificativi non validi'), { status: 400 });
+  }
+  const found = await AlertRecipient.countDocuments({ _id: { $in: ids } });
+  if (found !== ids.length) throw Object.assign(new Error('Uno o piu\' destinatari non esistono'), { status: 400 });
+  return ids.map(id => new mongoose.Types.ObjectId(id));
+}
 
 // ========== ALERT RULES — CRUD ==========
 
@@ -77,7 +98,8 @@ export const getRule = async (req: Request, res: Response): Promise<void> => {
  */
 export const createRule = async (req: Request, res: Response): Promise<void> => {
   try {
-    const { name, description, enabled, conditions, threshold, cooldownMinutes } = req.body;
+    const { name, description, enabled, conditions, threshold, groupBy, cooldownMinutes, severity } = req.body;
+    const recipientIds = await normalizeRecipientIds(req.body.recipientIds);
 
     if (!name) {
       res.status(400).json({ success: false, message: 'Il campo "name" è obbligatorio' });
@@ -90,17 +112,30 @@ export const createRule = async (req: Request, res: Response): Promise<void> => 
       enabled: enabled ?? true,
       conditions: conditions ?? {},
       threshold: threshold ?? { count: 1, windowMinutes: 0 },
-      cooldownMinutes: cooldownMinutes ?? 30,
+      groupBy: groupBy ?? null,
+      recipientIds: recipientIds ?? [],
+      cooldownMinutes: cooldownMinutes ?? 32,
+      severity: severity ?? null,
     });
+
+    auditLocal(req, 'alert.rule_created', `Creata regola di alert "${rule.name}"`, { ruleId: String(rule._id) });
 
     res.status(201).json({ success: true, data: rule });
   } catch (error: any) {
+    if (error.status === 400) {
+      res.status(400).json({ success: false, message: error.message });
+      return;
+    }
     // Duplicate key su name
     if (error.code === 11000) {
       res.status(409).json({
         success: false,
         message: `Esiste già una regola con il nome "${req.body.name}"`,
       });
+      return;
+    }
+    if (error.name === 'ValidationError') {
+      res.status(400).json({ success: false, message: error.message });
       return;
     }
 
@@ -122,8 +157,11 @@ export const updateRule = async (req: Request, res: Response): Promise<void> => 
       'enabled',
       'conditions',
       'threshold',
+      'groupBy',
       'cooldownMinutes',
+      'severity',
     ];
+    // systemKey e lastTriggeredAt restano volutamente fuori: non modificabili via API
 
     const updates: Record<string, any> = {};
     for (const field of allowedFields) {
@@ -131,6 +169,9 @@ export const updateRule = async (req: Request, res: Response): Promise<void> => 
         updates[field] = req.body[field];
       }
     }
+
+    const recipientIds = await normalizeRecipientIds(req.body.recipientIds);
+    if (recipientIds) updates.recipientIds = recipientIds;
 
     if (Object.keys(updates).length === 0) {
       res.status(400).json({ success: false, message: 'Nessun campo valido da aggiornare' });
@@ -148,13 +189,27 @@ export const updateRule = async (req: Request, res: Response): Promise<void> => 
       return;
     }
 
+    auditLocal(req, 'alert.rule_updated', `Modificata regola di alert "${rule.name}"`, {
+      ruleId: String(rule._id),
+      campi: Object.keys(updates),
+    });
+
     res.status(200).json({ success: true, data: rule });
   } catch (error: any) {
+    if (error.status === 400) {
+      res.status(400).json({ success: false, message: error.message });
+      return;
+    }
     if (error.code === 11000) {
       res.status(409).json({
         success: false,
         message: `Esiste già una regola con il nome "${req.body.name}"`,
       });
+      return;
+    }
+
+    if (error.name === 'ValidationError') {
+      res.status(400).json({ success: false, message: error.message });
       return;
     }
 
@@ -179,6 +234,11 @@ export const toggleRule = async (req: Request, res: Response): Promise<void> => 
     rule.enabled = !rule.enabled;
     await rule.save();
 
+    auditLocal(req, 'alert.rule_toggled', `Regola di alert "${rule.name}" ${rule.enabled ? 'abilitata' : 'disabilitata'}`, {
+      ruleId: String(rule._id),
+      enabled: rule.enabled,
+    });
+
     res.status(200).json({
       success: true,
       data: rule,
@@ -196,12 +256,29 @@ export const toggleRule = async (req: Request, res: Response): Promise<void> => 
  */
 export const deleteRule = async (req: Request, res: Response): Promise<void> => {
   try {
-    const rule = await AlertRule.findByIdAndDelete(req.params.id);
+    // Le regole predefinite (systemKey) si modificano e si disattivano ma non
+    // si eliminano: cancellare per errore "Servizio non raggiungibile"
+    // silenzierebbe i guasti in modo poco visibile (ADR038).
+    const existing = mongoose.Types.ObjectId.isValid(req.params.id) ? await AlertRule.findById(req.params.id) : null;
+    if (!existing) {
+      res.status(404).json({ success: false, message: 'Regola non trovata' });
+      return;
+    }
+    if (existing.systemKey) {
+      res.status(409).json({
+        success: false,
+        message: `"${existing.name}" è una regola predefinita: puoi disattivarla, non eliminarla`,
+      });
+      return;
+    }
 
+    const rule = await AlertRule.findByIdAndDelete(existing._id);
     if (!rule) {
       res.status(404).json({ success: false, message: 'Regola non trovata' });
       return;
     }
+
+    auditLocal(req, 'alert.rule_deleted', `Eliminata regola di alert "${rule.name}"`, { ruleId: String(rule._id) });
 
     res.status(200).json({
       success: true,
@@ -221,6 +298,7 @@ export const deleteRule = async (req: Request, res: Response): Promise<void> => 
  * Query params opzionali:
  *   - ruleId:    filtra per regola specifica
  *   - status:    'SENT' | 'FAILED'
+ *   - severity:  'info' | 'warning' | 'critical'
  *   - startDate: ISO string
  *   - endDate:   ISO string
  *   - page:      numero pagina (default 0)
@@ -236,6 +314,7 @@ export const getHistory = async (req: Request, res: Response): Promise<void> => 
 
     const ruleId    = asString(req.query.ruleId);
     const status    = asString(req.query.status);
+    const severity  = asString(req.query.severity);
     const startDate = asString(req.query.startDate);
     const endDate   = asString(req.query.endDate);
     const page      = asString(req.query.page) ?? '0';
@@ -245,6 +324,7 @@ export const getHistory = async (req: Request, res: Response): Promise<void> => 
 
     if (ruleId)  query.ruleId = ruleId;
     if (status)  query.status = status;
+    if (severity) query.severity = severity;
 
     if (startDate || endDate) {
       query.createdAt = {};
@@ -308,6 +388,22 @@ export const getHistoryStats = async (req: Request, res: Response): Promise<void
     });
   } catch (error: any) {
     console.error('[AlertController] getHistoryStats:', error.message);
+    res.status(500).json({ success: false, message: 'Errore interno del server' });
+  }
+};
+
+// ========== TIPI DI EVENTO ==========
+
+/**
+ * GET /api/alert/event-types
+ * Tipi di evento per la modale delle regole: noti + presenti nei log (ADR038).
+ */
+export const getEventTypes = async (_req: Request, res: Response): Promise<void> => {
+  try {
+    const data = await listEventTypes();
+    res.status(200).json({ success: true, data });
+  } catch (error: any) {
+    console.error('[AlertController] getEventTypes:', error.message);
     res.status(500).json({ success: false, message: 'Errore interno del server' });
   }
 };

@@ -2,7 +2,7 @@
 import express from 'express';
 import { requireAuth } from '../middleware/auth';
 import { requirePermission } from '../middleware/rbac';
-import { getSystemHealth } from '../controllers/systemController';
+import { getSystemHealth, checkSystemHealthNow } from '../controllers/systemController';
 
 const router = express.Router();
 
@@ -15,5 +15,8 @@ const router = express.Router();
  * principio gia' applicato altrove, es. AccountController).
  */
 router.get('/health', requireAuth, requirePermission('sistema', 'info'), getSystemHealth);
+
+/** POST /api/system/health — esegue subito un giro di controlli (ADR038) */
+router.post('/health', requireAuth, requirePermission('sistema', 'info'), checkSystemHealthNow);
 
 export default router;

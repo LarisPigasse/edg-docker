@@ -312,6 +312,10 @@ export class AuthService {
 
     if (session) {
       await session.update({ isRevoked: true });
+      const account = await this.accountModel.findByPk(session.accountId);
+      if (account) {
+        logger.audit('auth.logout', `Logout: ${account.email}`, { id: account.id, email: account.email, tenantId: account.tenantId }, { sessionId: session.id });
+      }
     }
   }
 
@@ -334,6 +338,12 @@ export class AuthService {
       // Non rivelare se l'account esiste (sicurezza)
       // Ma genera comunque un token fake per timing attack prevention
       TokenUtils.generateResetToken();
+      logger.auditFailure('auth.password_reset_requested', `Reset password richiesto per email inesistente (${email})`, null, {
+        email,
+        ip: ipAddress,
+        userAgent,
+        reason: 'email_non_trovata',
+      });
       return "Se l'account esiste, riceverai un'email con il link di reset";
     }
 
@@ -348,6 +358,11 @@ export class AuthService {
       expiresAt,
       used: false,
       ipAddress,
+      userAgent,
+    });
+
+    logger.audit('auth.password_reset_requested', `Reset password richiesto: ${account.email}`, { id: account.id, email: account.email, tenantId: account.tenantId }, {
+      ip: ipAddress,
       userAgent,
     });
 
@@ -374,16 +389,28 @@ export class AuthService {
     });
 
     if (!resetToken) {
+      logger.auditFailure('auth.password_reset_completed', 'Reset password rifiutato: token non valido o già utilizzato', null, {
+        reason: 'token_non_valido',
+      });
       throw new Error('Token non valido o già utilizzato');
     }
 
+    const resetAccount = resetToken.account;
+    const resetActor = { id: resetAccount.id, email: resetAccount.email, tenantId: resetAccount.tenantId };
+
     if (TokenUtils.isExpired(resetToken.expiresAt)) {
+      logger.auditFailure('auth.password_reset_completed', `Reset password rifiutato: token scaduto (${resetAccount.email})`, resetActor, {
+        reason: 'token_scaduto',
+      });
       throw new Error('Token scaduto');
     }
 
     // Valida nuova password
     const passwordValidation = PasswordUtils.validate(newPassword);
     if (!passwordValidation.valid) {
+      logger.auditFailure('auth.password_reset_completed', `Reset password rifiutato: password non valida (${resetAccount.email})`, resetActor, {
+        reason: 'password_non_valida',
+      });
       throw new Error(passwordValidation.errors.join(', '));
     }
 
@@ -395,6 +422,8 @@ export class AuthService {
 
     // Marca token come usato
     await resetToken.update({ used: true });
+
+    logger.audit('auth.password_reset_completed', `Password reimpostata tramite reset: ${resetAccount.email}`, resetActor);
 
     // Revoca tutte le sessioni attive (per sicurezza)
     await this.logoutAll(resetToken.accountId);
@@ -420,12 +449,18 @@ export class AuthService {
     // Verifica password attuale
     const isValid = await PasswordUtils.verify(oldPassword, account.password);
     if (!isValid) {
+      logger.auditFailure('auth.password_changed', `Cambio password rifiutato: password attuale errata (${account.email})`, { id: account.id, email: account.email, tenantId: account.tenantId }, {
+        reason: 'password_attuale_errata',
+      });
       throw new Error('Password attuale non corretta');
     }
 
     // Valida nuova password
     const validation = PasswordUtils.validate(newPassword);
     if (!validation.valid) {
+      logger.auditFailure('auth.password_changed', `Cambio password rifiutato: nuova password non valida (${account.email})`, { id: account.id, email: account.email, tenantId: account.tenantId }, {
+        reason: 'password_non_valida',
+      });
       throw new Error(validation.errors.join(', '));
     }
 
@@ -442,22 +477,24 @@ export class AuthService {
   /**
    * Cleanup sessioni e token scaduti
    */
-  async cleanupExpired(): Promise<void> {
+  async cleanupExpired(): Promise<{ sessions: number; resetTokens: number }> {
     const now = new Date();
 
     // Elimina sessioni scadute
-    await this.sessionModel.destroy({
+    const sessions = await this.sessionModel.destroy({
       where: {
         expiresAt: { [Op.lt]: now },
       },
     });
 
     // Elimina reset token scaduti
-    await this.resetTokenModel.destroy({
+    const resetTokens = await this.resetTokenModel.destroy({
       where: {
         expiresAt: { [Op.lt]: now },
       },
     });
+
+    return { sessions, resetTokens };
   }
 
   // ============================================================================

@@ -1,15 +1,15 @@
 {
-  "lastUpdated": "2026-09-28",
+  "lastUpdated": "2026-09-30",
   "modules": {
     "auth-service": {
-      "status": "review",
-      "notes": "Integrato in edg-docker (ADR035). Request logger aggiunto (ADR034). Mancano audit su Account (6 azioni), Tenant (4) e logout: prossimo passo 1b.",
-      "lastUpdated": "2026-09-28"
+      "status": "stable",
+      "notes": "Audit completo verificato live (ADR039 p.1): account, tenant, logout, reset/cambio password, tentativi rifiutati con autore, modifiche account da→a. Prossimo: prima/dopo nel crudFactory.",
+      "lastUpdated": "2026-09-29"
     },
     "log-service": {
       "status": "stable",
-      "notes": "ADR034 live: GET riuscite non piu' salvate; scritture, errori e lente si'. Path completi (L039). Da fare: audit auth-service (1b), attore sugli errori (1c), TTL/archivio, dieta indici.",
-      "lastUpdated": "2026-09-28"
+      "notes": "ADR039 p.1-2 live: audit completo, prima/dopo con diff (crudFactory auth/system/vehicle), autore sugli errori. Prossimo: ID richiesta (transazioneId) + link Logs da Account.",
+      "lastUpdated": "2026-09-29"
     },
     "email-service": {
       "status": "stable",
@@ -18,8 +18,8 @@
     },
     "api-gateway (x2 HA)": {
       "status": "stable",
-      "notes": "Aggiunto: Redis blacklist check per account e session su route /auth e /api/vehicles. sessionId propagato da jwtValidator in req.userData.",
-      "lastUpdated": "2026-03-24"
+      "notes": "Verificati live: X-Request-Id propagato (transazioneId sugli eventi di auth), limite /auth condiviso su Redis (rl:auth:*) con ripiego in memoria (ADR040), Redis mai bloccante.",
+      "lastUpdated": "2026-09-30"
     },
     "vehicle-service (backend)": {
       "status": "stable",
@@ -92,9 +92,9 @@
       "lastUpdated": "2026-08-31"
     },
     "pro-frontend (edg-system)": {
-      "status": "stable",
-      "notes": "Correzione nota obsoleta: Account/Ruoli/Sessioni/Logs sono già implementati e funzionanti in edg-system, non da migrare. LogsPage completata: 3 colonne risolte, filtri tenant, select compatte.",
-      "lastUpdated": "2026-09-28"
+      "status": "in-progress",
+      "notes": "SISTEMA → Info (ADR038) completa lato codice: Salute, Regole (regole+destinatari, predefinite non eliminabili), Storico (filtri, paginazione, evento scatenante). Da validare a video 4a/4b.",
+      "lastUpdated": "2026-09-29"
     },
     "asset-frontend (edg-docker)": {
       "status": "review",
@@ -125,6 +125,11 @@
       "status": "in-progress",
       "notes": "Aggiunta pagina Account (creazione con password generata, modifica, attiva/disattiva con conferma, statistiche). Backend AccountController allineato al formato standard + nuovi endpoint (create, toggle). Da validare: rebuild auth-service + verifica utente su npm run dev:pro. Prossimo dopo conferma: Ruoli/Permessi.",
       "lastUpdated": "2026-09-14"
+    },
+    "log-service (alerting/health)": {
+      "status": "stable",
+      "notes": "ADR039 p.2 completato e verificato: riavvii (042), crash+gravità regola (043), nomi uniformi+build/deploy (044). Prossimo: p.3 backup",
+      "lastUpdated": "2026-09-30"
     }
   }
 }

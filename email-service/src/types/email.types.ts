@@ -35,6 +35,12 @@ export interface SendAlertRequest {
   message: string;
   severity?: AlertSeverity;
   metadata?: Record<string, any>;
+  /**
+   * Destinatari espliciti (regole di alerting di log-service, ADR038).
+   * Assenti o tutti non validi -> EMAIL_ALERTS_TO, cosi' un alert non va
+   * mai perso per un elenco vuoto.
+   */
+  to?: string[];
 }
 
 /**

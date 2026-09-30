@@ -15,6 +15,7 @@ import {
 } from '../utils/response';
 import { PasswordUtils } from '../utils/password';
 import { logger } from '../../../services/logger';
+import { requestActor } from '../../../services/requestActor';
 
 const ACCOUNT_INCLUDE_ROLE = { attributes: ['id', 'name'] };
 const ACCOUNT_INCLUDE_TENANT = { attributes: ['id', 'name', 'slug'] };
@@ -66,9 +67,21 @@ export class AccountController {
     this.RolePermission = RolePermission;
   }
 
-  private auditActor(req: Request): string {
-    const account = (req as unknown as { account?: { email?: string; accountId?: number } }).account;
-    return account?.email ?? `account#${(req as any).accountId ?? '?'}`;
+  // Audit (ADR034/ADR039): ogni azione sugli account, riuscita o rifiutata,
+  // arriva a log-service con l'autore. Rifiuti e dati non validi sono
+  // registrati come tentativi falliti ("chi ha tentato cosa").
+  private audit(req: Request, action: string, message: string, meta?: Record<string, unknown>): void {
+    const actor = requestActor(req);
+    if (actor) logger.audit(action, message, actor, meta);
+    else logger.info(action, message, meta);
+  }
+
+  private denied(req: Request, action: string, message: string, meta?: Record<string, unknown>): void {
+    logger.auditFailure(action, message, requestActor(req), meta);
+  }
+
+  private failed(req: Request, action: string, message: string, err: unknown, meta?: Record<string, unknown>): void {
+    logger.error(action, message, { ...meta, error: String(err) }, 'AUTH', requestActor(req));
   }
 
   /**
@@ -217,6 +230,7 @@ export class AccountController {
 
       const passwordCheck = PasswordUtils.validate(password);
       if (!passwordCheck.valid) {
+        this.denied(req, 'auth.account_created', `Creazione account ${email} rifiutata: password non valida`, { email });
         badRequest(
           res,
           'Password non valida',
@@ -227,6 +241,12 @@ export class AccountController {
 
       const roleViolation = await this.checkRoleAssignmentRestrictions(roleId, accountType, tenantId ?? null);
       if (roleViolation) {
+        this.denied(req, 'auth.account_created', `Creazione account ${email} rifiutata: ${roleViolation}`, {
+          email,
+          roleId,
+          accountType,
+          tenantId: tenantId ?? null,
+        });
         badRequest(res, roleViolation);
         return;
       }
@@ -245,18 +265,32 @@ export class AccountController {
         isVerified: true,
       });
 
-      console.log(`✅ [Account] #${record.id} (${email}) creato da ${this.auditActor(req)}`);
+      this.audit(req, 'auth.account_created', `Creato account ${email}`, {
+        accountId: record.id,
+        email,
+        roleId,
+        accountType,
+        tenantId: tenantId ?? null,
+        entityId: entityId ?? null,
+      });
       const created = await this.reload(record.id);
       createdResponse(res, created, 'Account creato con successo');
     } catch (error: any) {
       if (error?.name === 'SequelizeUniqueConstraintError') {
+        this.denied(req, 'auth.account_created', `Creazione account rifiutata: email ${req.body?.email} già in uso`, {
+          email: req.body?.email,
+        });
         conflict(res, 'Email già in uso');
         return;
       }
       if (error?.name === 'SequelizeForeignKeyConstraintError') {
+        this.denied(req, 'auth.account_created', 'Creazione account rifiutata: ruolo o tenant non validi', {
+          email: req.body?.email,
+        });
         badRequest(res, 'Ruolo o tenant non validi');
         return;
       }
+      this.failed(req, 'auth.account_created', 'Errore creazione account', error, { email: req.body?.email });
       console.error('[AccountController] createAccount error:', error);
       serverError(res, "Errore durante la creazione dell'account");
     }
@@ -284,6 +318,10 @@ export class AccountController {
       const isSelf = account.id === currentUserId;
 
       if (isSelf && roleId && account.roleId !== roleId) {
+        this.denied(req, 'auth.account_updated', `Tentativo di modificare il proprio ruolo (${account.email})`, {
+          accountId: account.id,
+          roleId: { da: account.roleId, a: roleId },
+        });
         forbidden(res, 'Non puoi modificare il tuo ruolo');
         return;
       }
@@ -294,18 +332,32 @@ export class AccountController {
         const effectiveTenantId = tenantId !== undefined ? tenantId : account.tenantId;
         const roleViolation = await this.checkRoleAssignmentRestrictions(effectiveRoleId, effectiveAccountType, effectiveTenantId);
         if (roleViolation) {
+          this.denied(req, 'auth.account_updated', `Modifica account ${account.email} rifiutata: ${roleViolation}`, {
+            accountId: account.id,
+          });
           badRequest(res, roleViolation);
           return;
         }
       }
 
+      // Stato prima della modifica, per registrare cosa cambia (da -> a)
+      const TRACKED = ['email', 'roleId', 'accountType', 'entityId', 'tenantId'] as const;
+      const before = Object.fromEntries(TRACKED.map(f => [f, (account as any)[f] ?? null]));
+      let passwordReset = false;
+
       if (password) {
         if (isSelf) {
+          this.denied(req, 'auth.account_updated', 'Tentativo di reimpostare la propria password dalla gestione account', {
+            accountId: account.id,
+          });
           forbidden(res, 'Per cambiare la tua password usa "Cambia password" dal tuo profilo');
           return;
         }
         const passwordCheck = PasswordUtils.validate(password);
         if (!passwordCheck.valid) {
+          this.denied(req, 'auth.account_updated', `Modifica account ${account.email} rifiutata: password non valida`, {
+            accountId: account.id,
+          });
           badRequest(
             res,
             'Password non valida',
@@ -314,7 +366,7 @@ export class AccountController {
           return;
         }
         account.password = await PasswordUtils.hash(password);
-        console.log(`🔑 [Account] #${account.id} password reimpostata da ${this.auditActor(req)}`);
+        passwordReset = true;
       }
 
       if (email) account.email = email;
@@ -325,14 +377,29 @@ export class AccountController {
 
       await account.save();
 
-      console.log(`✅ [Account] #${account.id} aggiornato da ${this.auditActor(req)}`);
+      const modifiche = Object.fromEntries(
+        TRACKED.filter(f => before[f] !== ((account as any)[f] ?? null)).map(f => [
+          f,
+          { da: before[f], a: (account as any)[f] ?? null },
+        ])
+      );
+      this.audit(
+        req,
+        'auth.account_updated',
+        `Modificato account ${account.email}${passwordReset ? ' (password reimpostata)' : ''}`,
+        { accountId: account.id, modifiche, passwordReimpostata: passwordReset }
+      );
       const updated = await this.reload(id);
       successResponse(res, updated, 'Account aggiornato con successo');
     } catch (error: any) {
       if (error?.name === 'SequelizeUniqueConstraintError') {
+        this.denied(req, 'auth.account_updated', `Modifica account #${req.params.id} rifiutata: email già in uso`, {
+          accountId: req.params.id,
+        });
         conflict(res, 'Email già in uso');
         return;
       }
+      this.failed(req, 'auth.account_updated', `Errore modifica account #${req.params.id}`, error, { accountId: req.params.id });
       console.error('[AccountController] updateAccount error:', error);
       serverError(res, "Errore durante l'aggiornamento dell'account");
     }
@@ -356,6 +423,7 @@ export class AccountController {
 
       const currentUserId = (req as any).accountId;
       if (account.isActive && account.id === currentUserId) {
+        this.denied(req, 'auth.account_toggled', 'Tentativo di disattivare il proprio account', { accountId: account.id });
         forbidden(res, 'Non puoi disattivare il tuo account');
         return;
       }
@@ -363,10 +431,14 @@ export class AccountController {
       const wasActive = account.isActive;
       await this.setActive(account, !wasActive);
 
-      console.log(`✅ [Account] #${account.id} → ${!wasActive ? 'attivato' : 'disattivato'} da ${this.auditActor(req)}`);
+      this.audit(req, 'auth.account_toggled', `Account ${account.email} ${!wasActive ? 'attivato' : 'disattivato'}`, {
+        accountId: account.id,
+        isActive: !wasActive,
+      });
       const updated = await this.reload(id);
       successResponse(res, updated, `Account ${!wasActive ? 'attivato' : 'disattivato'}`);
     } catch (error) {
+      this.failed(req, 'auth.account_toggled', `Errore cambio stato account #${req.params.id}`, error, { accountId: req.params.id });
       console.error('[AccountController] toggleActive error:', error);
       serverError(res, 'Errore durante il cambio di stato');
     }
@@ -389,15 +461,17 @@ export class AccountController {
 
       const currentUserId = (req as any).accountId;
       if (account.id === currentUserId) {
+        this.denied(req, 'auth.account_deactivated', 'Tentativo di eliminare il proprio account', { accountId: account.id });
         forbidden(res, 'Non puoi eliminare il tuo account');
         return;
       }
 
       await this.setActive(account, false);
 
-      console.log(`⚠️  [Account] #${account.id} disattivato da ${this.auditActor(req)}`);
+      this.audit(req, 'auth.account_deactivated', `Account ${account.email} disattivato`, { accountId: account.id });
       successResponse(res, null, 'Account disattivato con successo');
     } catch (error) {
+      this.failed(req, 'auth.account_deactivated', `Errore disattivazione account #${req.params.id}`, error, { accountId: req.params.id });
       console.error('[AccountController] deleteAccount error:', error);
       serverError(res, "Errore durante l'eliminazione dell'account");
     }
@@ -418,9 +492,10 @@ export class AccountController {
 
       await this.setActive(account, true);
 
-      console.log(`✅ [Account] #${account.id} riattivato da ${this.auditActor(req)}`);
+      this.audit(req, 'auth.account_reactivated', `Account ${account.email} riattivato`, { accountId: account.id });
       successResponse(res, null, 'Account riattivato con successo');
     } catch (error) {
+      this.failed(req, 'auth.account_reactivated', `Errore riattivazione account #${req.params.id}`, error, { accountId: req.params.id });
       console.error('[AccountController] activateAccount error:', error);
       serverError(res, 'Errore durante riattivazione account');
     }
@@ -443,19 +518,31 @@ export class AccountController {
 
       const currentUserId = (req as any).accountId;
       if (account.id === currentUserId) {
+        this.denied(req, 'auth.account_deleted', 'Tentativo di eliminare definitivamente il proprio account', {
+          accountId: account.id,
+        });
         forbidden(res, 'Non puoi eliminare il tuo account');
         return;
       }
 
       if (account.entityId !== null) {
+        this.denied(req, 'auth.account_deleted', `Eliminazione definitiva di ${account.email} rifiutata: account collegato a un'entità`, {
+          accountId: account.id,
+          entityId: account.entityId,
+        });
         forbidden(res, "Impossibile eliminare un account già collegato a un'entità operativa (operatore, cliente, ...)");
         return;
       }
 
+      const deletedEmail = account.email;
       await account.destroy();
-      console.log(`✅ [Account] #${id} eliminato definitivamente da ${this.auditActor(req)}`);
+      this.audit(req, 'auth.account_deleted', `Account ${deletedEmail} eliminato definitivamente`, {
+        accountId: Number(id),
+        email: deletedEmail,
+      });
       successResponse(res, null, 'Account eliminato definitivamente');
     } catch (error) {
+      this.failed(req, 'auth.account_deleted', `Errore eliminazione account #${req.params.id}`, error, { accountId: req.params.id });
       console.error('[AccountController] hardDeleteAccount error:', error);
       serverError(res, "Errore durante l'eliminazione dell'account");
     }

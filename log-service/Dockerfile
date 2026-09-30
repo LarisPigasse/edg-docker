@@ -14,6 +14,11 @@ RUN npm install
 COPY . .
 # Esegue la compilazione TypeScript (npm run build)
 RUN npm run build
+# Identita' della build (ADR044): quando e' stata costruita l'immagine e, se
+# passato da docker compose (GIT_COMMIT), da quale commit. Letta da /health.
+# Si rigenera solo quando cambia il codice: stessa immagine, stessa build.
+ARG GIT_COMMIT=
+RUN printf '{"builtAt":"%s","commit":"%s"}\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$GIT_COMMIT" > dist/build-info.json
 
 # ----------------------------------------------------
 # 2. Fase di Produzione Leggera

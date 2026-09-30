@@ -3,6 +3,7 @@ import express from 'express';
 import { requireAuth } from '../middleware/auth';
 import { requirePermission } from '../middleware/rbac';
 import * as alertController from '../controllers/alertController';
+import * as recipientController from '../controllers/recipientController';
 
 const router = express.Router();
 
@@ -24,6 +25,18 @@ router.post('/rules',             requireAuth, requirePermission('sistema', 'ale
 router.put('/rules/:id',          requireAuth, requirePermission('sistema', 'alert'), alertController.updateRule);
 router.patch('/rules/:id/toggle', requireAuth, requirePermission('sistema', 'alert'), alertController.toggleRule);
 router.delete('/rules/:id',       requireAuth, requirePermission('sistema', 'alert'), alertController.deleteRule);
+
+// ========== TIPI DI EVENTO (ADR038) ==========
+
+router.get('/event-types', requireAuth, requirePermission('sistema', 'alert'), alertController.getEventTypes);
+
+// ========== ALERT RECIPIENTS (ADR038) ==========
+
+router.get('/recipients',              requireAuth, requirePermission('sistema', 'alert'), recipientController.getRecipients);
+router.post('/recipients',             requireAuth, requirePermission('sistema', 'alert'), recipientController.createRecipient);
+router.put('/recipients/:id',          requireAuth, requirePermission('sistema', 'alert'), recipientController.updateRecipient);
+router.patch('/recipients/:id/toggle', requireAuth, requirePermission('sistema', 'alert'), recipientController.toggleRecipient);
+router.delete('/recipients/:id',       requireAuth, requirePermission('sistema', 'alert'), recipientController.deleteRecipient);
 
 // ========== ALERT HISTORY ==========
 

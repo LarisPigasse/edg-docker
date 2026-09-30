@@ -2,7 +2,7 @@
 import { Request, Response } from 'express';
 import AzioneLog, { IAzioneLog } from '../models/azioneLog';
 import { computeDiff } from '../utils/diffUtils';
-import AlertManager from '../services/AlertManager';
+import AlertManager from '../services/alerting/AlertManager';
 
 /**
  * Helper: costruisce la query MongoDB dai filtri comuni
@@ -17,6 +17,8 @@ const buildQuery = (params: Record<string, any>): any => {
   if (params.tenantId) query['origine.dettagli.tenantId'] = Number(params.tenantId);
   if (params.entita) query['azione.entita'] = params.entita;
   if (params.esito) query['risultato.esito'] = params.esito;
+  // Tutti gli eventi della stessa richiesta, in qualunque servizio (ADR039)
+  if (params.transazioneId) query['contesto.transazioneId'] = String(params.transazioneId);
 
   if (params.startDate || params.endDate) {
     query.timestamp = {};

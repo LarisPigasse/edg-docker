@@ -6,6 +6,7 @@ import cors from 'cors';
 import rateLimit from 'express-rate-limit';
 import dotenv from 'dotenv';
 import emailRoutes from './routes/email.routes';
+import { BUILD_INFO } from './services/buildInfo';
 
 // Carica variabili d'ambiente
 dotenv.config();
@@ -61,6 +62,7 @@ app.get('/health', (req, res) => {
     version: '1.0.0',
     timestamp: new Date().toISOString(),
     uptime: process.uptime(),
+    build: BUILD_INFO,
   });
 });
 

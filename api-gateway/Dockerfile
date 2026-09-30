@@ -17,6 +17,11 @@ RUN npm install --production
 
 # Copia tutto il codice gateway (gateway.js + middleware/)
 COPY . .
+# Identita' della build (ADR044): quando e' stata costruita l'immagine e, se
+# passato da docker compose (GIT_COMMIT), da quale commit. Letta da /health.
+# Si rigenera solo quando cambia il codice: stessa immagine, stessa build.
+ARG GIT_COMMIT=
+RUN printf '{"builtAt":"%s","commit":"%s"}\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$GIT_COMMIT" > build-info.json
 
 # Espone porta
 EXPOSE 8080

@@ -33,6 +33,7 @@ import {
   type AlertTier,
 } from './statusChecker';
 import { sendAlertEmails } from './emailNotifier';
+import { runJob } from './jobRunner';
 
 // ─── Utility ──────────────────────────────────────────────────────────────
 
@@ -369,26 +370,30 @@ async function updateMaintenanceSchedules(): Promise<{ updated: number; notified
 
 // ─── Job principale ──────────────────────────────────────────────────────
 
-async function runDailyStatusCheck(): Promise<void> {
+/**
+ * Lancia in caso di errore: lo intercetta e lo registra runJob (job.failed),
+ * invece di finire solo in console come prima (ADR039).
+ */
+async function dailyStatusCheck(): Promise<string> {
   log('=== Avvio daily status check ===');
 
-  try {
-    const deadlineResult = await updateVehicleDeadlines();
-    log(`VehicleDeadlines: ${deadlineResult.updated} aggiornate, ${deadlineResult.notified} notifiche create`);
+  const deadlineResult = await updateVehicleDeadlines();
+  log(`VehicleDeadlines: ${deadlineResult.updated} aggiornate, ${deadlineResult.notified} notifiche create`);
 
-    const complianceResult = await updateDriverCompliances();
-    log(`DriverCompliances: ${complianceResult.updated} aggiornate, ${complianceResult.notified} notifiche create`);
+  const complianceResult = await updateDriverCompliances();
+  log(`DriverCompliances: ${complianceResult.updated} aggiornate, ${complianceResult.notified} notifiche create`);
 
-    const scheduleResult = await updateMaintenanceSchedules();
-    log(`MaintenanceSchedules: ${scheduleResult.updated} aggiornate, ${scheduleResult.notified} notifiche create`);
+  const scheduleResult = await updateMaintenanceSchedules();
+  log(`MaintenanceSchedules: ${scheduleResult.updated} aggiornate, ${scheduleResult.notified} notifiche create`);
 
-    log(
-      `=== Daily status check completato. Totale: ${deadlineResult.updated + complianceResult.updated + scheduleResult.updated} aggiornamenti, ${deadlineResult.notified + complianceResult.notified + scheduleResult.notified} notifiche ===`
-    );
-  } catch (err) {
-    console.error('[CRON][ERROR] Errore durante il daily status check:', err);
-  }
+  const updated = deadlineResult.updated + complianceResult.updated + scheduleResult.updated;
+  const notified = deadlineResult.notified + complianceResult.notified + scheduleResult.notified;
+  log(`=== Daily status check completato. Totale: ${updated} aggiornamenti, ${notified} notifiche ===`);
+  return `${updated} stati aggiornati, ${notified} notifiche create`;
 }
+
+const runDailyStatusCheck = (): Promise<void> =>
+  runJob('vehicle.daily-status-check', 'Controllo giornaliero scadenze veicoli', dailyStatusCheck);
 
 // ─── Registrazione job ───────────────────────────────────────────────────
 

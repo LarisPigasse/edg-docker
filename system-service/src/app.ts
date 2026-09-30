@@ -3,6 +3,7 @@
 // handler asincrono (list/create/update/... in crudFactory). Senza, un errore
 // imprevisto in un handler async e' una promise non gestita che con Node 22
 // termina il processo: vedi incidente reparti del 16/09/2026.
+import { requestContextMiddleware } from './services/requestContext';
 import 'express-async-errors';
 
 import express, { Application, Request, Response, NextFunction } from 'express';
@@ -13,8 +14,12 @@ import * as dotenv from 'dotenv';
 import { connectDatabase, sequelize } from './config/database';
 import './models'; // registra le associazioni tra modelli
 import { errorHandler, notFoundHandler } from './middleware/errorHandler';
-import { logger } from './services/logger';
+import { installCrashHandlers, logger } from './services/logger';
+import { BUILD_INFO } from './services/buildInfo';
 import apiRoutes from './routes';
+
+// Prima di tutto: un errore non gestito va segnalato a log-service prima di uscire (ADR043)
+installCrashHandlers();
 
 dotenv.config();
 
@@ -37,6 +42,10 @@ app.use(
     credentials: true,
   })
 );
+
+// Contesto della richiesta (ADR039): rende l'ID dell'api-gateway disponibile
+// al logger per tutta la richiesta. Deve precedere ogni altro middleware che logga.
+app.use(requestContextMiddleware);
 
 // Request logger (escludi health check per non sporcare i log)
 app.use((req: Request, res: Response, next: NextFunction) => {
@@ -65,6 +74,7 @@ app.get('/health', async (_req: Request, res: Response) => {
       database: 'connected',
       timestamp: new Date().toISOString(),
       uptime: Math.floor(process.uptime()),
+      build: BUILD_INFO,
       environment: process.env.NODE_ENV,
     });
   } catch {

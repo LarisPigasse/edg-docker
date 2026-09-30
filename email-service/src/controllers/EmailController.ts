@@ -65,7 +65,7 @@ export class EmailController {
    */
   async sendAlert(req: Request, res: Response): Promise<void> {
     try {
-      const { title, message, severity = 'info', metadata }: SendAlertRequest = req.body;
+      const { title, message, severity = 'info', metadata, to }: SendAlertRequest = req.body;
 
       // Validazione
       if (!title || !message) {
@@ -78,7 +78,14 @@ export class EmailController {
 
       const { alertsFrom, alertsTo } = smtpService.getEmailAddresses();
 
-      if (!alertsTo) {
+      // Destinatari espliciti validi, altrimenti EMAIL_ALERTS_TO (ADR038)
+      const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      const explicit = Array.isArray(to)
+        ? [...new Set(to.filter(v => typeof v === 'string').map(v => v.trim().toLowerCase()))].filter(v => EMAIL_RE.test(v))
+        : [];
+      const recipients: string[] = explicit.length > 0 ? explicit : alertsTo ? [alertsTo] : [];
+
+      if (recipients.length === 0) {
         res.status(400).json({
           success: false,
           error: 'EMAIL_ALERTS_TO non configurato',
@@ -104,7 +111,7 @@ export class EmailController {
 
       // Invia alert
       const result = await smtpService.send({
-        to: alertsTo,
+        to: recipients,
         subject,
         html,
         text,
@@ -116,6 +123,7 @@ export class EmailController {
           success: true,
           message: 'Alert inviato con successo',
           data: {
+            sentTo: recipients,
             messageId: result.messageId,
             previewUrl: result.previewUrl,
           },

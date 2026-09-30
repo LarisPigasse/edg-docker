@@ -2,6 +2,8 @@
 import { Request, Response } from 'express';
 import { AuthService } from '../services/AuthService';
 import { extractClientIp } from '../utils/ipExtractor';
+import { logger } from '../../../services/logger';
+import { requestActor } from '../../../services/requestActor';
 import {
   RegisterRequest,
   LoginRequest,
@@ -137,6 +139,9 @@ export class AuthController {
       }
 
       await this.authService.logoutAll(accountId);
+
+      const actor = requestActor(req);
+      if (actor) logger.audit('auth.logout_all', `Logout da tutti i dispositivi: ${actor.email ?? `account #${actor.id}`}`, actor);
 
       res.json({
         success: true,

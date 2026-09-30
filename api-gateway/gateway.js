@@ -8,21 +8,47 @@ const cors = require('cors');
 const rateLimit = require('express-rate-limit');
 const axios = require('axios');
 const Redis = require('ioredis');
+const crypto = require('crypto');
+const { ResilientRateLimitStore } = require('./middleware/resilientRateLimitStore');
 
 // Import middleware per JWT validation e header injection
 const { jwtValidatorMiddleware } = require('./middleware/jwtValidator');
 const { injectGatewayHeaders } = require('./middleware/gatewayHeaders');
 const { requireModule } = require('./middleware/moduleGuard'); // ADR009
 
+// Identita' della build (ADR044): build-info.json e' scritto dal Dockerfile.
+// Fuori da Docker il file non c'e': valori null.
+const BUILD_INFO = (() => {
+  const read = file => {
+    try {
+      return JSON.parse(require('fs').readFileSync(require('path').join(__dirname, file), 'utf8'));
+    } catch {
+      return {};
+    }
+  };
+  const text = value => (typeof value === 'string' && value.trim() ? value.trim() : null);
+  const stamp = read('build-info.json');
+  return Object.freeze({ version: text(read('package.json').version), builtAt: text(stamp.builtAt), commit: text(stamp.commit) });
+})();
+
 // =============================================================================
-// REDIS CLIENT — blacklist account disattivati
+// REDIS CLIENT — blacklist account disattivati e limite richieste condiviso
 // =============================================================================
+// Redis non deve MAI rallentare o bloccare il traffico (ADR040):
+//  - enableOfflineQueue: false -> se non connesso, i comandi falliscono subito
+//    invece di restare in coda fino alla riconnessione
+//  - commandTimeout: 256 ms   -> un Redis connesso ma bloccato non trattiene
+//    le richieste
+// Ogni uso di Redis nel gateway ha un ripiego: blacklist -> lascia passare
+// (fail-open), limite richieste -> contatore in memoria locale.
 let redisClient = null;
 
 if (process.env.REDIS_URL) {
   redisClient = new Redis(process.env.REDIS_URL, {
-    maxRetriesPerRequest: 3,
+    maxRetriesPerRequest: 1,
     enableReadyCheck: true,
+    enableOfflineQueue: false,
+    commandTimeout: 256,
     lazyConnect: false,
   });
 
@@ -35,7 +61,7 @@ if (process.env.REDIS_URL) {
  * Se Redis non è disponibile, lascia passare (fail-open).
  */
 async function isAccountBlocked(accountId) {
-  if (!redisClient) return false;
+  if (!redisClient || redisClient.status !== 'ready') return false;
   try {
     const result = await redisClient.get(`blocked:${accountId}`);
     return result === '1';
@@ -45,7 +71,7 @@ async function isAccountBlocked(accountId) {
 }
 
 async function isSessionBlocked(sessionId) {
-  if (!redisClient || !sessionId) return false;
+  if (!redisClient || redisClient.status !== 'ready' || !sessionId) return false;
   try {
     const result = await redisClient.get(`blocked:session:${sessionId}`);
     return result === '1';
@@ -99,6 +125,19 @@ const FRONTENDS = {
 // =============================================================================
 // MIDDLEWARE GLOBALI
 // =============================================================================
+
+// 0. ID della richiesta (ADR039): un identificativo per ogni richiesta,
+// generato QUI e mai accettato dal client (non falsificabile). Viaggia verso
+// i servizi nell'header x-request-id e finisce in contesto.transazioneId di
+// ogni evento di log: dal dettaglio di un log si ricostruisce tutta la
+// richiesta attraverso i servizi. Restituito anche al chiamante (X-Request-Id)
+// per poter citare con precisione una richiesta andata male.
+app.use((req, res, next) => {
+  req.requestId = crypto.randomUUID();
+  req.headers['x-request-id'] = req.requestId;
+  res.setHeader('X-Request-Id', req.requestId);
+  next();
+});
 
 // 1. Security Headers (Helmet)
 app.use(
@@ -166,6 +205,9 @@ const limiter = rateLimit({
   keyGenerator: req => {
     return req.ip || req.headers['x-forwarded-for'] || req.connection.remoteAddress;
   },
+  // Contatore condiviso fra i due gateway su Redis, con ripiego in memoria se
+  // Redis non e' disponibile (ADR040) — vedi middleware/resilientRateLimitStore.js
+  store: new ResilientRateLimitStore({ client: redisClient, prefix: 'rl:auth:' }),
 });
 
 // Applica rate limiting SOLO alle route /auth
@@ -190,6 +232,7 @@ app.get('/health', (req, res) => {
     version: 'step-4-final',
     timestamp: new Date().toISOString(),
     uptime: process.uptime(),
+    build: BUILD_INFO,
     environment: process.env.NODE_ENV || 'development',
     memory: {
       used: Math.round(process.memoryUsage().heapUsed / 1024 / 1024) + ' MB',
@@ -253,6 +296,7 @@ const authProxy = createProxyMiddleware({
     const clientIp = req.headers['x-forwarded-for'] || req.ip || req.connection.remoteAddress;
     proxyReq.setHeader('x-forwarded-for', clientIp);
     proxyReq.setHeader('x-real-ip', clientIp);
+    proxyReq.setHeader('x-request-id', req.requestId);
   },
   onError: (err, req, res) => {
     console.error(`❌ Auth proxy error: ${err.message}`);
@@ -318,6 +362,7 @@ app.use('/auth', async (req, res, next) => {
               'x-user-data': req.headers['x-user-data'],
               'x-forwarded-for': clientIp,
               'x-real-ip': clientIp,
+              'x-request-id': req.requestId,
             },
           });
 
@@ -383,6 +428,7 @@ app.use('/api/vehicles', async (req, res, next) => {
               'x-user-data': req.headers['x-user-data'],
               'x-forwarded-for': clientIp,
               'x-real-ip': clientIp,
+              'x-request-id': req.requestId,
             },
           });
 
@@ -454,6 +500,7 @@ app.use('/api/system/health', async (req, res, next) => {
             'x-user-data': req.headers['x-user-data'],
             'x-forwarded-for': clientIp,
             'x-real-ip': clientIp,
+            'x-request-id': req.requestId,
           },
         });
 
@@ -505,6 +552,7 @@ app.use('/api/log', async (req, res, next) => {
             'x-user-data': req.headers['x-user-data'],
             'x-forwarded-for': clientIp,
             'x-real-ip': clientIp,
+            'x-request-id': req.requestId,
           },
         });
 
@@ -556,6 +604,7 @@ app.use('/api/alert', async (req, res, next) => {
             'x-user-data': req.headers['x-user-data'],
             'x-forwarded-for': clientIp,
             'x-real-ip': clientIp,
+            'x-request-id': req.requestId,
           },
         });
 
@@ -615,6 +664,7 @@ app.use('/api/system', async (req, res, next) => {
             'x-user-data': req.headers['x-user-data'],
             'x-forwarded-for': clientIp,
             'x-real-ip': clientIp,
+            'x-request-id': req.requestId,
           },
         });
 
