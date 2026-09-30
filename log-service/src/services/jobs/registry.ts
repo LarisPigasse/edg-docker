@@ -36,4 +36,12 @@ export const EXPECTED_JOBS: ExpectedJob[] = [
     everyMs: 24 * HOUR_MS,
     graceMs: HOUR_MS,
   },
+  {
+    id: 'backup.daily',
+    name: 'Backup di database e file',
+    service: 'backup-service',
+    schedule: 'ogni giorno alle 12:00 (BACKUP_CRON)',
+    everyMs: 24 * HOUR_MS,
+    graceMs: HOUR_MS,
+  },
 ];

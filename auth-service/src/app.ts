@@ -215,17 +215,19 @@ const startServer = async () => {
     // 5.2 CRON JOB — pulizia sessioni e token scaduti
     console.log('\n🔧 [APP] Fase 8.2: Setup cron job pulizia sessioni');
     // Ogni giorno alle 03:00 (Europe/Rome)
-    cron.schedule(
-      '0 3 * * *',
-      // Eseguito e tracciato da runJob (ADR039): job.completed / job.failed in log-service
-      () =>
-        runJob('auth.cleanup-expired', 'Pulizia sessioni e token scaduti', async () => {
-          const { sessions, resetTokens } = await authService.cleanupExpired();
-          return `${sessions} sessioni e ${resetTokens} token di reset eliminati`;
-        }),
-      { timezone: 'Europe/Rome' }
-    );
+    // Eseguito e tracciato da runJob (ADR039): job.completed / job.failed in log-service
+    const cleanupExpired = () =>
+      runJob('auth.cleanup-expired', 'Pulizia sessioni e token scaduti', async () => {
+        const { sessions, resetTokens } = await authService.cleanupExpired();
+        return `${sessions} sessioni e ${resetTokens} token di reset eliminati`;
+      });
+    cron.schedule('0 3 * * *', cleanupExpired, { timezone: 'Europe/Rome' });
     console.log('   ✅ Cron job registrato (ogni giorno alle 03:00 Europe/Rome)');
+    // In sviluppo il PC di notte e' spento: recupero all'avvio (come vehicle-service)
+    if (process.env.CRON_RUN_ON_START === 'true') {
+      console.log('   ⏱️  CRON_RUN_ON_START=true → pulizia eseguita subito');
+      void cleanupExpired();
+    }
 
     // 6. CRITICO: Registra error handlers DOPO le route!
     console.log('\n [APP] Fase 9: Registrazione error handlers (404, 500)');

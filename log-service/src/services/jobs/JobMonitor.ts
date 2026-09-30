@@ -9,6 +9,11 @@
 // Il passaggio a LATE genera l'evento job.missed (regola "Processo
 // pianificato non eseguito"): e' l'unico modo di accorgersi di un processo
 // che NON parte proprio. Chiamato dall'HealthMonitor a ogni giro.
+//
+// Nei primi STARTUP_GRACE_MS dopo l'avvio di log-service il job.missed non
+// viene registrato (ADR045): dopo una notte a PC spento i processi recuperano
+// all'avvio, e un allarme in quella finestra sarebbe falso. Se il ritardo
+// persiste oltre la finestra, l'evento viene registrato comunque.
 import AzioneLog from '../../models/azioneLog';
 import { recordEvent } from '../localEvents';
 import { EXPECTED_JOBS, type ExpectedJob } from './registry';
@@ -32,6 +37,9 @@ export interface JobState {
 }
 
 const monitorStartedAt = Date.now();
+export const STARTUP_GRACE_MS = 16 * 60 * 1000;
+/** Processi gia' segnalati come LATE: un solo job.missed per ritardo */
+const reportedLate = new Set<string>();
 let states: JobState[] = EXPECTED_JOBS.map(j => emptyState(j));
 
 function emptyState(j: ExpectedJob): JobState {
@@ -98,11 +106,16 @@ async function evaluate(j: ExpectedJob, now: number): Promise<JobState> {
 /** Ricalcola lo stato di tutti i processi; registra job.missed al passaggio a LATE */
 async function check(): Promise<void> {
   const now = Date.now();
-  const previous = new Map(states.map(s => [s.id, s.status]));
   const next = await Promise.all(EXPECTED_JOBS.map(j => evaluate(j, now)));
+  const inGrace = now - monitorStartedAt < STARTUP_GRACE_MS;
 
   for (const s of next) {
-    if (s.status === 'LATE' && previous.get(s.id) !== 'LATE') {
+    if (s.status !== 'LATE') {
+      reportedLate.delete(s.id);
+      continue;
+    }
+    if (!inGrace && !reportedLate.has(s.id)) {
+      reportedLate.add(s.id);
       await recordEvent({
         categoria: 'SYSTEM',
         tipo: 'job.missed',

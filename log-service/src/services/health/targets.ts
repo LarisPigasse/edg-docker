@@ -36,6 +36,8 @@ export const HEALTH_TARGETS: HealthTarget[] = [
     probe: () => httpProbe(`${env('VEHICLE_SERVICE_URL', 'http://vehicle-service:3003')}/health`) },
   { id: 'email-service', name: 'Email Service', group: 'service',
     probe: () => httpProbe(`${env('EMAIL_SERVICE_URL', 'http://email-service:3002')}/health`) },
+  { id: 'backup-service', name: 'Backup Service', group: 'service',
+    probe: () => httpProbe(`${env('BACKUP_SERVICE_URL', 'http://backup-service:3005')}/health`) },
 
   // Database
   { id: 'mongodb', name: 'MongoDB (log)', group: 'database', probe: mongoProbe },

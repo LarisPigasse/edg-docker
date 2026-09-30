@@ -130,6 +130,11 @@
       "status": "stable",
       "notes": "ADR039 p.2 completato e verificato: riavvii (042), crash+gravità regola (043), nomi uniformi+build/deploy (044). Prossimo: p.3 backup",
       "lastUpdated": "2026-09-30"
+    },
+    "backup-service": {
+      "status": "stable",
+      "notes": "ADR045: backup locale giornaliero 12:00 su E:/edg-backups (2/1/1), verificato live. Da fare in produzione: conservazione, copia fuori sede cifrata (rclone), prova di ripristino",
+      "lastUpdated": "2026-09-30"
     }
   }
 }

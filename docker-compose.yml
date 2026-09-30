@@ -246,6 +246,7 @@ services:
     environment:
       # Mode Configuration
       NODE_ENV: development
+      CRON_RUN_ON_START: 'true' # recupero della pulizia notturna all'avvio (solo sviluppo)
       GATEWAY_MODE: 'true'
 
       # Gateway Secret
@@ -410,6 +411,68 @@ services:
       timeout: 10s
       retries: 3
       start_period: 40s
+
+  # ===========================================================================
+  # BACKUP SERVICE (ADR045) — dump giornaliero di MySQL, PostgreSQL, MongoDB
+  # e dei file caricati; stato e allarmi nella scheda Salute (backup.daily)
+  # ===========================================================================
+  backup-service:
+    build:
+      context: ./backup-service
+      dockerfile: Dockerfile
+      target: production
+      # Commit della build, mostrato nella scheda Salute (ADR044).
+      # Sul server: GIT_COMMIT=$(git rev-parse --short HEAD) docker compose ... build
+      args:
+        GIT_COMMIT: ${GIT_COMMIT:-}
+    container_name: backup-service
+    deploy:
+      resources:
+        limits:
+          cpus: '0.50'
+          memory: 256M
+        reservations:
+          cpus: '0.05'
+          memory: 64M
+    restart: unless-stopped
+    depends_on:
+      mysql:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+      logger-mongo:
+        condition: service_healthy
+    environment:
+      NODE_ENV: development
+      PORT: 3005
+      TZ: Europe/Rome
+      # Orario del backup giornaliero (cron a 6 campi: s m h giorno mese settimana)
+      BACKUP_CRON: ${BACKUP_CRON:-0 0 12 * * *}
+      # Conservazione per livello (in produzione da rivedere)
+      BACKUP_KEEP_DAILY: ${BACKUP_KEEP_DAILY:-2}
+      BACKUP_KEEP_WEEKLY: ${BACKUP_KEEP_WEEKLY:-1}
+      BACKUP_KEEP_MONTHLY: ${BACKUP_KEEP_MONTHLY:-1}
+      MYSQL_HOST: auth-mysql
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      MYSQL_DATABASE: ${MYSQL_DATABASE}
+      POSTGRES_HOST: edg-postgres
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      MONGO_HOST: log-mongo
+      MONGO_USER: ${MONGO_LOG_USER}
+      MONGO_PASSWORD: ${MONGO_LOG_PASSWORD}
+      LOG_SERVICE_URL: http://log-service:4000
+      LOG_API_KEY_SECRET: ${LOG_API_KEY_SECRET}
+    volumes:
+      # In sviluppo: chiavetta E (sempre inserita); sovrascrivibile con BACKUP_HOST_DIR
+      - ${BACKUP_HOST_DIR:-E:/edg-backups}:/backups
+      - vehicle-uploads:/data/vehicle-uploads:ro
+    expose:
+      - '3005'
+    labels:
+      - 'traefik.enable=false'
+    networks:
+      - internal
 
   # ===========================================================================
   # VEHICLE SERVICE (Microservizio Gestione Mezzi)
