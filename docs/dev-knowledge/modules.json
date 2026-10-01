@@ -1,5 +1,5 @@
 {
-  "lastUpdated": "2026-09-30",
+  "lastUpdated": "2026-10-01",
   "modules": {
     "auth-service": {
       "status": "stable",
@@ -8,13 +8,13 @@
     },
     "log-service": {
       "status": "stable",
-      "notes": "ADR039 p.1-2 live: audit completo, prima/dopo con diff (crudFactory auth/system/vehicle), autore sugli errori. Prossimo: ID richiesta (transazioneId) + link Logs da Account.",
-      "lastUpdated": "2026-09-29"
+      "notes": "Audit completo con prima/dopo e transazioneId (ADR034/039), log mai cancellabili (ADR037), coda in memoria nei logger (ADR041), nomi servizio uniformi (ADR044).",
+      "lastUpdated": "2026-10-01"
     },
     "email-service": {
       "status": "stable",
-      "notes": "3 modalità: SMTP/Ethereal/Console. Template Handlebars. Integrazione Aruba SMTP.",
-      "lastUpdated": "2026-03-16"
+      "notes": "SMTP Aruba. Template Handlebars, nuovo reports/daily-digest (ADR046). /email/alert accetta to[] con fallback EMAIL_ALERTS_TO.",
+      "lastUpdated": "2026-10-01"
     },
     "api-gateway (x2 HA)": {
       "status": "stable",
@@ -62,9 +62,9 @@
       "lastUpdated": "2026-03-25"
     },
     "multi-tenant feature toggling": {
-      "status": "planned",
-      "notes": "ADR009 accettata a marzo 2026 ma MAI implementata. Ora e prerequisito: menu e homepage per moduli attivi (ADR010/012) dipendono da tenantId, modules nel JWT e moduleGuard nel gateway.",
-      "lastUpdated": "2026-08-31"
+      "status": "in-progress",
+      "notes": "Base ADR009 presente: tenants, tenant_modules (stringhe libere), modules nel JWT a login/refresh, moduleGuard solo su /api/vehicles. Evolve in \"gestione moduli\".",
+      "lastUpdated": "2026-10-01"
     },
     "pro-frontend (vehicles module)": {
       "status": "in-progress",
@@ -92,9 +92,9 @@
       "lastUpdated": "2026-08-31"
     },
     "pro-frontend (edg-system)": {
-      "status": "in-progress",
-      "notes": "SISTEMA → Info (ADR038) completa lato codice: Salute, Regole (regole+destinatari, predefinite non eliminabili), Storico (filtri, paginazione, evento scatenante). Da validare a video 4a/4b.",
-      "lastUpdated": "2026-09-29"
+      "status": "stable",
+      "notes": "SISTEMA → Info validata: Salute (servizi, riavvii, build, processi, invia riepilogo), Regole (gravità per regola), Storico. Logs con Modifiche/Stessa richiesta.",
+      "lastUpdated": "2026-10-01"
     },
     "asset-frontend (edg-docker)": {
       "status": "review",
@@ -128,13 +128,18 @@
     },
     "log-service (alerting/health)": {
       "status": "stable",
-      "notes": "ADR039 p.2 completato e verificato: riavvii (042), crash+gravità regola (043), nomi uniformi+build/deploy (044). Prossimo: p.3 backup",
-      "lastUpdated": "2026-09-30"
+      "notes": "ADR038-046 completi e verificati live: salute, regole, riavvii, crash, build/deploy, processi pianificati, riepilogo giornaliero 08:00. ADR039 p.5 rimandato alla pubblicazione.",
+      "lastUpdated": "2026-10-01"
     },
     "backup-service": {
       "status": "stable",
-      "notes": "ADR045: backup locale giornaliero 12:00 su E:/edg-backups (2/1/1), verificato live. Da fare in produzione: conservazione, copia fuori sede cifrata (rclone), prova di ripristino",
-      "lastUpdated": "2026-09-30"
+      "notes": "ADR045: backup giornaliero 12:00 su D:\\Sviluppo\\edg-backups (E: non montabile, L044), 2/1/1, verificato. Produzione: conservazione, copia fuori sede cifrata, prova ripristino.",
+      "lastUpdated": "2026-10-01"
+    },
+    "gestione moduli (catalogo, assegnazioni, prove, demo)": {
+      "status": "planned",
+      "notes": "PROSSIMA SESSIONE: decisioni prese (ADR047). Leggere docs/dev-knowledge/next-session.md sez. 3 e partire dalla fase 1 (catalogo + attivazioni in auth-service).",
+      "lastUpdated": "2026-10-01"
     }
   }
 }
