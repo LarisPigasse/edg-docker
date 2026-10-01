@@ -4,7 +4,7 @@
 > (che riassume moduli, ADR e lezioni da `modules.json`, `decisions.json`,
 > `lessons.json`). Qui c'è ciò che quei file non contengono: il punto esatto in
 > cui siamo, il prossimo argomento con la proposta già ragionata e le domande
-> ancora aperte. Aggiornato: 2026-10-01 (decisioni sui moduli incluse).
+> ancora aperte. Aggiornato: 2026-10-01 (gestione moduli: fase 1 completata, ADR048).
 
 ---
 
@@ -22,6 +22,7 @@ verificata dal vivo e committata in edg-docker ed edg-system.
 | Processi pianificati monitorati (job.completed/failed/missed) | fatto | ADR039 |
 | Backup locale giornaliero (backup-service) | fatto | ADR045, L044 |
 | Riepilogo giornaliero via email | fatto | ADR046 |
+| Gestione moduli fase 1: catalogo, attivazioni, JWT, API, scadenza | fatto | ADR047, ADR048, L045, L046 |
 | Limite richieste su Redis con ripiego in memoria | fatto | ADR040 |
 
 ## 2. Rimandato (non dimenticare)
@@ -31,6 +32,7 @@ verificata dal vivo e committata in edg-docker ed edg-system.
 - Monitor esterno della piattaforma (serve approvazione della direzione).
 - `CRON_RUN_ON_START: 'false'` in produzione (auth-service e vehicle-service).
 - Sul server, una volta: `node dist/scripts/normalizeServiceNames.js` nel container log-service (ADR044).
+- Sul server, una volta: migrazione `auth-service/migrations/2026-10-01-module-catalog.sql` (ADR048) **insieme** al deploy del nuovo auth-service (toglie la riga `*` di EDG: con il vecchio codice EDG resterebbe senza moduli).
 - ADR039 punto 5: utente MongoDB con permessi minimi, scadenza/archiviazione dei log (ADR037), riepilogo settimanale di igiene.
 - Allarme cancellazioni in massa: non serve codice, si crea da SISTEMA → Info → Regole (tipo `crud.delete`, es. 16 in 16 min, raggruppa per utente).
 
@@ -95,11 +97,25 @@ verificata dal vivo e committata in edg-docker ed edg-system.
 - Dove vive la "tipologia di attività": sul tenant (vale per tutti i moduli) o sull'attivazione di Vigilo?
 
 ### 3.5 Fasi proposte (una alla volta, con verifica)
-1. Catalogo moduli + attivazioni con periodo e stato (auth-service: migrazione da `tenant_modules`, JWT, processo di scadenza).
+1. ✅ **Fatta (ADR048)** — Catalogo moduli + attivazioni con periodo e stato (auth-service: migrazione da `tenant_modules`, JWT, processo di scadenza).
 2. pro-frontend: SISTEMA → Moduli (catalogo) e scheda Moduli nel tenant (attivazioni, prove); permessi admin.
 3. Collegamento tenant ↔ cliente anagrafica.
 4. Gateway con mappa rotte → moduli; menu di app-frontend dai manifest.
 5. Demo: tenant demo, fixture con date relative, ripristino.
+
+### 3.6 Stato dopo la fase 1 (2026-10-01)
+**Fatto e verificato dal vivo** (36/36 controlli via gateway, audit con diff in MongoDB, processo di scadenza):
+- auth-service: `modules` (catalogo), `tenant_modules` come attivazione, `tenants.sector`; `ModuleService` (moduli del JWT), `moduleRules.ts` (regole pure), `ModuleCatalogService`, `ModuleActivationService`, `ModuleController`, `routes/module.routes.ts`, `middleware/tenantMiddleware.ts` (`requireSystemTenant`).
+- API: `/auth/modules` (lettura `sistema.moduli`, scrittura root) e `/auth/tenants/:tenantId/modules` (`sistema.moduli`); `/auth/tenants` con `sistema.tenant` (eliminazione solo root). **Solo account del tenant di sistema**: il ruolo admin è globale e `demo@` (tenant `ted`) è admin.
+- Processo `auth.module-expiry` alle 00:08, nei processi attesi di log-service. Gateway su `requireModule('vigilo')`.
+- Dati attuali: catalogo con `vigilo`, `spedizioni`, `tracking` (stato `sviluppo`); nessuna attivazione; nessun settore.
+
+**Prossimi passi, in ordine**
+1. **Passo 3b — account gestibili dall'admin** (deciso: passo separato). Protezioni: l'admin non assegna il ruolo root, non modifica né elimina account root, non cambia il proprio ruolo; sempre `requireSystemTenant`. Oggi `/auth/accounts` è tutto `requireRoot`.
+2. **Fase 2 — pro-frontend (edg-system)**: SISTEMA → Moduli (catalogo, solo root) e scheda Moduli nel tenant (attivazioni, prove, proroghe, sospensioni; mostrare `inForce`, `purgeAt`, `lostModules`); menu SISTEMA visibile anche all'admin per Tenant e Moduli; campo Settore nel tenant.
+3. Rinviati (serve il contratto comune "cancella i dati di un tenant per un modulo", condiviso con la demo): eliminazione dati dopo 64 giorni da `expiredAt`, eliminazione anticipata da parte dell'admin, avvisi ad admin e root a 8 giorni e a 1 giorno.
+
+**Domande ancora aperte**: avviso anche alla scadenza della prova (a chi?); valori ammessi del settore (oggi chiave libera validata dal formato).
 
 ## 4. Come lavorare con Mormegil (promemoria)
 - Lingua italiana. **Quantità come potenze di 2** ovunque possibile (16, 32, 64… non 15, 30, 60).
@@ -115,3 +131,6 @@ verificata dal vivo e committata in edg-docker ed edg-system.
 - `exec-in-container` dell'MCP: niente `sh -c '…'` (passa da Windows) e niente comandi con `throw` (bloccati). MongoDB dei log: interrogarlo con `node -e` dentro il container log-service (`MONGODB_URI`); collezioni `azionelogs`, `alerthistory`, `alertrules`, `alertrecipients`, `alertingmeta`.
 - Tipi di evento: campo `sottoCategoria`; servizio: `azione.entita` (nome del container, ADR044).
 - Prima di dichiarare un percorso Docker valido su Windows: `grep <dest> /proc/mounts` nel container (L044).
+- `exec-in-container` passa da cmd di Windows e poi da `sh`: nei `node -e` niente `=>`, `||`, `&&`, `$`, backtick (L046). Script lunghi: gzip+base64 scritto nel container e poi eseguito; nel gateway `workDir` = `/usr/src/app`.
+- Prove delle API senza password: firmare un JWT di prova dentro api-gateway-1 con `JWT_SECRET` (account reali: 1 root, 3 admin EDG, 2 operatore, 4 admin di `ted`) e chiamare `http://localhost:8080/auth/...`. Ripulire sempre i dati di prova.
+- Audit di una modifica: verificare `stato.diff` in `azionelogs`, non solo che l'evento esista (L045).

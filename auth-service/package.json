@@ -16,7 +16,8 @@
     "seed:roles": "ts-node src/modules/auth/seed/roles.seed.ts",
     "seed:tenants": "ts-node src/modules/auth/seed/tenants.seed.ts",
     "seed:root": "ts-node src/modules/auth/seed/root-account.seed.ts",
-    "seed:all": "npm run seed:roles && npm run seed:tenants && npm run seed:root",
+    "seed:modules": "ts-node src/modules/auth/seed/modules.seed.ts",
+    "seed:all": "npm run seed:roles && npm run seed:tenants && npm run seed:modules && npm run seed:root",
     "clean": "rm -rf dist",
     "create-service": "node scripts/create-service.js"
   },

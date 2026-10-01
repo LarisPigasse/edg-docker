@@ -13,16 +13,21 @@ import {
   createRolePermissionModel,
   createTenantModel,
   createTenantModuleModel,
+  createModuleModel,
   setupAuthAssociations,
 } from './modules/auth/models';
 
 // Import services e routes
-import { AuthService } from './modules/auth/services';
+import { AuthService, ModuleService } from './modules/auth/services';
 import { AuthController } from './modules/auth/controllers/AuthController';
 import { SessionController } from './modules/auth/controllers/SessionController';
 import { createAuthRouter } from './modules/auth/routes/auth.routes';
 import { createAccountRouter } from './modules/auth/routes/account.routes';
 import { createTenantRouter } from './modules/auth/routes/tenant.routes';
+import { createModuleCatalogRouter, createTenantModuleRouter } from './modules/auth/routes/module.routes';
+import { ModuleCatalogService } from './modules/auth/services/ModuleCatalogService';
+import { ModuleActivationService } from './modules/auth/services/ModuleActivationService';
+import { ModuleController } from './modules/auth/controllers/ModuleController';
 import { Router, Application, Request, Response, NextFunction } from 'express';
 import { installCrashHandlers, logger } from './services/logger';
 import { requestActor } from './services/requestActor';
@@ -58,6 +63,7 @@ const AuthModuleConfig: ServerModule = {
     createRoleModel,
     createRolePermissionModel,
     createTenantModel,
+    createModuleModel,
     createTenantModuleModel,
     createAccountModel,
     createSessionModel,
@@ -149,15 +155,20 @@ const startServer = async () => {
     const RolePermission = models.find((m: any) => m.name === 'RolePermission');
     const Tenant = models.find((m: any) => m.name === 'Tenant');
     const TenantModule = models.find((m: any) => m.name === 'TenantModule');
+    const Module = models.find((m: any) => m.name === 'Module');
 
-    if (!Account || !Session || !ResetToken || !Role || !RolePermission || !Tenant || !TenantModule) {
+    if (!Account || !Session || !ResetToken || !Role || !RolePermission || !Tenant || !TenantModule || !Module) {
       throw new Error('Errore: modelli richiesti non trovati dopo inizializzazione');
     }
     console.log('  Tutti i modelli trovati');
 
     // 3. INIZIALIZZA la logica di business (Service e Controller)
     console.log('\n [APP] Fase 5: Creazione Service e Controller');
-    const authService = new AuthService(Account, Session, ResetToken, Role, RolePermission, TenantModule, Tenant);
+    // Gestione moduli (ADR047): unico punto che decide i moduli in vigore di un tenant
+    const moduleService = new ModuleService(Module, TenantModule, Tenant);
+    console.log('  ModuleService creato');
+
+    const authService = new AuthService(Account, Session, ResetToken, Role, RolePermission, moduleService, Tenant);
     console.log('  AuthService creato');
 
     const authController = new AuthController(authService);
@@ -206,11 +217,19 @@ const startServer = async () => {
     app.use('/auth/accounts', accountRouter);
     console.log('   ✅ Router accounts creato e registrato!');
 
-    // 5.1bis CREA E REGISTRA ROUTER TENANTS (menu "SISTEMA", solo root)
+    // 5.1bis CREA E REGISTRA ROUTER TENANTS (menu "SISTEMA", admin e root - ADR047)
     console.log('\n🔧 [APP] Fase 8.1bis: Creazione e registrazione router tenants');
     const tenantRouter = createTenantRouter(Tenant);
     app.use('/auth/tenants', tenantRouter);
     console.log('   ✅ Router tenants creato e registrato!');
+
+    // 5.1ter GESTIONE MODULI (ADR047): catalogo e attivazioni per tenant
+    console.log('\n🔧 [APP] Fase 8.1ter: Creazione e registrazione router moduli');
+    const moduleActivationService = new ModuleActivationService(Module, TenantModule, Tenant, moduleService);
+    const moduleController = new ModuleController(new ModuleCatalogService(Module), moduleActivationService);
+    app.use('/auth/modules', createModuleCatalogRouter(moduleController, Tenant));
+    app.use('/auth/tenants/:tenantId/modules', createTenantModuleRouter(moduleController, Tenant));
+    console.log('   ✅ Router moduli registrati (/auth/modules, /auth/tenants/:tenantId/modules)');
 
     // 5.2 CRON JOB — pulizia sessioni e token scaduti
     console.log('\n🔧 [APP] Fase 8.2: Setup cron job pulizia sessioni');
@@ -228,6 +247,17 @@ const startServer = async () => {
       console.log('   ⏱️  CRON_RUN_ON_START=true → pulizia eseguita subito');
       void cleanupExpired();
     }
+
+    // 5.3 CRON JOB — scadenza delle attivazioni dei moduli (ADR047)
+    // Ogni giorno alle 00:08 (Europe/Rome), tracciato da runJob (ADR039)
+    const expireModules = () =>
+      runJob('auth.module-expiry', 'Scadenza attivazioni moduli', async () => {
+        const n = await moduleActivationService.expireEnded();
+        return n === 0 ? 'nessuna attivazione scaduta' : `${n} attivazioni passate a scaduto`;
+      });
+    cron.schedule('8 0 * * *', expireModules, { timezone: 'Europe/Rome' });
+    console.log('   ✅ Cron job scadenza moduli registrato (ogni giorno alle 00:08 Europe/Rome)');
+    if (process.env.CRON_RUN_ON_START === 'true') void expireModules();
 
     // 6. CRITICO: Registra error handlers DOPO le route!
     console.log('\n [APP] Fase 9: Registrazione error handlers (404, 500)');

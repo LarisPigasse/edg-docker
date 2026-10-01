@@ -90,13 +90,16 @@ export type Permission = string; // es: 'spedizioni.read', 'gestione.*', '*'
 // Concetto distinto da `Module` sopra: quello è il dominio dei permessi RBAC
 // (es. 'spedizioni.read'), questo è "quali moduli il tenant ha acquistato/attivato"
 // (es. mostrare o no la voce Vehicles/Vigilo nel menu).
-export type FeatureModule = 'vehicles' | 'vigilo' | 'spedizioni' | '*'; // wildcard = tutti i moduli (tenant di sistema EDG)
+// ADR047: le chiavi vere stanno nel catalogo (tabella modules); questo tipo
+// elenca solo quelle note al codice. 'vehicles' e' stato sostituito da 'vigilo'.
+export type FeatureModule = 'vigilo' | 'spedizioni' | 'tracking' | '*'; // wildcard = tutti i moduli (tenant di sistema EDG)
 
 export interface TenantAttributes {
   id: number;
   uuid: string;
   name: string;
   slug: string;
+  sector?: string | null; // ADR047: settore di attivita, vale per tutti i moduli
   isSystem: boolean;
   isActive: boolean;
   defaultLocale?: string;
@@ -104,12 +107,8 @@ export interface TenantAttributes {
   updatedAt: Date;
 }
 
-export interface TenantModuleAttributes {
-  id: number;
-  tenantId: number;
-  module: FeatureModule;
-  createdAt: Date;
-}
+// ADR047: la riga di tenant_modules e' ora un'attivazione (stato, periodo, config)
+export type { ActivationAttributes as TenantModuleAttributes } from './module.types';
 
 // ============================================================================
 // REQUEST/RESPONSE DTOs

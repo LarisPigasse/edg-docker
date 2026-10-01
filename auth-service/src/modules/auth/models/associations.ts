@@ -7,6 +7,7 @@ export const setupAuthAssociations = (models: any[]) => {
   const RolePermission = models.find(m => m.name === 'RolePermission');
   const Tenant = models.find(m => m.name === 'Tenant');
   const TenantModule = models.find(m => m.name === 'TenantModule');
+  const Module = models.find(m => m.name === 'Module');
 
   // ============================================================================
   // ASSOCIAZIONI BASE (Account - Session - ResetToken)
@@ -54,6 +55,21 @@ export const setupAuthAssociations = (models: any[]) => {
     TenantModule.belongsTo(Tenant, { foreignKey: 'tenantId', as: 'tenant' });
   }
 
+  // ============================================================================
+  // CATALOGO MODULI (Module - TenantModule) - ADR047
+  // ============================================================================
+
+  // Un'attivazione punta al catalogo tramite la chiave stabile (non l'id)
+  if (Module && TenantModule) {
+    Module.hasMany(TenantModule, { foreignKey: 'module', sourceKey: 'key', as: 'activations' });
+    TenantModule.belongsTo(Module, { foreignKey: 'module', targetKey: 'key', as: 'catalog' });
+  }
+
+  // Chi ha concesso l'attivazione (NULL se l'account e' stato eliminato)
+  if (Account && TenantModule) {
+    TenantModule.belongsTo(Account, { foreignKey: 'grantedBy', as: 'grantor' });
+  }
+
   console.log('Associazioni Auth configurate:');
   console.log(' - Account → Session (hasMany)');
   console.log(' - Account → ResetToken (hasMany)');
@@ -63,4 +79,5 @@ export const setupAuthAssociations = (models: any[]) => {
   console.log(' - Account → Tenant (belongsTo)');
   console.log(' - Tenant → Account (hasMany)');
   console.log(' - Tenant → TenantModule (hasMany)');
+  console.log(' - Module → TenantModule (hasMany, per chiave)');
 };

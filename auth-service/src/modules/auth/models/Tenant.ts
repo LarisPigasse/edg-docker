@@ -29,6 +29,11 @@ export const createTenantModel = (sequelize: Sequelize) => {
         unique: true,
         comment: "Identificativo breve, usato per mapping dominio->tenant (ADR012)",
       },
+      sector: {
+        type: DataTypes.STRING(32),
+        allowNull: true,
+        comment: 'Settore di attivita (es. trasportatore, agricola, movimento-terra) - vale per tutti i moduli (ADR047)',
+      },
       isSystem: {
         type: DataTypes.BOOLEAN,
         allowNull: false,

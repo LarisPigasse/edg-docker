@@ -30,7 +30,13 @@ const DEFAULT_ROLES: RoleDefinition[] = [
       'spedizioni.*',
       'gestione.*',
       'report.*',
-      // NO 'sistema.*' - solo root può accedere
+      'system.read',
+      'system.create',
+      'system.update',
+      // ADR047: dell'area SISTEMA solo attivazioni moduli e tenant.
+      // Catalogo moduli, eliminazione tenant e il resto di 'sistema.*' restano a root.
+      'sistema.moduli',
+      'sistema.tenant',
     ],
   },
   {

@@ -92,7 +92,7 @@ const SYSTEM_SERVICE = process.env.SYSTEM_SERVICE_URL || 'http://system-service:
 const LOG_SERVICE = process.env.LOG_SERVICE_URL || 'http://log-service:4000';
 
 // Route protette che richiedono JWT validation + gateway headers
-const PROTECTED_AUTH_ROUTES = ['/change-password', '/logout-all', '/me', '/sessions', '/blocked-users', '/users', '/accounts', '/tenants'];
+const PROTECTED_AUTH_ROUTES = ['/change-password', '/logout-all', '/me', '/sessions', '/blocked-users', '/users', '/accounts', '/tenants', '/modules']; // '/modules': catalogo moduli (ADR047)
 
 // Helper per check route admin (wildcard match)
 function isAdminRoute(path) {
@@ -407,8 +407,9 @@ app.use('/api/vehicles', async (req, res, next) => {
       return res.status(401).json({ success: false, error: 'Sessione revocata' });
     }
 
-    // ADR009: il modulo 'vehicles' deve essere tra quelli attivi per il tenant
-    return requireModule('vehicles')(req, res, async err => {
+    // ADR009/ADR047: le API veicoli appartengono al modulo 'vigilo' (la chiave
+    // 'vehicles' non esiste piu'). La mappa dichiarativa rotte -> moduli arriva in fase 4.
+    return requireModule('vigilo')(req, res, async err => {
       if (err || res.headersSent) return;
 
       // Inietta gateway headers (x-gateway-secret, x-user-data)

@@ -13,5 +13,8 @@ export { createRolePermissionModel } from './RolePermission';
 export { createTenantModel } from './Tenant';
 export { createTenantModuleModel } from './TenantModule';
 
+// Catalogo moduli (ADR047)
+export { createModuleModel } from './Module';
+
 // Associazioni
 export { setupAuthAssociations } from './associations';

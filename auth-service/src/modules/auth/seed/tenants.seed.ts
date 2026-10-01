@@ -2,25 +2,27 @@
 import { v4 as uuidv4 } from 'uuid';
 import { createServiceConfig } from '../../../core/config/environment';
 import { DatabaseManager } from '../../../core/config/database';
-import { createTenantModel, createTenantModuleModel } from '../models';
+import { createTenantModel } from '../models';
 
 // ============================================================================
-// TENANT DI SISTEMA (ADR009)
+// TENANT DI SISTEMA (ADR009, ADR047)
 // ============================================================================
 // Il tenant "edg" rappresenta l'azienda stessa: tutti gli account interni
 // (operatori, admin, root su pro-frontend) puntano a questo tenant, cosi'
-// accounts.tenantId non e' mai NULL. Il suo unico modulo e' il wildcard '*',
-// che il moduleGuard del gateway interpreta come "tutti i moduli attivi".
+// accounts.tenantId non e' mai NULL.
+//
+// ADR047: il tenant di sistema NON ha righe in tenant_modules. Il jolly '*'
+// (tutti i moduli) gli viene dato dal codice in base a isSystem, cosi' le
+// attivazioni puntano solo a moduli veri del catalogo.
 
 const SYSTEM_TENANT = {
   slug: 'edg',
   name: 'Express Delivery Group',
   isSystem: true,
   defaultLocale: 'it',
-  modules: ['*'],
 };
 
-async function seedSystemTenant(tenantModel: any, tenantModuleModel: any): Promise<any> {
+async function seedSystemTenant(tenantModel: any): Promise<any> {
   console.log(`\n📝 Processando tenant di sistema: ${SYSTEM_TENANT.slug}`);
 
   const existing = await tenantModel.findOne({ where: { slug: SYSTEM_TENANT.slug } });
@@ -47,15 +49,7 @@ async function seedSystemTenant(tenantModel: any, tenantModuleModel: any): Promi
     });
   }
 
-  console.log(`   🔑 Configurazione moduli per "${SYSTEM_TENANT.slug}"...`);
-  await tenantModuleModel.destroy({ where: { tenantId: tenant.id } });
-
-  for (const module of SYSTEM_TENANT.modules) {
-    await tenantModuleModel.create({ tenantId: tenant.id, module });
-    console.log(`      → ${module}`);
-  }
-
-  console.log(`   ✅ Tenant "${SYSTEM_TENANT.slug}" configurato (ID: ${tenant.id})`);
+  console.log(`   ✅ Tenant "${SYSTEM_TENANT.slug}" configurato (ID: ${tenant.id}, tutti i moduli da codice)`);
   return tenant;
 }
 
@@ -73,16 +67,12 @@ async function main() {
     dbManager = new DatabaseManager(config);
 
     const Tenant = createTenantModel(dbManager.getSequelize());
-    const TenantModule = createTenantModuleModel(dbManager.getSequelize());
-
-    Tenant.hasMany(TenantModule, { foreignKey: 'tenantId', as: 'modules' });
-    TenantModule.belongsTo(Tenant, { foreignKey: 'tenantId', as: 'tenant' });
 
     console.log('🔄 Sincronizzazione database...');
-    await dbManager.getSequelize().sync();
+    await Tenant.sync();
     console.log('✅ Database sincronizzato\n');
 
-    await seedSystemTenant(Tenant, TenantModule);
+    await seedSystemTenant(Tenant);
 
     console.log('\n╔═══════════════════════════════════════════════════════════╗');
     console.log('║              SEED COMPLETATO CON SUCCESSO                  ║');

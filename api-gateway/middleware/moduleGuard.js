@@ -15,7 +15,7 @@
  * tenendo conto del wildcard '*' (tenant di sistema EDG, vedi ADR009).
  *
  * @param {string[]} modules - moduli attivi per il tenant (da req.userData.modules)
- * @param {string} requiredModule - modulo richiesto dalla route (es. 'vehicles')
+ * @param {string} requiredModule - modulo richiesto dalla route (es. 'vigilo')
  * @returns {boolean}
  */
 function hasModuleAccess(modules, requiredModule) {
@@ -29,7 +29,7 @@ function hasModuleAccess(modules, requiredModule) {
  * Middleware factory: blocca la richiesta con 403 se il tenant dell'account
  * non ha il modulo richiesto tra quelli attivi.
  *
- * @param {string} requiredModule - modulo richiesto dalla route (es. 'vehicles', 'vigilo')
+ * @param {string} requiredModule - chiave del catalogo moduli (es. 'vigilo', 'spedizioni') - ADR047
  */
 function requireModule(requiredModule) {
   return (req, res, next) => {

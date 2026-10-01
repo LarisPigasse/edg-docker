@@ -396,6 +396,24 @@
       "title": "Bind su unità rimovibile (E:) finisce nel disco interno di Docker Desktop",
       "problem": "Con Docker Desktop (WSL2) il bind \"E:/edg-backups:/backups\" su una chiavetta USB non fallisce: WSL non monta l'unità e Docker crea la cartella nel proprio disco ext4 (/dev/sdX). Il container scrive senza errori ma i file non arrivano mai su E:. Anche wsl --shutdown + riavvio non ha risolto.",
       "solution": "Usare unità fisse (D:) e preferire percorsi relativi al compose (../edg-backups), che compose converte nel formato montato via drvfs. Verifica: grep /destinazione /proc/mounts nel container deve mostrare \"9p ... aname=drvfs;path=D:\\\", non un ext4 /dev/sdX."
+    },
+    {
+      "id": "L045",
+      "date": "2026-10-01",
+      "category": "sequelize",
+      "severity": "medium",
+      "title": "get({ plain: true }) restituisce dataValues vivo: lo stato \"prima\" dell'audit risulta già modificato",
+      "problem": "Nei servizi dei moduli lo stato precedente per l'audit si leggeva con record.get({ plain: true }) prima di record.update(). In Sequelize, su un'istanza senza include, get({ plain: true }) restituisce l'oggetto dataValues stesso (non una copia): update() lo modifica, quindi \"precedente\" e \"nuovo\" coincidevano e log-service non calcolava alcuna differenza (verificato su azionelogs: precedente.status già 'sospeso').",
+      "solution": "Per lo stato precedente usare record.get({ plain: true, clone: true }) oppure snapshot(record) di services/logger.ts (che clona via JSON) PRIMA di update(). Verificare sempre un audit di modifica controllando stato.diff in azionelogs, non solo che l'evento esista."
+    },
+    {
+      "id": "L046",
+      "date": "2026-10-01",
+      "category": "mcp-tooling",
+      "severity": "low",
+      "title": "exec-in-container passa da cmd di Windows e poi da sh: niente > | & $ ` nei comandi",
+      "problem": "Il comando di exec-in-container viene eseguito come docker exec ... sh -c \"...\" lanciato da cmd di Windows. Nei node -e: '=>' viene letto da cmd come redirezione (errore \"Accesso negato.\"), '||' e '&&' come pipe/concatenazione (\"non è riconosciuto come comando\"), '$gte' viene espanso da sh (diventa vuoto), i backtick SQL (`key`) vengono eseguiti da sh. Inoltre il workDir predefinito /app non esiste nel gateway (WORKDIR /usr/src/app).",
+      "solution": "Nei node -e usare function(){} invece delle frecce, '??' invece di '||', niente '&&'; per gli operatori MongoDB costruire la chiave con String.fromCharCode(36)+'gte'; evitare i backtick. Per script lunghi: gzip+base64, scritto nel container con fs.writeFileSync(zlib.gunzipSync(Buffer.from(b64,'base64'))) e poi eseguito; nel gateway passare workDir /usr/src/app e rimuovere il file alla fine."
     }
   ]
 }

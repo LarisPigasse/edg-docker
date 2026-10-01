@@ -29,6 +29,14 @@ export const EXPECTED_JOBS: ExpectedJob[] = [
     graceMs: HOUR_MS,
   },
   {
+    id: 'auth.module-expiry',
+    name: 'Scadenza attivazioni moduli',
+    service: 'auth-service',
+    schedule: 'ogni giorno alle 00:08',
+    everyMs: 24 * HOUR_MS,
+    graceMs: HOUR_MS,
+  },
+  {
     id: 'vehicle.daily-status-check',
     name: 'Controllo giornaliero scadenze veicoli',
     service: 'vehicle-service',

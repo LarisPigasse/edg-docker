@@ -10,6 +10,7 @@ import {
 } from '../types/auth.types';
 import { PasswordUtils, ValidationUtils, TokenUtils } from '../utils';
 import { TokenService } from './TokenService';
+import { ModuleService } from './ModuleService';
 import { emailServiceClient } from '../../../clients/EmailServiceClient';
 import { parseUserAgent } from '../utils/deviceDetection';
 import { geolocateIP } from '../utils/geolocation';
@@ -24,7 +25,7 @@ export class AuthService {
     private resetTokenModel: any,
     private roleModel: any,
     private rolePermissionModel: any, // ✅ AGGIUNTO: model RolePermission
-    private tenantModuleModel: any, // ✅ NUOVO (ADR009): model TenantModule
+    private moduleService: ModuleService, // ADR047: moduli in vigore del tenant (sostituisce la lettura diretta di tenant_modules)
     private tenantModel: any // ✅ NUOVO: model Tenant, solo per leggere il nome (pagina profilo)
   ) {
     this.tokenService = new TokenService();
@@ -502,19 +503,12 @@ export class AuthService {
   // ============================================================================
 
   /**
-   * Carica i moduli attivi di un tenant (ADR009).
-   * Il tenant di sistema EDG ha un unico modulo '*' (wildcard): tutti i moduli attivi.
+   * Moduli in vigore del tenant, da mettere nel JWT (ADR009, ADR047).
+   * Le regole stanno in ModuleService: tenant di sistema -> ['*'], altrimenti
+   * solo attivazioni in prova o attive, nel periodo, con le dipendenze.
    */
   private async loadTenantModules(tenantId: number): Promise<string[]> {
-    if (!tenantId) {
-      return [];
-    }
-
-    const tenantModules = await this.tenantModuleModel.findAll({
-      where: { tenantId },
-    });
-
-    return tenantModules.map((tm: any) => tm.module);
+    return this.moduleService.resolveTenantModules(tenantId);
   }
 
   /**

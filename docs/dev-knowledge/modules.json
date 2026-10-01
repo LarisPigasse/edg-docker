@@ -3,8 +3,8 @@
   "modules": {
     "auth-service": {
       "status": "stable",
-      "notes": "Audit completo verificato live (ADR039 p.1): account, tenant, logout, reset/cambio password, tentativi rifiutati con autore, modifiche account da→a. Prossimo: prima/dopo nel crudFactory.",
-      "lastUpdated": "2026-09-29"
+      "notes": "ADR048: catalogo moduli e attivazioni, ModuleService per il JWT, /auth/modules, tenant con sistema.tenant e requireSystemTenant, job auth.module-expiry. 36/36 test via gateway.",
+      "lastUpdated": "2026-10-01"
     },
     "log-service": {
       "status": "stable",
@@ -62,8 +62,8 @@
       "lastUpdated": "2026-03-25"
     },
     "multi-tenant feature toggling": {
-      "status": "in-progress",
-      "notes": "Base ADR009 presente: tenants, tenant_modules (stringhe libere), modules nel JWT a login/refresh, moduleGuard solo su /api/vehicles. Evolve in \"gestione moduli\".",
+      "status": "stable",
+      "notes": "Evoluto in gestione moduli (ADR048): catalogo con FK, attivazioni con stato e periodo, jolly EDG da codice, gateway su 'vigilo'. Mappa rotte→moduli in fase 4.",
       "lastUpdated": "2026-10-01"
     },
     "pro-frontend (vehicles module)": {
@@ -137,8 +137,8 @@
       "lastUpdated": "2026-10-01"
     },
     "gestione moduli (catalogo, assegnazioni, prove, demo)": {
-      "status": "planned",
-      "notes": "PROSSIMA SESSIONE: decisioni prese (ADR047). Leggere docs/dev-knowledge/next-session.md sez. 3 e partire dalla fase 1 (catalogo + attivazioni in auth-service).",
+      "status": "in-progress",
+      "notes": "Fase 1 fatta e verificata (ADR048): catalogo, attivazioni, JWT, API, scadenza, solo tenant di sistema. Prossimo: passo 3b account per admin, poi fase 2 UI pro-frontend.",
       "lastUpdated": "2026-10-01"
     }
   }
