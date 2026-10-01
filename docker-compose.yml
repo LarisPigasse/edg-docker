@@ -328,6 +328,10 @@ services:
       - GATEWAY_SECRET=${GATEWAY_SECRET}
       # Alerting
       - EMAIL_SERVICE_URL=http://email-service:3002
+      # Riepilogo giornaliero via email (ADR046): orario (cron a 6 campi) e link alla pagina Info
+      - DIGEST_CRON=${DIGEST_CRON:-0 0 8 * * *}
+      - TZ=Europe/Rome
+      - FRONTEND_URL=${FRONTEND_URL:-http://localhost:5173}
       # Destinatari alert: anagrafica in log-service, ripiego su EMAIL_ALERTS_TO di email-service (ADR038)
       # System health check
       - AUTH_SERVICE_URL=http://auth-service:3001
@@ -464,8 +468,10 @@ services:
       LOG_SERVICE_URL: http://log-service:4000
       LOG_API_KEY_SECRET: ${LOG_API_KEY_SECRET}
     volumes:
-      # In sviluppo: chiavetta E (sempre inserita); sovrascrivibile con BACKUP_HOST_DIR
-      - ${BACKUP_HOST_DIR:-E:/edg-backups}:/backups
+      # In sviluppo: D:\Sviluppo\edg-backups, accanto al repository (percorso relativo:
+      # compose lo converte nel formato che Docker Desktop monta davvero). La chiavetta E:
+      # non e' utilizzabile: WSL non la monta e i file finirebbero nel disco interno di Docker.
+      - ${BACKUP_HOST_DIR:-../edg-backups}:/backups
       - vehicle-uploads:/data/vehicle-uploads:ro
     expose:
       - '3005'

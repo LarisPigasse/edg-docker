@@ -70,6 +70,7 @@ export class TemplateService {
       'alerts/security-alert',
       'alerts/system-error',
       'alerts/vehicle-notification',
+      'reports/daily-digest',
     ];
 
     templates.forEach(template => {

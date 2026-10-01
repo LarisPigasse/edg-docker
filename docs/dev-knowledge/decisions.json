@@ -1,5 +1,5 @@
 {
-  "lastUpdated": "2026-09-30",
+  "lastUpdated": "2026-10-01",
   "decisions": [
     {
       "id": "ADR001",
@@ -404,6 +404,15 @@
       "context": "ADR039 punto 3. Nessun backup esisteva. In sviluppo si lavora solo in locale e il PC può essere spento all'orario pianificato; la copia fuori sede (hosting Aruba o storage a oggetti) è rimandata alla pubblicazione.",
       "decision": "Nuovo container backup-service (node:22-alpine con mariadb-client + connector-c, postgresql16-client, mongodb-tools). Sorgenti come Dumper modulari: MySQL auth (mariadb-dump single-transaction), PostgreSQL (ruoli + un pg_dump -Fc per ogni database letto dal server), MongoDB log (mongodump archive gzip), volume vehicle-uploads (tar.gz, ro). Ogni file viene verificato (marcatore di fine, pg_restore --list, mongorestore --dryRun, tar -t); manifest.json con byte e SHA-256; cartella .partial rinominata solo a fine lavoro. Livelli daily/weekly/monthly: la promozione copia il primo backup della settimana ISO e del mese. Conservazione da env (sviluppo 2/1/1). Pianificazione BACKUP_CRON (12:00 Europe/Rome) più recupero all'avvio se l'ultimo backup ha più di 24 h. Destinazione: bind BACKUP_HOST_DIR (sviluppo E:/edg-backups, produzione ./backups). Job 'backup.daily' tramite runJob, registrato nel JobMonitor; target 'backup-service' nell'HealthMonitor. npm run backup chiede il backup al servizio (POST /run, solo localhost), unico esecutore. JobMonitor: nessun job.missed nei primi 16 minuti dopo l'avvio di log-service; auth-service ottiene CRON_RUN_ON_START come vehicle.",
       "rationale": "Container dedicato e portabile: in produzione cambiano solo destinazione e conservazione, e la copia fuori sede si aggiungerà come ulteriore passo (rclone) senza toccare i dump. La verifica a ogni esecuzione scopre subito un backup inutilizzabile; la rinomina atomica garantisce che ogni cartella con nome definitivo sia completa. Il recupero all'avvio e la finestra di 16 minuti evitano backup mancati e falsi allarmi su un PC di sviluppo spento di notte.",
+      "status": "accepted"
+    },
+    {
+      "id": "ADR046",
+      "date": "2026-10-01",
+      "title": "ADR046 — Riepilogo giornaliero via email",
+      "context": "ADR039 punto 4. Gli allarmi segnalano i problemi, ma il silenzio è ambiguo: nessun allarme può significare che va tutto bene o che l'alerting stesso è fermo.",
+      "decision": "log-service invia ogni giorno (DIGEST_CRON, default 08:00 Europe/Rome; recupero all'avvio se l'ultimo invio ha più di 24 h; pulsante \"Invia riepilogo ora\" → POST /api/alert/digest con permesso sistema.info) un riepilogo delle ultime 24 ore ai destinatari predefiniti. Contenuti: esito (tutto regolare / N problemi: servizi DOWN, processi FAILED/LATE, crash, eventi persi, allarmi critici o non inviati), servizi ed eventi (down/recovered/restarted/crashed/deploy, max 32), processi pianificati, allarmi per regola, attività operatori (solo conteggi), volumi e spazio dei log. Struttura: digestData (raccolta) → digestFormat (testi e colori) → email-service, nuovo modello reports/daily-digest (HTML a tabelle + testo) che si limita a ripetere sezioni, righe ed elementi già composti. Tracciato come processo 'report.daily-digest' con runLocalJob (job.completed/failed scritti direttamente).",
+      "rationale": "Un'email quotidiana sempre presente trasforma l'assenza in un segnale. La raccolta sta in log-service, che ha già tutti i dati. Il modello \"stupido\" in email-service permette di cambiare il contenuto toccando un solo servizio. Niente grafici (resi male dai client di posta) e niente destinatari dedicati: non varrebbero la candela ora.",
       "status": "accepted"
     }
   ]

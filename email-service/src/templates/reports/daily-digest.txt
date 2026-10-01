@@ -1,0 +1,25 @@
+{{{title}}}
+Ultime 24 ore, {{{period}}}
+
+{{{verdict.label}}}
+{{#each problems}}
+- {{{this}}}
+{{/each}}
+{{#each sections}}
+
+== {{{title}}} ==
+{{#each rows}}
+{{{label}}}: {{{value}}}
+{{/each}}
+{{#each items}}
+{{{at}}}  {{{text}}}
+{{/each}}
+{{#if empty}}
+{{{empty}}}
+{{/if}}
+{{/each}}
+
+SISTEMA → Info: {{{infoUrl}}}
+
+Email automatica inviata ogni giorno, anche quando è tutto regolare: se non arriva, controlla la piattaforma.
+Generata il {{{timestamp}}}.

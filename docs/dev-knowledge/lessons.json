@@ -1,5 +1,5 @@
 {
-  "lastUpdated": "2026-09-29",
+  "lastUpdated": "2026-10-01",
   "lessons": [
     {
       "id": "L001",
@@ -387,6 +387,15 @@
       "title": "Refresh su dati calcolati in background: deve ricalcolare, non solo rileggere",
       "problem": "Nella pagina SISTEMA → Info il pulsante di aggiornamento rileggeva lo snapshot che l'HealthMonitor calcola ogni 32 s (GET /api/system/health). La lettura era istantanea e restituiva lo stesso stato e lo stesso \"ultimo controllo\": all'utente il pulsante sembrava non avere alcun effetto.",
       "solution": "Separare le due intenzioni. GET per l'aggiornamento automatico (legge lo snapshot); POST /api/system/health per il pulsante (\"controlla adesso\": HealthMonitor.checkNow() esegue subito un giro, si aggancia a quello in corso e non ne riesegue uno se l'ultimo ha meno di 2 s). Il gateway inoltra già il metodo HTTP così com'è. Regola generale: un pulsante di refresh deve produrre un cambiamento osservabile, oppure dire esplicitamente che il dato è già il più recente."
+    },
+    {
+      "id": "L044",
+      "date": "2026-10-01",
+      "category": "docker",
+      "severity": "high",
+      "title": "Bind su unità rimovibile (E:) finisce nel disco interno di Docker Desktop",
+      "problem": "Con Docker Desktop (WSL2) il bind \"E:/edg-backups:/backups\" su una chiavetta USB non fallisce: WSL non monta l'unità e Docker crea la cartella nel proprio disco ext4 (/dev/sdX). Il container scrive senza errori ma i file non arrivano mai su E:. Anche wsl --shutdown + riavvio non ha risolto.",
+      "solution": "Usare unità fisse (D:) e preferire percorsi relativi al compose (../edg-backups), che compose converte nel formato montato via drvfs. Verifica: grep /destinazione /proc/mounts nel container deve mostrare \"9p ... aname=drvfs;path=D:\\\", non un ext4 /dev/sdX."
     }
   ]
 }

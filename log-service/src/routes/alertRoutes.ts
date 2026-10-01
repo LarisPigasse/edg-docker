@@ -4,6 +4,7 @@ import { requireAuth } from '../middleware/auth';
 import { requirePermission } from '../middleware/rbac';
 import * as alertController from '../controllers/alertController';
 import * as recipientController from '../controllers/recipientController';
+import { sendDigest } from '../controllers/reportController';
 
 const router = express.Router();
 
@@ -42,5 +43,8 @@ router.delete('/recipients/:id',       requireAuth, requirePermission('sistema',
 
 router.get('/history',       requireAuth, requirePermission('sistema', 'alert'), alertController.getHistory);
 router.get('/history/stats', requireAuth, requirePermission('sistema', 'alert'), alertController.getHistoryStats);
+
+// Riepilogo giornaliero a richiesta (ADR046) — stesso permesso della scheda Salute
+router.post('/digest', requireAuth, requirePermission('sistema', 'info'), sendDigest);
 
 export default router;

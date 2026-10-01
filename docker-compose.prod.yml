@@ -303,6 +303,10 @@ services:
       - API_KEY_SECRET=${LOG_API_KEY_SECRET}
       - GATEWAY_SECRET=${GATEWAY_SECRET}
       - EMAIL_SERVICE_URL=http://email-service:3002
+      # Riepilogo giornaliero via email (ADR046): orario (cron a 6 campi) e link alla pagina Info
+      - DIGEST_CRON=${DIGEST_CRON:-0 0 8 * * *}
+      - TZ=Europe/Rome
+      - FRONTEND_URL=${FRONTEND_URL:-https://pro.expressdeliverygroup.com}
       # Destinatari alert: anagrafica in log-service, ripiego su EMAIL_ALERTS_TO di email-service (ADR038)
       - AUTH_SERVICE_URL=http://auth-service:3001
     depends_on:

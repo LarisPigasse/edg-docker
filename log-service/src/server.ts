@@ -9,6 +9,7 @@ import logRoutes from "./routes/logRoutes";
 import alertRoutes from "./routes/alertRoutes";
 import systemRoutes from "./routes/systemRoutes";
 import { ensureDefaultRules } from "./services/alerting/defaultRules";
+import { startDailyDigest } from "./services/reports/dailyDigest";
 import HealthMonitor from "./services/health/HealthMonitor";
 import { requestContextMiddleware } from "./services/requestContext";
 
@@ -78,6 +79,9 @@ const startServer = async () => {
 
     // Osservazione continua della salute della piattaforma (ADR038)
     HealthMonitor.start();
+
+    // Riepilogo giornaliero via email (ADR046)
+    startDailyDigest();
 
     // Avvio server
     app.listen(PORT, () => {

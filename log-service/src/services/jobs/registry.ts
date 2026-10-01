@@ -44,4 +44,12 @@ export const EXPECTED_JOBS: ExpectedJob[] = [
     everyMs: 24 * HOUR_MS,
     graceMs: HOUR_MS,
   },
+  {
+    id: 'report.daily-digest',
+    name: 'Riepilogo giornaliero via email',
+    service: 'log-service',
+    schedule: 'ogni giorno alle 08:00 (DIGEST_CRON)',
+    everyMs: 24 * HOUR_MS,
+    graceMs: HOUR_MS,
+  },
 ];
