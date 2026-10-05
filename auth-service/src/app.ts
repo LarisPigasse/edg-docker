@@ -174,11 +174,11 @@ const startServer = async () => {
     const authController = new AuthController(authService);
     console.log('  AuthController creato');
 
-    const sessionController = new SessionController(Session, Account);
+    const sessionController = new SessionController(Session, Account, Role); // Role: limiti dell'admin (ADR049)
     console.log('  SessionController creato');
 
     console.log('\n [APP] Fase 6: Creazione router VERO con tutte le route');
-    const authRouter = createAuthRouter(authController, sessionController);
+    const authRouter = createAuthRouter(authController, sessionController, Tenant);
     console.log('  Router vero creato');
 
     // Debug: Verifica che il router abbia le route

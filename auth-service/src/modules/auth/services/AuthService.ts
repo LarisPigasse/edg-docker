@@ -151,7 +151,7 @@ export class AuthService {
     // Estrai permessi dal ruolo e moduli attivi del tenant
     const permissions = await this.loadAccountPermissions(account.id);
     const modules = await this.loadTenantModules(account.tenantId);
-    const tenantName = await this.loadTenantName(account.tenantId);
+    const { name: tenantName, isSystem: systemTenant } = await this.loadTenantInfo(account.tenantId);
 
     const refreshToken = this.tokenService.generateRefreshToken();
 
@@ -186,6 +186,7 @@ export class AuthService {
       roleId: account.roleId,
       permissions,
       modules,
+      systemTenant, // ADR051: personale EDG, letto dagli altri servizi (es. log-service)
       sessionId: session.id,
     });
 
@@ -265,7 +266,7 @@ export class AuthService {
     // Carica permessi e moduli del tenant
     const permissions = await this.loadAccountPermissions(account.id);
     const modules = await this.loadTenantModules(account.tenantId);
-    const tenantName = await this.loadTenantName(account.tenantId);
+    const { name: tenantName, isSystem: systemTenant } = await this.loadTenantInfo(account.tenantId);
 
     // Genera nuovo access token con permissions e modules
     const accessToken = this.tokenService.generateAccessToken({
@@ -276,6 +277,7 @@ export class AuthService {
       roleId: account.roleId,
       permissions,
       modules,
+      systemTenant, // ADR051: personale EDG, letto dagli altri servizi (es. log-service)
       sessionId: session.id,
     });
 
@@ -512,17 +514,20 @@ export class AuthService {
   }
 
   /**
-   * Carica il nome del tenant, solo per la visualizzazione nella pagina profilo.
-   * Non è un dato di sicurezza: l'autorizzazione si basa esclusivamente su tenantId/modules.
+   * Nome del tenant (solo per la pagina profilo) e appartenenza al tenant di
+   * sistema (ADR051): `isSystem` finisce nel JWT come `systemTenant`, firmato,
+   * cosi' i servizi senza la tabella tenant (log-service) sanno se l'account e'
+   * del personale EDG. isSystem non e' modificabile via API: il valore nel
+   * token non diventa mai vecchio.
    */
-  private async loadTenantName(tenantId: number): Promise<string | null> {
+  private async loadTenantInfo(tenantId: number): Promise<{ name: string | null; isSystem: boolean }> {
     if (!tenantId) {
-      return null;
+      return { name: null, isSystem: false };
     }
 
-    const tenant = await this.tenantModel.findByPk(tenantId);
+    const tenant = await this.tenantModel.findByPk(tenantId, { attributes: ['id', 'name', 'isSystem'] });
 
-    return tenant?.name ?? null;
+    return { name: tenant?.name ?? null, isSystem: tenant?.isSystem === true };
   }
 
   /**

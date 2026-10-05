@@ -24,6 +24,8 @@ export interface GatewayUser {
   tenantId: number | null;
   roleId: number;
   permissions: string[];
+  /** ADR051: account del tenant di sistema (personale EDG), dal JWT firmato */
+  systemTenant: boolean;
 }
 
 declare global {
@@ -71,6 +73,7 @@ export function requireAuth(req: Request, res: Response, next: NextFunction): vo
       tenantId: parsed.tenantId ?? null,
       roleId: parsed.roleId,
       permissions: parsed.permissions || [],
+      systemTenant: parsed.systemTenant === true,
     };
 
     next();

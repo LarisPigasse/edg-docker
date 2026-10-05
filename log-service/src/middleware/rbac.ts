@@ -8,6 +8,15 @@
 import { Request, Response, NextFunction } from 'express';
 
 // ---------------------------------------------------------------------------
+// Moduli riservati al personale EDG (ADR051)
+// I ruoli sono globali: un admin esiste anche nei tenant dei clienti. I
+// permessi 'sistema.*' (log, salute, riepilogo, allarmi di tutta la
+// piattaforma) valgono solo per gli account del tenant di sistema, indicati
+// dal campo systemTenant del JWT. Token senza il campo (emessi prima) = no.
+// ---------------------------------------------------------------------------
+const SYSTEM_TENANT_MODULES = new Set(['sistema']);
+
+// ---------------------------------------------------------------------------
 // requirePermission(module, action)
 // Verifica che req.user abbia il permesso "module.action".
 // Supporta wildcard: "*" (superuser), "module.*" (accesso completo al modulo)
@@ -22,6 +31,11 @@ export function requirePermission(module: string, action: string) {
 
     const permissions: string[] = req.user.permissions || [];
     const target = `${module}.${action}`;
+
+    if (SYSTEM_TENANT_MODULES.has(module) && req.user.systemTenant !== true) {
+      res.status(403).json({ message: 'Accesso riservato al personale EDG' });
+      return;
+    }
 
     // Nega esplicita — ha priorita' su tutto
     if (

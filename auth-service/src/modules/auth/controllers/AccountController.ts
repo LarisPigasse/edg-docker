@@ -16,6 +16,7 @@ import {
 import { PasswordUtils } from '../utils/password';
 import { logger } from '../../../services/logger';
 import { requestActor } from '../../../services/requestActor';
+import { ROOT_ROLE, checkActorLimits, isRootActor } from '../utils/actorLimits';
 
 const ACCOUNT_INCLUDE_ROLE = { attributes: ['id', 'name'] };
 const ACCOUNT_INCLUDE_TENANT = { attributes: ['id', 'name', 'slug'] };
@@ -44,7 +45,9 @@ const ROLES_REQUIRING_SYSTEM_TENANT: string[] = ['root'];
 
 /**
  * Controller per gestione admin degli account (menu "SISTEMA" su pro-frontend).
- * Tutte le route sono dietro requireRoot() — vedi routes/account.routes.ts.
+ * ADR049: route con permesso 'sistema.account' (admin e root) e solo per il
+ * tenant di sistema; eliminazione definitiva e permessi dei ruoli solo root
+ * — vedi routes/account.routes.ts. I limiti dell'admin sono in checkActorLimits.
  *
  * Risposte allineate allo stesso ApiResponse<T> di Tenant/system-service
  * (utils/response.ts), così il frontend riusa lo stesso client/hook generico
@@ -111,6 +114,11 @@ export class AccountController {
     }
 
     return null;
+  }
+
+  /** Limiti di chi non e' root (ADR049): logica condivisa in utils/actorLimits.ts */
+  private checkActorLimits(req: Request, target: any | null, newRoleId?: number): Promise<string | null> {
+    return checkActorLimits(req, this.Role, target, newRoleId);
   }
 
   /** Proiezione comune a list/get/create/update: ruolo e tenant inclusi, campi sensibili esclusi. */
@@ -239,6 +247,13 @@ export class AccountController {
         return;
       }
 
+      const limit = await this.checkActorLimits(req, null, roleId);
+      if (limit) {
+        this.denied(req, 'auth.account_created', `Creazione account ${email} rifiutata: ${limit}`, { email, roleId });
+        forbidden(res, limit);
+        return;
+      }
+
       const roleViolation = await this.checkRoleAssignmentRestrictions(roleId, accountType, tenantId ?? null);
       if (roleViolation) {
         this.denied(req, 'auth.account_created', `Creazione account ${email} rifiutata: ${roleViolation}`, {
@@ -323,6 +338,16 @@ export class AccountController {
           roleId: { da: account.roleId, a: roleId },
         });
         forbidden(res, 'Non puoi modificare il tuo ruolo');
+        return;
+      }
+
+      const limit = await this.checkActorLimits(req, account, roleId);
+      if (limit) {
+        this.denied(req, 'auth.account_updated', `Modifica account ${account.email} rifiutata: ${limit}`, {
+          accountId: account.id,
+          roleId: roleId ?? null,
+        });
+        forbidden(res, limit);
         return;
       }
 
@@ -421,6 +446,13 @@ export class AccountController {
         return;
       }
 
+      const limit = await this.checkActorLimits(req, account);
+      if (limit) {
+        this.denied(req, 'auth.account_toggled', `Cambio stato di ${account.email} rifiutato: ${limit}`, { accountId: account.id });
+        forbidden(res, limit);
+        return;
+      }
+
       const currentUserId = (req as any).accountId;
       if (account.isActive && account.id === currentUserId) {
         this.denied(req, 'auth.account_toggled', 'Tentativo di disattivare il proprio account', { accountId: account.id });
@@ -460,6 +492,13 @@ export class AccountController {
       }
 
       const currentUserId = (req as any).accountId;
+      const limit = await this.checkActorLimits(req, account);
+      if (limit) {
+        this.denied(req, 'auth.account_deactivated', `Disattivazione di ${account.email} rifiutata: ${limit}`, { accountId: account.id });
+        forbidden(res, limit);
+        return;
+      }
+
       if (account.id === currentUserId) {
         this.denied(req, 'auth.account_deactivated', 'Tentativo di eliminare il proprio account', { accountId: account.id });
         forbidden(res, 'Non puoi eliminare il tuo account');
@@ -487,6 +526,13 @@ export class AccountController {
       const account = await this.Account.findByPk(id);
       if (!account) {
         notFound(res, 'Account');
+        return;
+      }
+
+      const limit = await this.checkActorLimits(req, account);
+      if (limit) {
+        this.denied(req, 'auth.account_reactivated', `Riattivazione di ${account.email} rifiutata: ${limit}`, { accountId: account.id });
+        forbidden(res, limit);
         return;
       }
 
@@ -561,7 +607,8 @@ export class AccountController {
           : [],
         order: [['id', 'ASC']],
       });
-      successResponse(res, roles);
+      // ADR049: chi non e' root non vede il ruolo root tra quelli assegnabili
+      successResponse(res, isRootActor(req) ? roles : roles.filter((r: any) => r.name !== ROOT_ROLE));
     } catch (error) {
       console.error('[AccountController] getRoles error:', error);
       serverError(res, 'Errore durante recupero ruoli');

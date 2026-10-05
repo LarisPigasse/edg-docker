@@ -4,7 +4,8 @@ import rateLimit from 'express-rate-limit';
 import { AuthController } from '../controllers/AuthController';
 import { SessionController } from '../controllers/SessionController';
 import { authenticate } from '../middleware/authMiddleware';
-import { requireRoot } from '../middleware/permissionMiddleware';
+import { requirePermission, requireRoot } from '../middleware/permissionMiddleware';
+import { requireSystemTenant } from '../middleware/tenantMiddleware';
 
 /**
  * Rate Limiters SPECIFICI per business logic
@@ -65,7 +66,11 @@ const registerLimiter = rateLimit({
 /**
  * Crea router per modulo Auth
  */
-export const createAuthRouter = (authController: AuthController, sessionController: SessionController): Router => {
+export const createAuthRouter = (
+  authController: AuthController,
+  sessionController: SessionController,
+  tenantModel: any
+): Router => {
   console.log('\n🔧 [AUTH.ROUTES] Creazione router auth...');
 
   const router = Router();
@@ -133,13 +138,15 @@ export const createAuthRouter = (authController: AuthController, sessionControll
   router.delete('/sessions/:sessionId', authenticate, requireRoot(), sessionController.revokeSession.bind(sessionController));
   console.log('      ✅ DELETE /sessions/:sessionId (+ authenticate + requireRoot)');
 
-  // Blocca utente - solo root
-  router.post('/users/:userId/block', authenticate, requireRoot(), sessionController.blockUser.bind(sessionController));
-  console.log('      ✅ POST /users/:userId/block (+ authenticate + requireRoot)');
+  // Blocca / sblocca utente (ADR049): admin e root del tenant di sistema con
+  // 'sistema.account'; i limiti (mai account root) sono in SessionController
+  const canManageAccounts = [authenticate, requireSystemTenant(tenantModel), requirePermission('sistema', 'account')];
 
-  // Sblocca utente - solo root
-  router.delete('/users/:userId/unblock', authenticate, requireRoot(), sessionController.unblockUser.bind(sessionController));
-  console.log('      ✅ DELETE /users/:userId/unblock (+ authenticate + requireRoot)');
+  router.post('/users/:userId/block', ...canManageAccounts, sessionController.blockUser.bind(sessionController));
+  console.log('      ✅ POST /users/:userId/block (+ authenticate + tenant di sistema + sistema.account)');
+
+  router.delete('/users/:userId/unblock', ...canManageAccounts, sessionController.unblockUser.bind(sessionController));
+  console.log('      ✅ DELETE /users/:userId/unblock (+ authenticate + tenant di sistema + sistema.account)');
 
   // Lista utenti bloccati - solo root
   router.get('/blocked-users', authenticate, requireRoot(), sessionController.listBlockedUsers.bind(sessionController));

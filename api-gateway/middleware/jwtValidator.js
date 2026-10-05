@@ -59,6 +59,7 @@ function validateToken(token, jwtSecret) {
       roleId: payload.roleId,
       permissions: payload.permissions || [],
       modules: payload.modules || [], // ADR009: moduli attivi del tenant, usati da moduleGuard
+      systemTenant: payload.systemTenant === true, // ADR051: personale EDG (token vecchi: false)
       sessionId: payload.sessionId || null,
     };
   } catch (error) {

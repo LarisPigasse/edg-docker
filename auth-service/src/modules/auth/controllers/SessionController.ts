@@ -4,12 +4,27 @@ import { Request, Response } from 'express';
 import { Op } from 'sequelize';
 import { redisService } from '../../../core/services/RedisService';
 import { logger } from '../../../services/logger';
+import { requestActor } from '../../../services/requestActor';
+import { checkActorLimits } from '../utils/actorLimits';
 
 export class SessionController {
   constructor(
     private sessionModel: any,
-    private accountModel: any
+    private accountModel: any,
+    private roleModel?: any // ADR049: limiti dell'admin su blocca/sblocca (mai account root)
   ) {}
+
+  /**
+   * Limiti di chi non e' root (utils/actorLimits.ts). Senza modello Role non si
+   * puo' verificare il ruolo del bersaglio: si nega a chi non e' root.
+   */
+  private async actorLimit(req: Request, target: any): Promise<string | null> {
+    if (!this.roleModel) {
+      const permissions: unknown = (req as any).account?.permissions;
+      return Array.isArray(permissions) && permissions.includes('*') ? null : 'Operazione riservata a root';
+    }
+    return checkActorLimits(req, this.roleModel, target);
+  }
 
   /**
    * GET /api/auth/sessions
@@ -150,8 +165,18 @@ export class SessionController {
         return;
       }
 
+      // ADR049: chi non e' root non blocca un account root
+      const limit = await this.actorLimit(req, account);
+      if (limit) {
+        logger.auditFailure('auth.account_blocked', `Blocco di ${account.email} rifiutato: ${limit}`, requestActor(req), {
+          targetAccountId: account.id,
+        });
+        res.status(403).json({ success: false, message: limit });
+        return;
+      }
+
       // Previeni auto-blocco
-      const currentUserId = (req as any).user?.accountId;
+      const currentUserId = (req as any).accountId;
       if (account.id === currentUserId) {
         res.status(400).json({
           success: false,
@@ -223,11 +248,25 @@ export class SessionController {
         return;
       }
 
+      // ADR049: chi non e' root non sblocca un account root
+      const limit = await this.actorLimit(req, account);
+      if (limit) {
+        logger.auditFailure('auth.account_unblocked', `Sblocco di ${account.email} rifiutato: ${limit}`, requestActor(req), {
+          targetAccountId: account.id,
+        });
+        res.status(403).json({ success: false, message: limit });
+        return;
+      }
+
       await account.update({
         isActive: true,
         blockedUntil: null,
         blockReason: null,
       });
+
+      // Fuori dalla blacklist Redis subito, come la riattivazione da Account:
+      // altrimenti il gateway lo respingerebbe fino alla scadenza del blocco (TTL access token)
+      await redisService.unblockAccount(account.id);
 
       logger.audit(
         'auth.account_unblocked',

@@ -4,7 +4,7 @@
 > (che riassume moduli, ADR e lezioni da `modules.json`, `decisions.json`,
 > `lessons.json`). Qui c'è ciò che quei file non contengono: il punto esatto in
 > cui siamo, il prossimo argomento con la proposta già ragionata e le domande
-> ancora aperte. Aggiornato: 2026-10-01 (gestione moduli: fase 1 completata, ADR048).
+> ancora aperte. Aggiornato: 2026-10-01 (gestione moduli: fase 1, account admin, menu SISTEMA per permessi, systemTenant nel JWT — ADR048-ADR051).
 
 ---
 
@@ -23,6 +23,9 @@ verificata dal vivo e committata in edg-docker ed edg-system.
 | Backup locale giornaliero (backup-service) | fatto | ADR045, L044 |
 | Riepilogo giornaliero via email | fatto | ADR046 |
 | Gestione moduli fase 1: catalogo, attivazioni, JWT, API, scadenza | fatto | ADR047, ADR048, L045, L046 |
+| Account gestibili dall'admin EDG, root intoccabile (passo 3b) | fatto | ADR049 |
+| Menu SISTEMA per permessi (admin: Account e Tenant), Blocca/Sblocca all'admin | fatto, verificato a video | ADR050 |
+| `systemTenant` nel JWT, `sistema.*` di log-service solo personale EDG; catalogo permessi completo + "Altri permessi del ruolo" | fatto | ADR051 |
 | Limite richieste su Redis con ripiego in memoria | fatto | ADR040 |
 
 ## 2. Rimandato (non dimenticare)
@@ -32,7 +35,7 @@ verificata dal vivo e committata in edg-docker ed edg-system.
 - Monitor esterno della piattaforma (serve approvazione della direzione).
 - `CRON_RUN_ON_START: 'false'` in produzione (auth-service e vehicle-service).
 - Sul server, una volta: `node dist/scripts/normalizeServiceNames.js` nel container log-service (ADR044).
-- Sul server, una volta: migrazione `auth-service/migrations/2026-10-01-module-catalog.sql` (ADR048) **insieme** al deploy del nuovo auth-service (toglie la riga `*` di EDG: con il vecchio codice EDG resterebbe senza moduli).
+- Sul server, una volta: migrazione `auth-service/migrations/2026-10-01-module-catalog.sql` (ADR048) **insieme** al deploy del nuovo auth-service (toglie la riga `*` di EDG: con il vecchio codice EDG resterebbe senza moduli). Poi `auth-service/migrations/2026-10-01-admin-account-permission.sql` (ADR049).
 - ADR039 punto 5: utente MongoDB con permessi minimi, scadenza/archiviazione dei log (ADR037), riepilogo settimanale di igiene.
 - Allarme cancellazioni in massa: non serve codice, si crea da SISTEMA → Info → Regole (tipo `crud.delete`, es. 16 in 16 min, raggruppa per utente).
 
@@ -111,9 +114,11 @@ verificata dal vivo e committata in edg-docker ed edg-system.
 - Dati attuali: catalogo con `vigilo`, `spedizioni`, `tracking` (stato `sviluppo`); nessuna attivazione; nessun settore.
 
 **Prossimi passi, in ordine**
-1. **Passo 3b — account gestibili dall'admin** (deciso: passo separato). Protezioni: l'admin non assegna il ruolo root, non modifica né elimina account root, non cambia il proprio ruolo; sempre `requireSystemTenant`. Oggi `/auth/accounts` è tutto `requireRoot`.
-2. **Fase 2 — pro-frontend (edg-system)**: SISTEMA → Moduli (catalogo, solo root) e scheda Moduli nel tenant (attivazioni, prove, proroghe, sospensioni; mostrare `inForce`, `purgeAt`, `lostModules`); menu SISTEMA visibile anche all'admin per Tenant e Moduli; campo Settore nel tenant.
-3. Rinviati (serve il contratto comune "cancella i dati di un tenant per un modulo", condiviso con la demo): eliminazione dati dopo 64 giorni da `expiredAt`, eliminazione anticipata da parte dell'admin, avvisi ad admin e root a 8 giorni e a 1 giorno.
+1. ✅ **Passo 3b fatto (ADR049)**: `/auth/accounts` con `sistema.account` + `requireSystemTenant`; `AccountController.checkActorLimits` (mai ruolo root, mai account root, mai il proprio ruolo); eliminazione definitiva e permessi dei ruoli solo root; l'admin può creare altri admin. 21/21 controlli.
+2. ✅ **Menu SISTEMA per permessi (ADR050)**: `getModules(hasPermission)`; admin vede **solo Account e Tenant** (deciso dall'utente); azioni sui root, Elimina definitivamente, Vedi attività ed Elimina tenant nascoste all'admin. Blocca/Sblocca anche all'admin (`utils/actorLimits.ts` condiviso). Verificato a video (dopo Ctrl+Shift+R: il ricaricamento a caldo di Vite non riapplica il menu calcolato in App.tsx).
+   ✅ **ADR051**: JWT con `systemTenant`; log-service richiede `systemTenant` per `sistema.*`; pannello Ruoli con gruppo "Sistema (piattaforma)" completo e sezione "Altri permessi del ruolo". Ora è sicuro dare all'admin anche Log/Salute/Allarmi (menu: voci Logs/Info restano `permission: '*'`, da aprire all'admin se lo si decide).
+3. **Fase 2 — pro-frontend (edg-system)**: SISTEMA → Moduli (catalogo, **solo root**, voce con `permission: '*'`) e **scheda Moduli dentro la pagina Tenant** (attivazioni, prove, proroghe, sospensioni; mostrare `inForce`, `purgeAt`, `lostModules`) usabile anche dall'admin (`sistema.moduli`); campo Settore nel form Tenant.
+4. Rinviati (serve il contratto comune "cancella i dati di un tenant per un modulo", condiviso con la demo): eliminazione dati dopo 64 giorni da `expiredAt`, eliminazione anticipata da parte dell'admin, avvisi ad admin e root a 8 giorni e a 1 giorno.
 
 **Domande ancora aperte**: avviso anche alla scadenza della prova (a chi?); valori ammessi del settore (oggi chiave libera validata dal formato).
 
@@ -132,5 +137,7 @@ verificata dal vivo e committata in edg-docker ed edg-system.
 - Tipi di evento: campo `sottoCategoria`; servizio: `azione.entita` (nome del container, ADR044).
 - Prima di dichiarare un percorso Docker valido su Windows: `grep <dest> /proc/mounts` nel container (L044).
 - `exec-in-container` passa da cmd di Windows e poi da `sh`: nei `node -e` niente `=>`, `||`, `&&`, `$`, backtick (L046). Script lunghi: gzip+base64 scritto nel container e poi eseguito; nel gateway `workDir` = `/usr/src/app`.
+- Struttura servizi moduli in auth-service: `ModuleService` (solo moduli in vigore per il JWT; nome deciso dall'utente, NON rinominarlo), `moduleRules.ts`, `ModuleCatalogService`, `ModuleActivationService` (anche `expireEnded`), `ModuleError`.
+- Joi `.email()` rifiuta domini non reali (es. `.local`): nelle prove usare `example.com`.
 - Prove delle API senza password: firmare un JWT di prova dentro api-gateway-1 con `JWT_SECRET` (account reali: 1 root, 3 admin EDG, 2 operatore, 4 admin di `ted`) e chiamare `http://localhost:8080/auth/...`. Ripulire sempre i dati di prova.
 - Audit di una modifica: verificare `stato.diff` in `azionelogs`, non solo che l'evento esista (L045).

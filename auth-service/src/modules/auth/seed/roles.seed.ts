@@ -33,10 +33,11 @@ const DEFAULT_ROLES: RoleDefinition[] = [
       'system.read',
       'system.create',
       'system.update',
-      // ADR047: dell'area SISTEMA solo attivazioni moduli e tenant.
+      // ADR047/ADR049: dell'area SISTEMA solo moduli, tenant e account.
       // Catalogo moduli, eliminazione tenant e il resto di 'sistema.*' restano a root.
       'sistema.moduli',
       'sistema.tenant',
+      'sistema.account', // ADR049: account di tutti i tenant, mai root
     ],
   },
   {

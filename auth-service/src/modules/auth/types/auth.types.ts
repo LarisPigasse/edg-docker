@@ -170,6 +170,7 @@ export interface AuthTokenPayload {
   roleId: number; // ✅ NUOVO
   permissions: string[]; // ✅ NUOVO: array di permessi ['spedizioni.*', 'report.read', ...]
   modules: string[]; // ✅ NUOVO (ADR009): moduli attivi del tenant ['vehicles', 'vigilo', ...] o ['*']. Valori attesi: FeatureModule
+  systemTenant?: boolean; // ADR051: account del tenant di sistema (personale EDG); assente nei token emessi prima
   sessionId?: number; // ✅ AGGIORNATO: number
 
   // JWT standard fields (aggiunti automaticamente da jsonwebtoken)

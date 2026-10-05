@@ -1,5 +1,5 @@
 {
-  "lastUpdated": "2026-10-01",
+  "lastUpdated": "2026-10-05",
   "modules": {
     "auth-service": {
       "status": "stable",
@@ -8,8 +8,8 @@
     },
     "log-service": {
       "status": "stable",
-      "notes": "Audit completo con prima/dopo e transazioneId (ADR034/039), log mai cancellabili (ADR037), coda in memoria nei logger (ADR041), nomi servizio uniformi (ADR044).",
-      "lastUpdated": "2026-10-01"
+      "notes": "ADR051: permessi sistema.* (log, salute, riepilogo, allarmi) solo con systemTenant nel JWT (personale EDG). 18/18 controlli via gateway.",
+      "lastUpdated": "2026-10-05"
     },
     "email-service": {
       "status": "stable",
@@ -92,8 +92,8 @@
       "lastUpdated": "2026-08-31"
     },
     "pro-frontend (edg-system)": {
-      "status": "stable",
-      "notes": "SISTEMA → Info validata: Salute (servizi, riavvii, build, processi, invia riepilogo), Regole (gravità per regola), Storico. Logs con Modifiche/Stessa richiesta.",
+      "status": "review",
+      "notes": "ADR050: menu SISTEMA per permessi (admin: solo Account e Tenant), azioni root nascoste all'admin. tsc ok. Da verificare a video con system@. Prossimo: fase 2 moduli.",
       "lastUpdated": "2026-10-01"
     },
     "asset-frontend (edg-docker)": {
@@ -138,7 +138,7 @@
     },
     "gestione moduli (catalogo, assegnazioni, prove, demo)": {
       "status": "in-progress",
-      "notes": "Fase 1 fatta e verificata (ADR048): catalogo, attivazioni, JWT, API, scadenza, solo tenant di sistema. Prossimo: passo 3b account per admin, poi fase 2 UI pro-frontend.",
+      "notes": "Fase 1 + passo 3b fatti e verificati (ADR048, ADR049): moduli, tenant e account gestibili dall'admin EDG, root intoccabile. Prossimo: fase 2 UI in pro-frontend (edg-system).",
       "lastUpdated": "2026-10-01"
     }
   }
