@@ -1,5 +1,5 @@
 {
-  "lastUpdated": "2026-10-06",
+  "lastUpdated": "2026-10-07",
   "modules": {
     "auth-service": {
       "status": "stable",
@@ -18,8 +18,8 @@
     },
     "api-gateway (x2 HA)": {
       "status": "stable",
-      "notes": "Verificati live: X-Request-Id propagato (transazioneId sugli eventi di auth), limite /auth condiviso su Redis (rl:auth:*) con ripiego in memoria (ADR040), Redis mai bloccante.",
-      "lastUpdated": "2026-09-30"
+      "notes": "ADR060: config/serviceRoutes.js (rotte -> servizio -> modulo), catena unica serviceProxy + sessionGuard; gateway.js 760 -> 436 righe. 14/14 dal vivo su entrambi.",
+      "lastUpdated": "2026-10-07"
     },
     "vehicle-service (backend)": {
       "status": "stable",
@@ -63,8 +63,8 @@
     },
     "multi-tenant feature toggling": {
       "status": "stable",
-      "notes": "Evoluto in gestione moduli (ADR048): catalogo con FK, attivazioni con stato e periodo, jolly EDG da codice, gateway su 'vigilo'. Mappa rotte→moduli in fase 4.",
-      "lastUpdated": "2026-10-01"
+      "notes": "Evoluto in gestione moduli (ADR048): catalogo, attivazioni con stato e periodo, jolly EDG. Gateway con mappa rotte -> moduli (ADR060); ai clienti solo moduli disponibili (ADR062).",
+      "lastUpdated": "2026-10-07"
     },
     "pro-frontend (vehicles module)": {
       "status": "in-progress",
@@ -78,8 +78,8 @@
     },
     "@edg/ui (packages/ui)": {
       "status": "stable",
-      "notes": "Modal: nuova taglia xxxl (max-w-6xl). Table: taglia xs e prop fit (larghezza contenitore, table-fixed, troncamento con tooltip, niente scroll orizzontale). Additive.",
-      "lastUpdated": "2026-10-05"
+      "notes": "ADR063: moduleStatus (6 stati), HomeModuleTile con scadenza, ModuleInfoModal, EdgModuleConfig.brand + Logo title (titolo modulo nell'header), icona Phone. Additive.",
+      "lastUpdated": "2026-10-07"
     },
     "@edg/auth (packages/auth)": {
       "status": "stable",
@@ -88,8 +88,8 @@
     },
     "app-frontend (edg-system)": {
       "status": "in-progress",
-      "notes": "Frontend utenti finali, porta 5174, icon 'icon'. Vuoto e funzionante: login + dashboard con sigla/titolo/tagline. Nessun modulo ancora. Sezione /design rimossa, sta in pro-frontend.",
-      "lastUpdated": "2026-08-31"
+      "notes": "ADR063: core/modules (manifest, menu, rotte, MyModulesProvider), home a riquadri con scheda, Vigilo segnaposto, titolo modulo nell'header. Contatti commerciali veri in APP_CONFIG.CONTACT.",
+      "lastUpdated": "2026-10-07"
     },
     "pro-frontend (edg-system)": {
       "status": "stable",
@@ -138,13 +138,13 @@
     },
     "gestione moduli (catalogo, assegnazioni, prove, demo)": {
       "status": "in-progress",
-      "notes": "Fasi 1-2 fatte e verificate (ADR048-053): backend, catalogo per root, moduli del tenant in finestra, settore. Prossimo: fase 3 tenant↔cliente, poi gateway/menu (4), demo (5).",
-      "lastUpdated": "2026-10-05"
+      "notes": "Fasi 1-4 fatte (ADR048-063). Resta la fase 5: tenant demo, fixture con date relative, ripristino; poi contratto \"cancella i dati di un tenant per un modulo\" (64 giorni, avvisi).",
+      "lastUpdated": "2026-10-07"
     },
     "gestione moduli (auth-service + pro-frontend)": {
       "status": "in-progress",
-      "notes": "Fasi 1-3 fatte (ADR048-058) + settori sull'anagrafica (ADR059), verificate dal vivo. Prossimo: commit, poi fase 4 (gateway, app-frontend), fase 5 demo.",
-      "lastUpdated": "2026-10-06"
+      "notes": "Fasi 1-4 fatte e verificate (ADR048-063): gateway a tabella, /auth/me/modules, home e menu di app-frontend, sviluppo mai ai clienti. Prossimo: commit, poi fase 5 (demo).",
+      "lastUpdated": "2026-10-07"
     }
   }
 }

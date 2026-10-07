@@ -1,5 +1,5 @@
 {
-  "lastUpdated": "2026-10-06",
+  "lastUpdated": "2026-10-07",
   "decisions": [
     {
       "id": "ADR001",
@@ -530,6 +530,42 @@
       "context": "Con ADR047 e ADR053 il settore era un campo libero sul tenant (tenants.sector), con suggerimenti scritti nel codice. L'utente non vuole un elenco statico nel codice e osserva che il settore descrive l'azienda.",
       "decision": "Scelte dell'utente: tabella di base e settore su clienti e partner.\n- system-service: tabella settori (id/uuid/settore/is_active, unica per la piattaforma, vuota all'inizio; migrazione sequelize 20261006-01-settori.js). Campo anagrafiche.id_settore facoltativo, con FK ON DELETE RESTRICT: un settore in uso si disattiva invece di essere eliminato.\n- system-service: rotte /api/system/settori, lettura con system.read e scrittura solo per il personale EDG; filtro idSettore sulle anagrafiche.\n- auth-service: colonna tenants.sector eliminata (2026-10-06-tenant-drop-sector.sql). La risposta dei moduli del tenant espone clienteUuid al posto di sector.\n- pro-frontend: Tabelle di base con il componente generico LookupTableTab configurato per tabella (Reparti e Settori; RepartiTab rimosso); hook useSettori; Settore nel form, nelle colonne, nel filtro, nel dettaglio e nel PDF delle Anagrafiche. Il tenant mostra il settore del cliente collegato, in sola lettura (useEdgClienti.settoreOfCliente), anche nella finestra dei moduli.\n- Domanda aperta, da decidere quando si definiscono le differenze di Vigilo per settore: i tenant senza cliente, come la demo, non hanno settore. L'ipotesi è un \"profilo\" in tenant_modules.config, che parte dal settore del cliente.",
       "rationale": "Il settore è un attributo dell'azienda: serve anche per i clienti senza tenant, per il commerciale e per la vetrina. Una tabella di base è gestibile dall'interfaccia senza rilasci, e il vincolo nel database protegge i settori in uso. Nessun modulo usava ancora tenants.sector, quindi toglierlo non rompeva nulla. Verificato dal vivo: 10 prove su 10 (creazione, doppione rifiutato, anagrafica con settore, filtro, disattivazione del settore in uso, eliminazione dopo lo scollegamento, assenza di sector nei tenant).",
+      "status": "accepted"
+    },
+    {
+      "id": "ADR060",
+      "date": "2026-10-07",
+      "title": "Gateway dichiarativo: tabella rotte -> servizio -> modulo e catena unica (fase 4 moduli)",
+      "context": "gateway.js aveva 5 blocchi quasi identici (vehicles, system/health, log, alert, system) che ripetevano JWT, blacklist, requireModule scritto a mano, header e inoltro: ogni modifica alla catena andava ripetuta 5 volte. ADR047 prevedeva una mappa rotte -> moduli in un unico punto.",
+      "decision": "api-gateway: config/serviceRoutes.js = tabella { prefix, target, upstream, module|null, service } (ordine = ordine di registrazione; assertRouteOrder all'avvio rifiuta un prefisso generico che oscura uno specifico). middleware/serviceProxy.js: mountServiceRoutes monta per ogni voce CORS + catena JWT -> sessionGuard -> requireModule (se module) -> header -> inoltro; runChain riusato anche dalle rotte protette di /auth. middleware/sessionGuard.js: blacklist account/sessione su Redis, fail-open (ADR040). /health espone services.routes. Un nuovo modulo con API = una riga nella tabella, con la chiave del catalogo. Il percorso esatto sul prefisso non riceve piu' la '/' finale. gateway.js da 760 a 436 righe. Verificato dal vivo su entrambi i gateway: 14/14.",
+      "rationale": "Divide et impera: la tabella e' leggibile in un colpo d'occhio ed e' l'unica fonte della mappa rotte -> moduli; la catena e' scritta una volta sola. La mappa resta nel codice (non nel database) perche' rotte e moduli nascono nel codice (ADR047). Il modulo vehicles e' la vecchia versione di Vigilo e verra' eliminato quando Vigilo sara' pronto: i permessi vigilo.* nasceranno con Vigilo, nessuna rinomina di vehicles.*.",
+      "status": "accepted"
+    },
+    {
+      "id": "ADR061",
+      "date": "2026-10-07",
+      "title": "GET /auth/me/modules: i moduli della home dell'utente, filtrati nel backend (attua ADR056)",
+      "context": "La home di app-frontend (ADR055) deve mostrare a ogni utente i propri moduli e quelli in vetrina (ADR056), senza che i moduli riservati arrivino al browser di chi non ne ha diritto. /auth/modules e /auth/tenants/:id/modules sono solo per il personale EDG.",
+      "decision": "auth-service: GET /auth/me/modules per qualunque account autenticato (createMyModulesRouter, ModuleController.listMine, ModuleHomeService). Regole pure in moduleRules.ts: hasAnyModulePermission (ruolo con '*', '<chiave>.*' o '<chiave>.<azione>'; '!<chiave>.*' nega) e homeStatus: dismesso mai; tenant di sistema sviluppo|attivo; in vigore (ModuleService, dipendenze comprese) prova|attivo; sospeso, scaduto o periodo finito -> sospeso|scaduto sempre visibili; disponibile+showcase non attivato -> non-attivo; il resto mai. Risposta: key, name, description, product, version, branding, status, endsAt (solo prova/attivo con scadenza), per prodotto e nome. Tenant inesistente o disattivato: lista vuota. Verificato dal vivo 9/9 sul tenant ted, dati di prova ripuliti.",
+      "rationale": "Un solo punto decide cosa vede l'utente, con regole pure verificabili e la stessa definizione di \"in vigore\" del JWT. Permessi letti dal JWT: coerenti con cio' che il gateway e i servizi consentiranno davvero. Un'attivazione non ancora iniziata o senza dipendenze ricade sulla regola della vetrina (caso raro, segnalato gia' nella finestra Moduli di pro-frontend).",
+      "status": "accepted"
+    },
+    {
+      "id": "ADR062",
+      "date": "2026-10-07",
+      "title": "Moduli in sviluppo mai ai clienti, nemmeno attivati (corregge ADR048/ADR053 e precisa ADR061)",
+      "context": "Regola dell'utente: un cliente non vede mai i moduli in sviluppo. Fino ad ora checkGrantable bloccava solo i dismessi e pro-frontend descriveva lo stato 'sviluppo' come \"Attivabile per prove e demo\": un modulo in sviluppo attivato per un cliente entrava nel JWT, passava dal gateway e compariva nella home come attivo.",
+      "decision": "auth-service: costante CUSTOMER_MODULE_STATUS = 'disponibile' (module.types.ts). ModuleService: per i tenant clienti contano solo le attivazioni su moduli 'disponibile' (prima: non dismessi). ModuleActivationService.checkGrantable: 409 anche per 'sviluppo' (attivazione e passaggio a prova/attivo). moduleRules.homeStatus: per i clienti un modulo non 'disponibile' non compare mai, nemmeno sospeso o scaduto. Se un modulo torna in sviluppo, i clienti che lo avevano lo perdono (come per il dismesso), le attivazioni restano. pro-frontend: descrizione dello stato 'In sviluppo' = \"Solo per il personale EDG: non si attiva ai clienti\"; nella finestra Moduli del tenant, Avvia prova/Attiva disabilitati con motivo. @edg/ui ModuleInfoModal: messaggio per i moduli in sviluppo non presenti nel frontend (personale EDG). Le demo ai clienti useranno moduli disponibili.",
+      "rationale": "La regola deve valere nei tre punti che decidono l'accesso (attivazione, JWT/gateway, home), non solo nella vetrina: altrimenti un errore dalla finestra Moduli basterebbe a esporre un modulo non finito. Una sola costante evita definizioni divergenti.",
+      "status": "accepted"
+    },
+    {
+      "id": "ADR063",
+      "date": "2026-10-07",
+      "title": "app-frontend: moduli da manifest, menu e home dai moduli dell'utente, scheda e titolo nell'header (fase 4, attua ADR055-056)",
+      "context": "Fase 4 della gestione moduli: app-frontend era vuoto. Servivano rotte e menu dei moduli costruiti dal codice (il modulo nasce nel codice, ADR047), filtrati da JWT e permessi, una home con i riquadri dei moduli (ADR055) e la vetrina (ADR056).",
+      "decision": "app-frontend: core/modules/ (types: AppModuleManifest con key, name, label, basePath, icon, pages lazy con permesso, menu; access: canOpenModule = modulo nel JWT + hasAnyModulePermission, stessa regola del backend; api + MyModulesProvider/useMyModules/useMyModule su GET /auth/me/modules, riletto al cambio di utente o di moduli del JWT; buildModuleMenu con brand = ModuleBrand 'title'; ModuleRoutes sotto basePath/*). config/modules.config.ts = registro dei manifest (unico punto che conosce le feature). features/vigilo: manifest + home segnaposto. Dashboard: HomeAppTile + HomeModuleTile; modulo utilizzabile e presente nel frontend si apre, altrimenti ModuleInfoModal. APP_CONFIG.CONTACT con recapiti SEGNAPOSTO. @edg/ui: moduleStatus.ts (HOME_MODULE_STATUS: attivo, prova, sviluppo accesi; non-attivo, sospeso, scaduto spenti; etichetta con scadenza), HomeModuleTile con endsAt, ModuleInfoModal (logo, stato, versione, descrizione, messaggio per stato, contatti mailto/tel, Apri il modulo), EdgModuleConfig.brand e Logo title: dentro un modulo l'header mostra il suo titolo accanto all'icona dell'app. Icona Phone nel catalogo. Verificato a video da root e da admin di ted (stato temporaneo, ripristinato).",
+      "rationale": "Divide et impera: infrastruttura in core/modules, un solo registro, feature isolate (i moduli non si importano fra loro, ADR010). Menu e rotte sincroni dal JWT (nessuna attesa), aspetto e vetrina dal backend (filtrati li', ADR061). Il titolo nell'header passa da un campo generico di EdgModuleConfig: @edg/ui resta ignaro del catalogo.",
       "status": "accepted"
     }
   ]

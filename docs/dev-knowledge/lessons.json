@@ -1,5 +1,5 @@
 {
-  "lastUpdated": "2026-10-06",
+  "lastUpdated": "2026-10-07",
   "lessons": [
     {
       "id": "L001",
@@ -441,6 +441,15 @@
       "title": "Campo nuovo ignorato in silenzio se il servizio non è ricompilato",
       "problem": "Dopo l'aggiunta del campo version al catalogo moduli, il salvataggio dava il toast \"Modulo aggiornato\" ma la versione restava invariata. Il container auth-service girava ancora con lo schema Joi precedente: validate.js usa stripUnknown: true, quindi il campo sconosciuto veniva scartato senza errore e il resto dell'aggiornamento andava a buon fine.",
       "solution": "Se un campo nuovo \"non si salva\" ma la richiesta riesce, controllare prima che il servizio sia stato ricompilato. Per esempio con exec-in-container: grep del nome del campo in dist/modules/auth/schemas/*.js. Poi eseguire la migrazione, se manca, e ricompilare. Lo stripUnknown resta: è una scelta di sicurezza voluta."
+    },
+    {
+      "id": "L050",
+      "date": "2026-10-07",
+      "category": "tooling",
+      "severity": "medium",
+      "title": "Dal VM Linux git vede tutto modificato (CRLF) e python riscrive in LF",
+      "problem": "I repository sono su Windows con fine riga CRLF nella copia di lavoro (autocrlf). Dal VM Linux (device_bash) git diff --stat mostra migliaia di righe cambiate in file mai toccati, e open().read()/write() di python in modalità testo converte in silenzio un file CRLF in LF. Inoltre in exec-in-container '2>/dev/null' passa prima da cmd di Windows e fallisce (\"Impossibile trovare il percorso specificato\").",
+      "solution": "Non usare git dal VM per capire cosa e' cambiato (e non lanciarlo mentre l'utente lavora, L038). Modificare con uno script che legge in binario, sostituisce su testo normalizzato e riscrive con i fine riga originali (es. edit.py con old/new univoci); controllare con 'file' che i CRLF restino. In exec-in-container niente redirezioni '2>...' (oltre ai vincoli di L046)."
     }
   ]
 }

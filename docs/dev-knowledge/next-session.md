@@ -4,7 +4,7 @@
 > (che riassume moduli, ADR e lezioni da `modules.json`, `decisions.json`,
 > `lessons.json`). Qui c'è ciò che quei file non contengono: il punto esatto in
 > cui siamo, il prossimo argomento con la proposta già ragionata e le domande
-> ancora aperte. Aggiornato: 2026-10-06 sera (gestione moduli fasi 1-3, aspetto, home a riquadri, vetrina, versione, tenant ↔ cliente, settori — ADR048-ADR059). Prossimo: **commit** (fase 3 + settori, se non già fatto), poi fase 4 (gateway e app-frontend).
+> ancora aperte. Aggiornato: 2026-10-07 (gestione moduli fasi 1-4 — ADR048-ADR063: gateway a tabella, /auth/me/modules, home e menu di app-frontend, moduli in sviluppo mai ai clienti). Prossimo: **commit** della fase 4, poi fase 5 (demo).
 
 ---
 
@@ -34,6 +34,10 @@ verificata dal vivo e committata in edg-docker ed edg-system.
 | Menu a tendina: icone su tutte le voci o su nessuna (`TableRowAction` con icona obbligatoria) | fatto | L048 |
 | Fase 3: tenant ↔ cliente dell'anagrafica EDG (1:1, "Crea tenant" da Anagrafiche, eliminazione del cliente collegato bloccata); prime rotte interne `/internal` di auth-service | fatto, verificato dal vivo (13/13); UI da provare a video | ADR058 |
 | Settore sull'anagrafica (tabella di base Settori), tolto dal tenant; `LookupTableTab` generico per le tabelle di base | fatto, verificato dal vivo (10/10); UI da provare a video | ADR059 |
+| Fase 4a: gateway dichiarativo (`config/serviceRoutes.js` rotte → servizio → modulo, catena unica `serviceProxy` + `sessionGuard`) | fatto, verificato dal vivo (14/14 su entrambi i gateway) | ADR060 |
+| Fase 4b: `GET /auth/me/modules` (moduli dell'utente e vetrina, filtrati nel backend, permessi del ruolo) | fatto, verificato dal vivo (14/14) | ADR061 |
+| Moduli in sviluppo mai ai clienti, nemmeno attivati (attivazione 409, JWT, home) | fatto, verificato dal vivo | ADR062 |
+| Fase 4c: app-frontend con manifest (`core/modules`, `config/modules.config.ts`, `features/vigilo`), menu e home dai moduli, `ModuleInfoModal`, titolo del modulo nell'header | fatto, verificato a video (root e admin di ted) | ADR063 |
 | Limite richieste su Redis con ripiego in memoria | fatto | ADR040 |
 
 ## 2. Rimandato (non dimenticare)
@@ -50,6 +54,7 @@ verificata dal vivo e committata in edg-docker ed edg-system.
 **Su indicazione dell'utente**
 - Rotazione dei log Docker anche in locale (`docker-compose.yml`): **aspettare che lo dica lui**.
 - Tabella `vehicle_deadlines` mancante (il controllo giornaliero veicoli fallisce): con la **revisione del modulo veicoli**.
+- **vehicles è la vecchia versione di Vigilo** (detto dall'utente 2026-10-07): quando Vigilo sarà pronto, vehicle-service e `/api/vehicles` si eliminano (togliere la riga in `api-gateway/config/serviceRoutes.js`). I permessi `vigilo.*` nasceranno con Vigilo: nessuna rinomina di `vehicles.*`. Oggi **nessun ruolo ha `vigilo.*` o `tracking.*`**: in app-frontend Vigilo e Tracking li vede solo root.
 
 ## 3. Prossimo argomento: gestione dei moduli
 
@@ -112,8 +117,8 @@ verificata dal vivo e committata in edg-docker ed edg-system.
 2. ✅ **Fatta (ADR049-053)** — pro-frontend: SISTEMA → Moduli (catalogo, root) e finestra Moduli dalla lista Tenant (attivazioni, prove); permessi admin.
    ✅ **Aggiunte (ADR054-057)** — aspetto dei moduli, home a riquadri, vetrina, versione.
 3. ✅ **Fatta (ADR058)** — Collegamento tenant ↔ cliente anagrafica. Con essa (ADR059) il settore passa all'anagrafica.
-4. Gateway con mappa rotte → moduli; menu di app-frontend dai manifest. Inoltre (ADR054-056): endpoint per gli utenti dei tenant con i propri moduli e quelli in vetrina (filtrati nel backend, con branding e versione); home di app-frontend con `HomeAppTile` + `HomeModuleTile` (stato attivo / non-attivo / sviluppo; scaduti e sospesi sempre visibili; niente moduli senza permessi del ruolo); header con il titolo del modulo; clic su un modulo in vetrina = scheda con descrizione e contatti EDG.
-5. Demo: tenant demo, fixture con date relative, ripristino.
+4. ✅ **Fatta (ADR060-063)** — Gateway con mappa rotte → moduli; menu di app-frontend dai manifest. Inoltre (ADR054-056): endpoint per gli utenti dei tenant con i propri moduli e quelli in vetrina (filtrati nel backend, con branding e versione); home di app-frontend con `HomeAppTile` + `HomeModuleTile` (stato attivo / non-attivo / sviluppo; scaduti e sospesi sempre visibili; niente moduli senza permessi del ruolo); header con il titolo del modulo; clic su un modulo in vetrina = scheda con descrizione e contatti EDG.
+5. Demo: tenant demo, fixture con date relative, ripristino. **Vincolo ADR062**: le demo ai clienti usano solo moduli `disponibile`.
 
 ### 3.6 Stato dopo la fase 1 (2026-10-01)
 **Fatto e verificato dal vivo** (36/36 controlli via gateway, audit con diff in MongoDB, processo di scadenza):
@@ -150,3 +155,5 @@ verificata dal vivo e committata in edg-docker ed edg-system.
 - Joi `.email()` rifiuta domini non reali (es. `.local`): nelle prove usare `example.com`.
 - Prove delle API senza password: firmare un JWT di prova dentro api-gateway-1 con `JWT_SECRET` (account reali: 1 root, 3 admin EDG, 2 operatore, 4 admin di `ted`) e chiamare `http://localhost:8080/auth/...`. Ripulire sempre i dati di prova.
 - Audit di una modifica: verificare `stato.diff` in `azionelogs`, non solo che l'evento esista (L045).
+- Prove con dati temporanei (ADR061-063): script nel container **auth-service** (`/app`, ha `jsonwebtoken` e `mysql2`, variabili `DB_*` e `JWT_SECRET`), che chiama il gateway su `http://api-gateway-1:8080` e ripulisce direttamente in MySQL; marcare i dati di prova (es. `notes`) per poterli togliere con sicurezza. Il ruolo `admin` è globale: un permesso aggiunto per prova vale anche per gli admin EDG.
+- Controllo `tsc` dei frontend: config temporanea `tsconfig.verify.json` nell'app con `paths` verso `packages/ui/src`, `packages/ui/src/explorer` e `packages/auth/src` (i link dei workspace non si risolvono dal VM), poi cancellarla. Modifiche ai file: conservare CRLF/LF (L050).

@@ -16,7 +16,7 @@ import { ModuleError } from './ModuleError';
 import { ModuleService } from './ModuleService';
 import { addDays, dataPurgeDate, hasActivationEnded, isActivationInForce } from './moduleRules';
 import { logger } from '../../../services/logger';
-import { GRANTING_STATUSES, type ActivationStatus } from '../types/module.types';
+import { CUSTOMER_MODULE_STATUS, GRANTING_STATUSES, type ActivationStatus } from '../types/module.types';
 
 export interface ActivationInput {
   module?: string;
@@ -227,9 +227,13 @@ export class ModuleActivationService {
     }
   }
 
+  /** Ai clienti si danno solo moduli disponibili: mai in sviluppo, mai dismessi */
   private checkGrantable(catalog: any): void {
     if (catalog.status === 'dismesso') {
       throw new ModuleError(409, `Il modulo '${catalog.name}' è dismesso: non si può attivare`);
+    }
+    if (catalog.status !== CUSTOMER_MODULE_STATUS) {
+      throw new ModuleError(409, `Il modulo '${catalog.name}' è in sviluppo: si potrà attivare quando sarà disponibile`);
     }
   }
 

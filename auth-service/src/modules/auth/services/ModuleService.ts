@@ -9,10 +9,11 @@
 //   1. tenant inesistente o disattivato  -> nessun modulo
 //   2. tenant di sistema (EDG)           -> ['*'], tutti i moduli (dal codice)
 //   3. altrimenti le attivazioni in vigore (prova|attivo, periodo in corso)
-//      su moduli non dismessi, con tutte le dipendenze soddisfatte.
+//      su moduli 'disponibile' (mai in sviluppo ne' dismessi), con tutte le
+//      dipendenze soddisfatte.
 // =============================================================================
 import { Op } from 'sequelize';
-import { ALL_MODULES, GRANTING_STATUSES } from '../types/module.types';
+import { ALL_MODULES, CUSTOMER_MODULE_STATUS, GRANTING_STATUSES } from '../types/module.types';
 import { isActivationInForce, resolveDependencies } from './moduleRules';
 
 export class ModuleService {
@@ -45,7 +46,7 @@ export class ModuleService {
           as: 'catalog',
           required: true,
           attributes: ['key', 'dependencies', 'status'],
-          where: { status: { [Op.ne]: 'dismesso' } },
+          where: { status: CUSTOMER_MODULE_STATUS },
         },
       ],
     });

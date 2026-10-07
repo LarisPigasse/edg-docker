@@ -21,6 +21,13 @@ export const ALL_MODULES = '*';
 export const MODULE_STATUSES = ['sviluppo', 'disponibile', 'dismesso'] as const;
 export type ModuleStatus = (typeof MODULE_STATUSES)[number];
 
+/**
+ * Solo i moduli 'disponibile' arrivano ai clienti: si attivano, entrano nel
+ * JWT e compaiono nella home. Quelli in sviluppo li vede e li usa solo il
+ * personale EDG (tenant di sistema, jolly '*'); i dismessi nessuno.
+ */
+export const CUSTOMER_MODULE_STATUS: ModuleStatus = 'disponibile';
+
 /** Durata predefinita della prova, in giorni */
 export const DEFAULT_TRIAL_DAYS = 32;
 
@@ -97,4 +104,31 @@ export interface ActivationAttributes {
   grantedBy: number | null;
   createdAt: Date;
   updatedAt: Date;
+}
+
+// -----------------------------------------------------------------------------
+// Home dell'utente (fase 4, ADR055-056): i moduli come li vede chi entra
+// -----------------------------------------------------------------------------
+
+/**
+ * Stato di un modulo nella home dell'utente:
+ *   attivo | prova      in vigore adesso (si apre)
+ *   sospeso | scaduto   attivazione ferma: sempre visibile come tale
+ *   non-attivo          in vetrina, non attivato per il tenant
+ *   sviluppo            solo personale EDG (tenant di sistema)
+ */
+export const HOME_STATUSES = ['attivo', 'prova', 'sospeso', 'scaduto', 'non-attivo', 'sviluppo'] as const;
+export type HomeStatus = (typeof HOME_STATUSES)[number];
+
+/** Un modulo nella home: solo cio' che serve a disegnare il riquadro e la scheda */
+export interface HomeModule {
+  key: string;
+  name: string;
+  description: string | null;
+  product: string;
+  version: string;
+  branding: ModuleBranding | null;
+  status: HomeStatus;
+  /** Fine del periodo, solo per prova e attivo con scadenza */
+  endsAt: Date | null;
 }

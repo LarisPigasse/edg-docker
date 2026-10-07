@@ -16,6 +16,10 @@
 //
 //   Tutte le rotte: solo account del tenant di sistema (requireSystemTenant),
 //   perche' i ruoli sono globali e un admin esiste anche nei tenant dei clienti.
+//
+//   /auth/me/modules                       home dell'utente (fase 4, ADR056)
+//     GET    /            qualunque account autenticato: i propri moduli e
+//                         quelli in vetrina, filtrati qui (ModuleHomeService)
 // =============================================================================
 import { Router } from 'express';
 import { authenticate } from '../middleware/authMiddleware';
@@ -43,6 +47,13 @@ export const createModuleCatalogRouter = (controller: ModuleController, tenantMo
   );
   router.delete('/:key', requireRoot(), validateParams(moduleSchemas.keyParam), controller.removeCatalog);
 
+  return router;
+};
+
+/** Montato su /auth/me/modules: per tutti gli account, non solo EDG */
+export const createMyModulesRouter = (controller: ModuleController): Router => {
+  const router = Router();
+  router.get('/', authenticate, controller.listMine);
   return router;
 };
 

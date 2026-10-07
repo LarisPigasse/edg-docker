@@ -6,7 +6,14 @@
 // ModuleService (JWT, API) e dal processo di scadenza. Tenerle qui separate
 // rende le regole leggibili in un colpo d'occhio e facili da verificare.
 // =============================================================================
-import { DATA_RETENTION_DAYS, GRANTING_STATUSES, type ActivationStatus } from '../types/module.types';
+import {
+  ALL_MODULES,
+  CUSTOMER_MODULE_STATUS,
+  DATA_RETENTION_DAYS,
+  GRANTING_STATUSES,
+  type ActivationStatus,
+  type HomeStatus,
+} from '../types/module.types';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -89,4 +96,53 @@ export function findDependencyCycle(graph: Map<string, readonly string[]>, start
     return null;
   };
   return walk(start, [start]);
+}
+
+// -----------------------------------------------------------------------------
+// Home dell'utente (fase 4, ADR056)
+// -----------------------------------------------------------------------------
+
+/**
+ * Il ruolo ha almeno un permesso del modulo? ('*', '<chiave>.*' o
+ * '<chiave>.<azione>'; '!<chiave>.*' lo nega). Chi non ne ha nessuno non vede
+ * il modulo nella home: non potrebbe farci nulla.
+ */
+export function hasAnyModulePermission(permissions: readonly string[], key: string): boolean {
+  if (permissions.includes(`!${key}.*`)) return false;
+  return permissions.includes(ALL_MODULES) || permissions.some(p => p.startsWith(`${key}.`));
+}
+
+export interface HomeStatusInput {
+  module: { status: string; showcase: boolean };
+  /** Attivazione del tenant per questo modulo, se esiste */
+  activation: ActivationWindow | null;
+  /** Il modulo e' fra quelli in vigore del tenant (ModuleService, dipendenze comprese) */
+  inForce: boolean;
+  /** Tenant di sistema (personale EDG): vede tutto il catalogo non dismesso */
+  systemTenant: boolean;
+}
+
+/**
+ * Come appare un modulo nella home, o null se non va mostrato. In ordine:
+ *   dismesso                         -> mai
+ *   tenant di sistema                -> sviluppo | attivo
+ *   cliente e modulo non disponibile -> mai (in sviluppo: solo personale EDG)
+ *   in vigore                        -> prova | attivo
+ *   sospeso, scaduto o periodo finito -> sospeso | scaduto (sempre visibili)
+ *   disponibile e in vetrina         -> non-attivo
+ *   altrimenti (riservato, in sviluppo, non ancora iniziato) -> mai
+ */
+export function homeStatus(input: HomeStatusInput, now: Date = new Date()): HomeStatus | null {
+  const { module, activation, inForce, systemTenant } = input;
+  if (module.status === 'dismesso') return null;
+  if (systemTenant) return module.status === 'sviluppo' ? 'sviluppo' : 'attivo';
+  if (module.status !== CUSTOMER_MODULE_STATUS) return null;
+
+  if (activation) {
+    if (inForce) return activation.status === 'prova' ? 'prova' : 'attivo';
+    if (activation.status === 'sospeso' || activation.status === 'scaduto') return activation.status;
+    if (hasActivationEnded(activation, now)) return 'scaduto';
+  }
+
+  return module.showcase ? 'non-attivo' : null;
 }

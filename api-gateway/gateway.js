@@ -14,7 +14,9 @@ const { ResilientRateLimitStore } = require('./middleware/resilientRateLimitStor
 // Import middleware per JWT validation e header injection
 const { jwtValidatorMiddleware } = require('./middleware/jwtValidator');
 const { injectGatewayHeaders } = require('./middleware/gatewayHeaders');
-const { requireModule } = require('./middleware/moduleGuard'); // ADR009
+const { createSessionGuard } = require('./middleware/sessionGuard');
+const { mountServiceRoutes, runChain } = require('./middleware/serviceProxy');
+const { SERVICE_ROUTES, VEHICLE_SERVICE, SYSTEM_SERVICE } = require('./config/serviceRoutes'); // ADR009, fase 4 moduli
 
 // Identita' della build (ADR044): build-info.json e' scritto dal Dockerfile.
 // Fuori da Docker il file non c'e': valori null.
@@ -56,29 +58,8 @@ if (process.env.REDIS_URL) {
   redisClient.on('error', err => console.error('❌ [Gateway] Redis error:', err.message));
 }
 
-/**
- * Verifica se un accountId è nella blacklist Redis.
- * Se Redis non è disponibile, lascia passare (fail-open).
- */
-async function isAccountBlocked(accountId) {
-  if (!redisClient || redisClient.status !== 'ready') return false;
-  try {
-    const result = await redisClient.get(`blocked:${accountId}`);
-    return result === '1';
-  } catch {
-    return false; // fail-open: se Redis è down non blochiamo il traffico
-  }
-}
-
-async function isSessionBlocked(sessionId) {
-  if (!redisClient || redisClient.status !== 'ready' || !sessionId) return false;
-  try {
-    const result = await redisClient.get(`blocked:session:${sessionId}`);
-    return result === '1';
-  } catch {
-    return false;
-  }
-}
+// Blacklist di account e sessioni (vedi middleware/sessionGuard.js)
+const { sessionGuard } = createSessionGuard(redisClient);
 
 const app = express();
 const PORT = parseInt(process.env.PORT || '8080', 10);
@@ -87,9 +68,7 @@ const PORT = parseInt(process.env.PORT || '8080', 10);
 // CONFIGURAZIONE SERVIZI
 // =============================================================================
 const AUTH_SERVICE = process.env.AUTH_SERVICE_URL || 'http://auth-service:3001';
-const VEHICLE_SERVICE = process.env.VEHICLE_SERVICE_URL || 'http://vehicle-service:3003';
-const SYSTEM_SERVICE = process.env.SYSTEM_SERVICE_URL || 'http://system-service:3004';
-const LOG_SERVICE = process.env.LOG_SERVICE_URL || 'http://log-service:4000';
+// Gli altri servizi (vehicle, system, log) sono in config/serviceRoutes.js
 
 // Route protette che richiedono JWT validation + gateway headers
 const PROTECTED_AUTH_ROUTES = ['/change-password', '/logout-all', '/me', '/sessions', '/blocked-users', '/users', '/accounts', '/tenants', '/modules']; // '/modules': catalogo moduli (ADR047)
@@ -186,8 +165,7 @@ const corsMiddleware = cors({
   allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept'],
 });
 
-app.use('/auth', corsMiddleware);
-app.use('/api/vehicles', corsMiddleware);
+app.use('/auth', corsMiddleware); // le rotte /api ricevono CORS da mountServiceRoutes
 
 // 4. Rate Limiting (SOLO per /auth)
 const limiter = rateLimit({
@@ -242,6 +220,7 @@ app.get('/health', (req, res) => {
       auth: AUTH_SERVICE,
       vehicle: VEHICLE_SERVICE,
       system: SYSTEM_SERVICE,
+      routes: SERVICE_ROUTES.map(({ prefix, service, module }) => ({ prefix, service, module })),
       frontends: {
         pro: FRONTENDS.pro.url,
         app: FRONTENDS.app.url,
@@ -322,60 +301,43 @@ app.use('/auth', async (req, res, next) => {
       express.json({ limit: '10mb' })(req, res, resolve);
     });
 
-    // Valida JWT
-    return jwtValidatorMiddleware(req, res, async err => {
-      if (err || res.headersSent) return;
-
-      // Controllo blacklist Redis
-      const accountId = req.userData?.accountId;
-      if (accountId && (await isAccountBlocked(accountId))) {
-        return res.status(401).json({ success: false, error: 'Account disattivato' });
-      }
-      const sessionId = req.userData?.sessionId;
-      if (sessionId && (await isSessionBlocked(sessionId))) {
-        return res.status(401).json({ success: false, error: 'Sessione revocata' });
-      }
-
-      // Inietta header
-      injectGatewayHeaders(req, res, async err => {
-        if (err || res.headersSent) return;
-
-        try {
-          // Trasforma currentPassword -> oldPassword per compatibilità backend
-          const requestData = { ...req.body };
-          if (path === '/change-password' && requestData.currentPassword) {
-            requestData.oldPassword = requestData.currentPassword;
-            delete requestData.currentPassword;
-          }
-
-          // Ottieni IP reale del client
-          const clientIp = req.headers['x-forwarded-for'] || req.ip || req.connection.remoteAddress;
-
-          // Inoltra con axios includendo body e header
-          const response = await axios({
-            method: req.method,
-            url: `${AUTH_SERVICE}/auth${req.url}`,
-            data: requestData,
-            headers: {
-              'Content-Type': 'application/json',
-              'x-gateway-secret': req.headers['x-gateway-secret'],
-              'x-user-data': req.headers['x-user-data'],
-              'x-forwarded-for': clientIp,
-              'x-real-ip': clientIp,
-              'x-request-id': req.requestId,
-            },
-          });
-
-          res.status(response.status).json(response.data);
-        } catch (error) {
-          if (error.response) {
-            res.status(error.response.status).json(error.response.data);
-          } else {
-            console.error(`❌ [GATEWAY] Error forwarding to auth-service:`, error.message);
-            res.status(503).json({ error: 'Auth Service Unavailable' });
-          }
+    // Stessa catena delle rotte /api: JWT -> blacklist -> header gateway
+    return runChain([jwtValidatorMiddleware, sessionGuard, injectGatewayHeaders], req, res, async () => {
+      try {
+        // Trasforma currentPassword -> oldPassword per compatibilità backend
+        const requestData = { ...req.body };
+        if (path === '/change-password' && requestData.currentPassword) {
+          requestData.oldPassword = requestData.currentPassword;
+          delete requestData.currentPassword;
         }
-      });
+
+        // Ottieni IP reale del client
+        const clientIp = req.headers['x-forwarded-for'] || req.ip || req.connection.remoteAddress;
+
+        // Inoltra con axios includendo body e header
+        const response = await axios({
+          method: req.method,
+          url: `${AUTH_SERVICE}/auth${req.url}`,
+          data: requestData,
+          headers: {
+            'Content-Type': 'application/json',
+            'x-gateway-secret': req.headers['x-gateway-secret'],
+            'x-user-data': req.headers['x-user-data'],
+            'x-forwarded-for': clientIp,
+            'x-real-ip': clientIp,
+            'x-request-id': req.requestId,
+          },
+        });
+
+        res.status(response.status).json(response.data);
+      } catch (error) {
+        if (error.response) {
+          res.status(error.response.status).json(error.response.data);
+        } else {
+          console.error(`❌ [GATEWAY] Error forwarding to auth-service:`, error.message);
+          res.status(503).json({ error: 'Auth Service Unavailable' });
+        }
+      }
     });
   }
 
@@ -385,302 +347,16 @@ app.use('/auth', async (req, res, next) => {
 });
 
 // =============================================================================
-// PROXY VERSO VEHICLE-SERVICE
-// Route protette: richiedono JWT validation + gateway headers
+// PROXY VERSO I SERVIZI (/api/*) — tabella rotte -> servizio -> modulo
 // =============================================================================
-
-app.options('/api/vehicles/*', corsMiddleware); // ← preflight OPTIONS
-app.use('/api/vehicles', corsMiddleware); // ← CORS headers su ogni risposta
-
-app.use('/api/vehicles', async (req, res, next) => {
-  // Valida JWT
-  return jwtValidatorMiddleware(req, res, async err => {
-    if (err || res.headersSent) return;
-
-    // Controllo blacklist Redis
-    const accountId = req.userData?.accountId;
-    if (accountId && (await isAccountBlocked(accountId))) {
-      return res.status(401).json({ success: false, error: 'Account disattivato' });
-    }
-    const sessionId = req.userData?.sessionId;
-    if (sessionId && (await isSessionBlocked(sessionId))) {
-      return res.status(401).json({ success: false, error: 'Sessione revocata' });
-    }
-
-    // ADR009/ADR047: le API veicoli appartengono al modulo 'vigilo' (la chiave
-    // 'vehicles' non esiste piu'). La mappa dichiarativa rotte -> moduli arriva in fase 4.
-    return requireModule('vigilo')(req, res, async err => {
-      if (err || res.headersSent) return;
-
-      // Inietta gateway headers (x-gateway-secret, x-user-data)
-      injectGatewayHeaders(req, res, async err => {
-        if (err || res.headersSent) return;
-
-        try {
-          const clientIp = req.headers['x-forwarded-for'] || req.ip || req.connection.remoteAddress;
-
-          const response = await axios({
-            method: req.method,
-            url: `${VEHICLE_SERVICE}/api/vehicles${req.url}`,
-            data: ['GET', 'DELETE'].includes(req.method) ? undefined : req.body,
-            headers: {
-              'Content-Type': 'application/json',
-              'x-gateway-secret': req.headers['x-gateway-secret'],
-              'x-user-data': req.headers['x-user-data'],
-              'x-forwarded-for': clientIp,
-              'x-real-ip': clientIp,
-              'x-request-id': req.requestId,
-            },
-          });
-
-          res.status(response.status).json(response.data);
-        } catch (error) {
-          if (error.response) {
-            res.status(error.response.status).json(error.response.data);
-          } else {
-            console.error(`❌ [GATEWAY] Error forwarding to vehicle-service:`, error.message);
-            res.status(503).json({ error: 'Vehicle Service Unavailable' });
-          }
-        }
-      });
-    });
-  });
-});
-
+// Tutte le rotte /api passano dalla stessa catena: JWT -> blacklist -> modulo
+// (se la rotta ne dichiara uno) -> header gateway -> inoltro. La tabella, con
+// l'ordine delle voci e la chiave di modulo di ciascuna, e' in
+// config/serviceRoutes.js; la catena in middleware/serviceProxy.js.
+// Il frontend legge `modules` dal JWT solo per menu e rotte: il controllo
+// vero e' qui (ADR009).
 // =============================================================================
-// PROXY VERSO LOG-SERVICE (logs, alert, system health)
-// Route protette: richiedono JWT validation + gateway headers, stesso schema
-// di vehicle-service/system-service. In precedenza il frontend chiamava
-// log-service direttamente sulla sua porta dedicata (VITE_LOG_SERVICE_URL),
-// bypassando gateway e RBAC: le GET erano senza autenticazione e le
-// scritture protette solo da una API key statica esposta nel bundle
-// frontend. Ora passa da qui come tutti gli altri servizi.
-// NIENTE requireModule: logs/alert/system-health sono gestione interna
-// sempre disponibile per chi ha il permesso RBAC, non un modulo attivabile
-// per tenant (ADR009) — stesso ragionamento gia' applicato a system-service.
-//
-// NOTA: /api/system/health e' servito da log-service (aggrega lo stato di
-// tutti i servizi leggendo i log), non da system-service — per questo il
-// blocco specifico /api/system/health e' registrato PRIMA del blocco
-// generico /api/system qui sotto (Express instrada i middleware nell'ordine
-// di registrazione: la route piu' specifica deve precedere quella generica).
-// =============================================================================
-
-app.options('/api/system/health', corsMiddleware); // ← preflight OPTIONS
-app.use('/api/system/health', corsMiddleware); // ← CORS headers su ogni risposta
-
-app.use('/api/system/health', async (req, res, next) => {
-  // Valida JWT
-  return jwtValidatorMiddleware(req, res, async err => {
-    if (err || res.headersSent) return;
-
-    // Controllo blacklist Redis
-    const accountId = req.userData?.accountId;
-    if (accountId && (await isAccountBlocked(accountId))) {
-      return res.status(401).json({ success: false, error: 'Account disattivato' });
-    }
-    const sessionId = req.userData?.sessionId;
-    if (sessionId && (await isSessionBlocked(sessionId))) {
-      return res.status(401).json({ success: false, error: 'Sessione revocata' });
-    }
-
-    // Inietta gateway headers (x-gateway-secret, x-user-data)
-    injectGatewayHeaders(req, res, async err => {
-      if (err || res.headersSent) return;
-
-      try {
-        const clientIp = req.headers['x-forwarded-for'] || req.ip || req.connection.remoteAddress;
-
-        const response = await axios({
-          method: req.method,
-          url: `${LOG_SERVICE}/api/system/health`,
-          data: ['GET', 'DELETE'].includes(req.method) ? undefined : req.body,
-          headers: {
-            'Content-Type': 'application/json',
-            'x-gateway-secret': req.headers['x-gateway-secret'],
-            'x-user-data': req.headers['x-user-data'],
-            'x-forwarded-for': clientIp,
-            'x-real-ip': clientIp,
-            'x-request-id': req.requestId,
-          },
-        });
-
-        res.status(response.status).json(response.data);
-      } catch (error) {
-        if (error.response) {
-          res.status(error.response.status).json(error.response.data);
-        } else {
-          console.error(`❌ [GATEWAY] Error forwarding to log-service (system/health):`, error.message);
-          res.status(503).json({ error: 'Log Service Unavailable' });
-        }
-      }
-    });
-  });
-});
-
-app.options('/api/log/*', corsMiddleware); // ← preflight OPTIONS
-app.use('/api/log', corsMiddleware); // ← CORS headers su ogni risposta
-
-app.use('/api/log', async (req, res, next) => {
-  // Valida JWT
-  return jwtValidatorMiddleware(req, res, async err => {
-    if (err || res.headersSent) return;
-
-    // Controllo blacklist Redis
-    const accountId = req.userData?.accountId;
-    if (accountId && (await isAccountBlocked(accountId))) {
-      return res.status(401).json({ success: false, error: 'Account disattivato' });
-    }
-    const sessionId = req.userData?.sessionId;
-    if (sessionId && (await isSessionBlocked(sessionId))) {
-      return res.status(401).json({ success: false, error: 'Sessione revocata' });
-    }
-
-    // Inietta gateway headers (x-gateway-secret, x-user-data)
-    injectGatewayHeaders(req, res, async err => {
-      if (err || res.headersSent) return;
-
-      try {
-        const clientIp = req.headers['x-forwarded-for'] || req.ip || req.connection.remoteAddress;
-
-        const response = await axios({
-          method: req.method,
-          url: `${LOG_SERVICE}/api/log${req.url}`,
-          data: ['GET', 'DELETE'].includes(req.method) ? undefined : req.body,
-          headers: {
-            'Content-Type': 'application/json',
-            'x-gateway-secret': req.headers['x-gateway-secret'],
-            'x-user-data': req.headers['x-user-data'],
-            'x-forwarded-for': clientIp,
-            'x-real-ip': clientIp,
-            'x-request-id': req.requestId,
-          },
-        });
-
-        res.status(response.status).json(response.data);
-      } catch (error) {
-        if (error.response) {
-          res.status(error.response.status).json(error.response.data);
-        } else {
-          console.error(`❌ [GATEWAY] Error forwarding to log-service (log):`, error.message);
-          res.status(503).json({ error: 'Log Service Unavailable' });
-        }
-      }
-    });
-  });
-});
-
-app.options('/api/alert/*', corsMiddleware); // ← preflight OPTIONS
-app.use('/api/alert', corsMiddleware); // ← CORS headers su ogni risposta
-
-app.use('/api/alert', async (req, res, next) => {
-  // Valida JWT
-  return jwtValidatorMiddleware(req, res, async err => {
-    if (err || res.headersSent) return;
-
-    // Controllo blacklist Redis
-    const accountId = req.userData?.accountId;
-    if (accountId && (await isAccountBlocked(accountId))) {
-      return res.status(401).json({ success: false, error: 'Account disattivato' });
-    }
-    const sessionId = req.userData?.sessionId;
-    if (sessionId && (await isSessionBlocked(sessionId))) {
-      return res.status(401).json({ success: false, error: 'Sessione revocata' });
-    }
-
-    // Inietta gateway headers (x-gateway-secret, x-user-data)
-    injectGatewayHeaders(req, res, async err => {
-      if (err || res.headersSent) return;
-
-      try {
-        const clientIp = req.headers['x-forwarded-for'] || req.ip || req.connection.remoteAddress;
-
-        const response = await axios({
-          method: req.method,
-          url: `${LOG_SERVICE}/api/alert${req.url}`,
-          data: ['GET', 'DELETE'].includes(req.method) ? undefined : req.body,
-          headers: {
-            'Content-Type': 'application/json',
-            'x-gateway-secret': req.headers['x-gateway-secret'],
-            'x-user-data': req.headers['x-user-data'],
-            'x-forwarded-for': clientIp,
-            'x-real-ip': clientIp,
-            'x-request-id': req.requestId,
-          },
-        });
-
-        res.status(response.status).json(response.data);
-      } catch (error) {
-        if (error.response) {
-          res.status(error.response.status).json(error.response.data);
-        } else {
-          console.error(`❌ [GATEWAY] Error forwarding to log-service (alert):`, error.message);
-          res.status(503).json({ error: 'Log Service Unavailable' });
-        }
-      }
-    });
-  });
-});
-
-// =============================================================================
-// PROXY VERSO SYSTEM-SERVICE
-// Route protette: richiedono JWT validation + gateway headers.
-// Dati di amministrazione root (operatori, reparti, anagrafiche) — NIENTE
-// requireModule: non e' un modulo attivabile per tenant (ADR009), e' gestione
-// interna sempre disponibile per chi ne ha il permesso RBAC.
-// =============================================================================
-
-app.options('/api/system/*', corsMiddleware); // ← preflight OPTIONS
-app.use('/api/system', corsMiddleware); // ← CORS headers su ogni risposta
-
-app.use('/api/system', async (req, res, next) => {
-  // Valida JWT
-  return jwtValidatorMiddleware(req, res, async err => {
-    if (err || res.headersSent) return;
-
-    // Controllo blacklist Redis
-    const accountId = req.userData?.accountId;
-    if (accountId && (await isAccountBlocked(accountId))) {
-      return res.status(401).json({ success: false, error: 'Account disattivato' });
-    }
-    const sessionId = req.userData?.sessionId;
-    if (sessionId && (await isSessionBlocked(sessionId))) {
-      return res.status(401).json({ success: false, error: 'Sessione revocata' });
-    }
-
-    // Inietta gateway headers (x-gateway-secret, x-user-data)
-    injectGatewayHeaders(req, res, async err => {
-      if (err || res.headersSent) return;
-
-      try {
-        const clientIp = req.headers['x-forwarded-for'] || req.ip || req.connection.remoteAddress;
-
-        const response = await axios({
-          method: req.method,
-          url: `${SYSTEM_SERVICE}/api${req.url}`,
-          data: ['GET', 'DELETE'].includes(req.method) ? undefined : req.body,
-          headers: {
-            'Content-Type': 'application/json',
-            'x-gateway-secret': req.headers['x-gateway-secret'],
-            'x-user-data': req.headers['x-user-data'],
-            'x-forwarded-for': clientIp,
-            'x-real-ip': clientIp,
-            'x-request-id': req.requestId,
-          },
-        });
-
-        res.status(response.status).json(response.data);
-      } catch (error) {
-        if (error.response) {
-          res.status(error.response.status).json(error.response.data);
-        } else {
-          console.error(`❌ [GATEWAY] Error forwarding to system-service:`, error.message);
-          res.status(503).json({ error: 'System Service Unavailable' });
-        }
-      }
-    });
-  });
-});
+mountServiceRoutes(app, SERVICE_ROUTES, { cors: corsMiddleware, sessionGuard });
 
 // =============================================================================
 // PROXY FRONTEND - istanza unica, creata una sola volta all'avvio

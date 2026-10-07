@@ -11,6 +11,7 @@
 import { Request, Response } from 'express';
 import { ModuleCatalogService } from '../services/ModuleCatalogService';
 import { ModuleActivationService } from '../services/ModuleActivationService';
+import { ModuleHomeService } from '../services/ModuleHomeService';
 import { isModuleError } from '../services/ModuleError';
 import { createdResponse, errorResponse, serverError, successResponse } from '../utils/response';
 import { logger, snapshot, type StateChange } from '../../../services/logger';
@@ -21,8 +22,21 @@ type Handler = (req: Request, res: Response) => Promise<void>;
 export class ModuleController {
   constructor(
     private catalog: ModuleCatalogService,
-    private activations: ModuleActivationService
+    private activations: ModuleActivationService,
+    private home: ModuleHomeService
   ) {}
+
+  // ===========================================================================
+  // HOME DELL'UTENTE (fase 4): qualunque account autenticato
+  // ===========================================================================
+
+  listMine: Handler = this.handle('module.home.list', async (req, res) => {
+    const account = (req as any).account ?? {};
+    successResponse(
+      res,
+      await this.home.listForAccount({ tenantId: account.tenantId, permissions: account.permissions ?? [] })
+    );
+  });
 
   // ===========================================================================
   // CATALOGO

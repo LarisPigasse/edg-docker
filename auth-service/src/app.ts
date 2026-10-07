@@ -25,9 +25,14 @@ import { createAuthRouter } from './modules/auth/routes/auth.routes';
 import { createAccountRouter } from './modules/auth/routes/account.routes';
 import { createTenantRouter } from './modules/auth/routes/tenant.routes';
 import { createInternalRouter } from './modules/auth/routes/internal.routes';
-import { createModuleCatalogRouter, createTenantModuleRouter } from './modules/auth/routes/module.routes';
+import {
+  createModuleCatalogRouter,
+  createMyModulesRouter,
+  createTenantModuleRouter,
+} from './modules/auth/routes/module.routes';
 import { ModuleCatalogService } from './modules/auth/services/ModuleCatalogService';
 import { ModuleActivationService } from './modules/auth/services/ModuleActivationService';
+import { ModuleHomeService } from './modules/auth/services/ModuleHomeService';
 import { ModuleController } from './modules/auth/controllers/ModuleController';
 import { Router, Application, Request, Response, NextFunction } from 'express';
 import { installCrashHandlers, logger } from './services/logger';
@@ -227,10 +232,15 @@ const startServer = async () => {
     // 5.1ter GESTIONE MODULI (ADR047): catalogo e attivazioni per tenant
     console.log('\n🔧 [APP] Fase 8.1ter: Creazione e registrazione router moduli');
     const moduleActivationService = new ModuleActivationService(Module, TenantModule, Tenant, moduleService);
-    const moduleController = new ModuleController(new ModuleCatalogService(Module), moduleActivationService);
+    const moduleController = new ModuleController(
+      new ModuleCatalogService(Module),
+      moduleActivationService,
+      new ModuleHomeService(Module, TenantModule, Tenant, moduleService)
+    );
     app.use('/auth/modules', createModuleCatalogRouter(moduleController, Tenant));
     app.use('/auth/tenants/:tenantId/modules', createTenantModuleRouter(moduleController, Tenant));
-    console.log('   ✅ Router moduli registrati (/auth/modules, /auth/tenants/:tenantId/modules)');
+    app.use('/auth/me/modules', createMyModulesRouter(moduleController)); // home dell'utente (fase 4)
+    console.log('   ✅ Router moduli registrati (/auth/modules, /auth/tenants/:tenantId/modules, /auth/me/modules)');
 
     // 5.1quater ROTTE INTERNE (ADR058): solo per gli altri servizi, fuori dal gateway
     app.use('/internal', createInternalRouter(Tenant, Account));
