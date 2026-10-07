@@ -67,7 +67,7 @@ let inFlight: Promise<void> | null = null;
 let lastRunAt: string | null = null;
 
 /** Riavvii rilevati per servizio, solo quelli entro la finestra */
-const RESTART_WINDOW_MS = 24 * 60 * 60 * 1000;
+export const RESTART_WINDOW_MS = 24 * 60 * 60 * 1000;
 const restartLog = new Map<string, number[]>();
 /** Ultimo uptime letto: il confronto usa questo, non startedAt (niente jitter di rete) */
 const lastUptime = new Map<string, number>();

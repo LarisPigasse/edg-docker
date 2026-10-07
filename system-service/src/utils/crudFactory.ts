@@ -5,7 +5,7 @@
 // =============================================================================
 import { Request, Response } from 'express';
 import { Model, ModelStatic, WhereOptions, Order, Op } from 'sequelize';
-import { successResponse, createdResponse, notFound, buildPaginationMeta, parsePagination } from './response';
+import { successResponse, createdResponse, notFound, errorResponse, buildPaginationMeta, parsePagination } from './response';
 import { NotFoundError } from './errors';
 import { logger, snapshot } from '../services/logger';
 
@@ -28,6 +28,10 @@ export interface CrudFactoryOptions<M extends Model> {
   // su tutti i tenant — i ruoli/permessi governano cosa può fare, non il tenant.
   tenantScoped?: boolean;
   tenantField?: string; // Nome del campo tenant sul modello (default 'idTenant')
+  // Controllo prima dell'eliminazione, per i legami che il database non vede
+  // (es. un tenant di auth-service collegato a un'anagrafica, ADR058). Un
+  // rifiuto blocca l'operazione: niente eliminazione e niente disattivazione.
+  beforeRemove?: (record: M) => Promise<{ status: number; message: string } | null>;
 }
 
 // ---------------------------------------------------------------------------
@@ -46,6 +50,7 @@ export function createCrudHandlers<M extends Model>(opts: CrudFactoryOptions<M>)
     listFilters,
     tenantScoped = false,
     tenantField = 'idTenant',
+    beforeRemove,
   } = opts;
 
   // Account 'operatore' (pro-frontend): accesso cross-tenant per progetto,
@@ -204,6 +209,19 @@ export function createCrudHandlers<M extends Model>(opts: CrudFactoryOptions<M>)
 
       if (!record || !belongsToUserTenant(req, record)) {
         notFound(res, resourceName);
+        return;
+      }
+
+      const refusal = beforeRemove ? await beforeRemove(record) : null;
+      if (refusal) {
+        logger.warn(
+          'crud.delete',
+          `Eliminazione ${resourceName} #${req.params.id} rifiutata: ${refusal.message}`,
+          { id: req.params.id },
+          'DATA',
+          req.user
+        );
+        errorResponse(res, refusal.status, refusal.message);
         return;
       }
 

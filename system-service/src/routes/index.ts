@@ -5,6 +5,7 @@ import { Router } from 'express';
 
 // Primitive
 import repartiRoutes from './repartiRoutes';
+import settoriRoutes from './settoriRoutes';
 
 // Anagrafiche
 import operatoriRoutes from './operatoriRoutes';
@@ -14,6 +15,7 @@ const router = Router();
 
 // Primitive
 router.use('/reparti', repartiRoutes);
+router.use('/settori', settoriRoutes);
 
 // Anagrafiche
 router.use('/operatori', operatoriRoutes);

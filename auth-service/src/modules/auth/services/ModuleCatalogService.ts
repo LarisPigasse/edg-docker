@@ -11,7 +11,7 @@
 import { literal } from 'sequelize';
 import { ModuleError } from './ModuleError';
 import { findDependencyCycle } from './moduleRules';
-import type { ModuleStatus } from '../types/module.types';
+import type { ModuleBranding, ModuleStatus } from '../types/module.types';
 
 export interface CatalogInput {
   key?: string;
@@ -20,7 +20,10 @@ export interface CatalogInput {
   product?: string;
   dependencies?: string[];
   status?: ModuleStatus;
+  showcase?: boolean;
   trialDays?: number;
+  version?: string;
+  branding?: ModuleBranding | null;
 }
 
 /** Numero di attivazioni (di qualunque stato) di ogni modulo */

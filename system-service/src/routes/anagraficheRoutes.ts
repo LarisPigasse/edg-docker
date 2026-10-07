@@ -5,6 +5,7 @@ import { validateBody, validateParams, commonSchemas } from '../middleware/valid
 import { createCrudHandlers } from '../utils/crudFactory';
 import Anagrafica from '../models/Anagrafica';
 import { anagraficaSchemas } from '../schemas/anagraficaSchemas';
+import { getAnagraficaLinks } from '../clients/authServiceClient';
 
 const router = Router();
 const h = createCrudHandlers({
@@ -21,9 +22,29 @@ const h = createCrudHandlers({
     const where: Record<string, unknown> = {};
     if (query.tipo) where.tipo = query.tipo;
     if (query.idTenant) where.idTenant = Number(query.idTenant);
+    if (query.idSettore) where.idSettore = Number(query.idSettore); // ADR059
     return where;
   },
   tenantScoped: true,
+  // ADR058: un cliente collegato a un tenant non si elimina (né si disattiva
+  // al posto dell'eliminazione): prima va scollegato dal tenant. Il legame sta
+  // in auth-service, quindi lo si chiede a lui; se non risponde, per
+  // prudenza non si elimina.
+  beforeRemove: async record => {
+    let links;
+    try {
+      links = await getAnagraficaLinks(record.uuidAnagrafica);
+    } catch {
+      return { status: 503, message: 'Impossibile verificare se il cliente è collegato a un tenant: riprova tra poco' };
+    }
+    if (links.tenant) {
+      return {
+        status: 409,
+        message: `Il cliente è collegato al tenant "${links.tenant.name}": scollegalo prima dal tenant`,
+      };
+    }
+    return null;
+  },
 });
 
 router.get('/', requireAuth, requirePermission('system', 'read'), h.list);

@@ -26,6 +26,18 @@ export interface CrudFactoryOptions<M extends Model> {
   // disattivazione (es. 'isSystem' per proteggere il tenant di sistema o un
   // ruolo predefinito da azioni distruttive accidentali via API).
   protectField?: string;
+  // Messaggi per i valori duplicati (vincoli UNIQUE): al posto di un errore
+  // 500, un 409 con un messaggio chiaro. `match` si cerca nel nome del campo
+  // o dell'indice violato (es. 'slug', 'unique_tenant_cliente').
+  uniqueMessages?: { match: string; message: string }[];
+}
+
+/** Messaggio per un vincolo UNIQUE violato, se previsto (altrimenti null) */
+function uniqueViolation(err: unknown, messages: { match: string; message: string }[]): string | null {
+  const e = err as { name?: string; fields?: Record<string, unknown>; parent?: { sqlMessage?: string } };
+  if (e?.name !== 'SequelizeUniqueConstraintError') return null;
+  const haystack = `${Object.keys(e.fields ?? {}).join(' ')} ${e.parent?.sqlMessage ?? ''}`;
+  return messages.find(m => haystack.includes(m.match))?.message ?? 'Valore già usato da un altro record';
 }
 
 export function createCrudHandlers<M extends Model>(opts: CrudFactoryOptions<M>) {
@@ -37,6 +49,7 @@ export function createCrudHandlers<M extends Model>(opts: CrudFactoryOptions<M>)
     softDelete = true,
     listFilters,
     protectField,
+    uniqueMessages = [],
   } = opts;
 
   // Audit (ADR034): stessi nomi di evento del crudFactory di system-service
@@ -121,6 +134,12 @@ export function createCrudHandlers<M extends Model>(opts: CrudFactoryOptions<M>)
       audit(req, 'crud.create', `Creato ${resourceName} #${newId}`, { id: newId }, { precedente: null, nuovo: snapshot(record) });
       createdResponse(res, record, `${resourceName} creato con successo`);
     } catch (err) {
+      const duplicate = uniqueViolation(err, uniqueMessages);
+      if (duplicate) {
+        denied(req, 'crud.create', `Creazione ${resourceName} rifiutata: ${duplicate}`, { body: req.body });
+        conflict(res, duplicate);
+        return;
+      }
       failed(req, 'crud.create', `Errore creazione ${resourceName}`, err, { body: req.body });
       throw err;
     }
@@ -153,6 +172,12 @@ export function createCrudHandlers<M extends Model>(opts: CrudFactoryOptions<M>)
       });
       successResponse(res, record, `${resourceName} aggiornato con successo`);
     } catch (err) {
+      const duplicate = uniqueViolation(err, uniqueMessages);
+      if (duplicate) {
+        denied(req, 'crud.update', `Modifica ${resourceName} #${req.params.id} rifiutata: ${duplicate}`, { id: req.params.id });
+        conflict(res, duplicate);
+        return;
+      }
       failed(req, 'crud.update', `Errore aggiornamento ${resourceName} #${req.params.id}`, err, { id: req.params.id });
       throw err;
     }

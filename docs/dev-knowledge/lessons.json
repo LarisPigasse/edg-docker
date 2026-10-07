@@ -1,5 +1,5 @@
 {
-  "lastUpdated": "2026-10-01",
+  "lastUpdated": "2026-10-06",
   "lessons": [
     {
       "id": "L001",
@@ -414,6 +414,33 @@
       "title": "exec-in-container passa da cmd di Windows e poi da sh: niente > | & $ ` nei comandi",
       "problem": "Il comando di exec-in-container viene eseguito come docker exec ... sh -c \"...\" lanciato da cmd di Windows. Nei node -e: '=>' viene letto da cmd come redirezione (errore \"Accesso negato.\"), '||' e '&&' come pipe/concatenazione (\"non è riconosciuto come comando\"), '$gte' viene espanso da sh (diventa vuoto), i backtick SQL (`key`) vengono eseguiti da sh. Inoltre il workDir predefinito /app non esiste nel gateway (WORKDIR /usr/src/app).",
       "solution": "Nei node -e usare function(){} invece delle frecce, '??' invece di '||', niente '&&'; per gli operatori MongoDB costruire la chiave con String.fromCharCode(36)+'gte'; evitare i backtick. Per script lunghi: gzip+base64, scritto nel container con fs.writeFileSync(zlib.gunzipSync(Buffer.from(b64,'base64'))) e poi eseguito; nel gateway passare workDir /usr/src/app e rimuovere il file alla fine."
+    },
+    {
+      "id": "L047",
+      "date": "2026-10-05",
+      "category": "frontend",
+      "severity": "low",
+      "title": "Menu calcolato in App.tsx: il ricaricamento a caldo di Vite non basta",
+      "problem": "Dopo aver cambiato getModules (navigation.config.ts) e AppConfigProvider in App.tsx, il server Vite serviva già i file nuovi ma la pagina aperta continuava a mostrare il menu vecchio (SISTEMA assente per l'admin): l'HMR non riapplica del tutto la configurazione calcolata al caricamento del modulo e passata a EdgConfigProvider.",
+      "solution": "Dopo modifiche a config/ o ad App.tsx chiedere una ricarica forzata (Ctrl+Shift+R) prima di cercare bug. Per verificare cosa serve Vite: dal container api-gateway-1, GET http://host.docker.internal:5173/src/<file> e cercare nel testo una stringa introdotta dalla modifica."
+    },
+    {
+      "id": "L048",
+      "date": "2026-10-05",
+      "category": "ui-components",
+      "severity": "medium",
+      "title": "Menu a tendina: icone su tutte le voci o su nessuna",
+      "problem": "Nel menu azioni di una tabella una voce personalizzata senza icona (es. \"Aspetto\") stava accanto a Modifica, Elimina e Dati tecnici che l'icona ce l'hanno: il menu risultava disallineato e incompleto. Regola del progetto, voluta dall'utente: in qualunque menu a tendina le icone vanno su tutte le voci o su nessuna. Per i menu azioni delle tabelle, se mettere un'icona su ogni voce costasse troppo, meglio nessuna icona.",
+      "solution": "Table: le azioni personalizzate di rowActions.actions sono di tipo TableRowAction (Action con icon obbligatoria), quindi tsc rifiuta una voce senza icona. ActionMenu: se nessuna voce ha un'icona, il menu si mostra senza la colonna icone; se solo alcune l'hanno, in sviluppo compare un console.warn. Usare prima le icone già nel catalogo (packages/ui/src/utils/icons.ts); se una nuova serve davvero, aggiungerla lì (import, export, ICONS). Assegnazioni attuali: Attiva/Disattiva=Power (nuova), Vedi attività=Eye, Moduli=Puzzle, Aspetto=Palette."
+    },
+    {
+      "id": "L049",
+      "date": "2026-10-06",
+      "category": "validation",
+      "severity": "low",
+      "title": "Campo nuovo ignorato in silenzio se il servizio non è ricompilato",
+      "problem": "Dopo l'aggiunta del campo version al catalogo moduli, il salvataggio dava il toast \"Modulo aggiornato\" ma la versione restava invariata. Il container auth-service girava ancora con lo schema Joi precedente: validate.js usa stripUnknown: true, quindi il campo sconosciuto veniva scartato senza errore e il resto dell'aggiornamento andava a buon fine.",
+      "solution": "Se un campo nuovo \"non si salva\" ma la richiesta riesce, controllare prima che il servizio sia stato ricompilato. Per esempio con exec-in-container: grep del nome del campo in dist/modules/auth/schemas/*.js. Poi eseguire la migrazione, se manca, e ricompilare. Lo stripUnknown resta: è una scelta di sicurezza voluta."
     }
   ]
 }

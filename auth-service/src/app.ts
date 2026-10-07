@@ -24,6 +24,7 @@ import { SessionController } from './modules/auth/controllers/SessionController'
 import { createAuthRouter } from './modules/auth/routes/auth.routes';
 import { createAccountRouter } from './modules/auth/routes/account.routes';
 import { createTenantRouter } from './modules/auth/routes/tenant.routes';
+import { createInternalRouter } from './modules/auth/routes/internal.routes';
 import { createModuleCatalogRouter, createTenantModuleRouter } from './modules/auth/routes/module.routes';
 import { ModuleCatalogService } from './modules/auth/services/ModuleCatalogService';
 import { ModuleActivationService } from './modules/auth/services/ModuleActivationService';
@@ -230,6 +231,10 @@ const startServer = async () => {
     app.use('/auth/modules', createModuleCatalogRouter(moduleController, Tenant));
     app.use('/auth/tenants/:tenantId/modules', createTenantModuleRouter(moduleController, Tenant));
     console.log('   ✅ Router moduli registrati (/auth/modules, /auth/tenants/:tenantId/modules)');
+
+    // 5.1quater ROTTE INTERNE (ADR058): solo per gli altri servizi, fuori dal gateway
+    app.use('/internal', createInternalRouter(Tenant, Account));
+    console.log('   ✅ Router interno registrato (/internal)');
 
     // 5.2 CRON JOB — pulizia sessioni e token scaduti
     console.log('\n🔧 [APP] Fase 8.2: Setup cron job pulizia sessioni');

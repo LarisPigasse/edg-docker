@@ -52,12 +52,29 @@ export const createModuleModel = (sequelize: Sequelize) => {
         validate: { isIn: [MODULE_STATUSES as unknown as string[]] },
         comment: 'sviluppo | disponibile | dismesso',
       },
+      showcase: {
+        type: DataTypes.BOOLEAN,
+        allowNull: false,
+        defaultValue: false,
+        comment: 'In vetrina: visibile anche a chi non lo ha (solo se disponibile, ADR056)',
+      },
       trialDays: {
         type: DataTypes.INTEGER,
         allowNull: false,
         defaultValue: DEFAULT_TRIAL_DAYS,
         field: 'trialDays',
         comment: 'Durata predefinita della prova, in giorni',
+      },
+      version: {
+        type: DataTypes.STRING(16),
+        allowNull: false,
+        defaultValue: '1.0.0',
+        comment: 'Versione mostrata ai clienti (major.minor.patch), aggiornata a ogni rilascio (ADR057)',
+      },
+      branding: {
+        type: DataTypes.JSON,
+        allowNull: true,
+        comment: 'Icona, logo e titolo: immagine o testo con classi Tailwind (ADR054)',
       },
     },
     {

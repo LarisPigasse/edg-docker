@@ -24,6 +24,28 @@ export type ModuleStatus = (typeof MODULE_STATUSES)[number];
 /** Durata predefinita della prova, in giorni */
 export const DEFAULT_TRIAL_DAYS = 32;
 
+// -----------------------------------------------------------------------------
+// Aspetto (ADR054): icona, logo e titolo, ciascuno immagine o testo
+// -----------------------------------------------------------------------------
+
+/** I tre elementi grafici: icona piccola, logo grande, titolo dell'header */
+export const BRAND_ELEMENTS = ['icon', 'logo', 'title'] as const;
+export type BrandElement = (typeof BRAND_ELEMENTS)[number];
+
+export const BRAND_MODES = ['file', 'text'] as const;
+export type BrandMode = (typeof BRAND_MODES)[number];
+
+export interface BrandElementConfig {
+  /** file = immagine nel frontend (src/assets/moduli/<chiave>/...), text = testo con classi */
+  mode: BrandMode;
+  /** Testo da mostrare (vuoto = nome del modulo) */
+  text: string | null;
+  /** Classi Tailwind del testo */
+  classes: string | null;
+}
+
+export type ModuleBranding = Partial<Record<BrandElement, BrandElementConfig>>;
+
 export interface ModuleAttributes {
   id: number;
   key: string;
@@ -32,7 +54,16 @@ export interface ModuleAttributes {
   product: string;
   dependencies: string[];
   status: ModuleStatus;
+  /**
+   * In vetrina (ADR056): i clienti che non lo hanno lo vedono comunque, spento,
+   * per scoprirlo e chiederlo. Vale solo per i moduli 'disponibile'; false =
+   * riservato, visibile solo a chi lo ha.
+   */
+  showcase: boolean;
   trialDays: number;
+  /** Versione mostrata ai clienti (major.minor.patch), aggiornata da root a ogni rilascio (ADR057) */
+  version: string;
+  branding: ModuleBranding | null;
   createdAt: Date;
   updatedAt: Date;
 }

@@ -542,6 +542,8 @@ services:
       GATEWAY_SECRET: ${GATEWAY_SECRET}
       LOG_SERVICE_URL: http://log-service:4000
       LOG_API_KEY_SECRET: ${LOG_API_KEY_SECRET}
+      # Chiamate interne ad auth-service (ADR058): collegamenti di un'anagrafica
+      AUTH_SERVICE_URL: http://auth-service:3001
     expose:
       - '3004'
     labels:

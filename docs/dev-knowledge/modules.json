@@ -1,5 +1,5 @@
 {
-  "lastUpdated": "2026-10-05",
+  "lastUpdated": "2026-10-06",
   "modules": {
     "auth-service": {
       "status": "stable",
@@ -78,8 +78,8 @@
     },
     "@edg/ui (packages/ui)": {
       "status": "stable",
-      "notes": "Select.tsx: nuova prop optionSize ('sm'|'md'), applicata a Trigger (non a Select.Value, ignora className - vedi lezione). TechnicalDetailsModal: grid 2 colonne label:value, size lg/xxl.",
-      "lastUpdated": "2026-09-28"
+      "notes": "Modal: nuova taglia xxxl (max-w-6xl). Table: taglia xs e prop fit (larghezza contenitore, table-fixed, troncamento con tooltip, niente scroll orizzontale). Additive.",
+      "lastUpdated": "2026-10-05"
     },
     "@edg/auth (packages/auth)": {
       "status": "stable",
@@ -92,9 +92,9 @@
       "lastUpdated": "2026-08-31"
     },
     "pro-frontend (edg-system)": {
-      "status": "review",
-      "notes": "ADR050: menu SISTEMA per permessi (admin: solo Account e Tenant), azioni root nascoste all'admin. tsc ok. Da verificare a video con system@. Prossimo: fase 2 moduli.",
-      "lastUpdated": "2026-10-01"
+      "status": "stable",
+      "notes": "Verificato a video: menu SISTEMA per permessi (ADR050), pannello permessi a 3 colonne, Logs compatta senza scroll, Guida in Info (ADR052). Prossimo: fase 2 moduli.",
+      "lastUpdated": "2026-10-05"
     },
     "asset-frontend (edg-docker)": {
       "status": "review",
@@ -138,8 +138,13 @@
     },
     "gestione moduli (catalogo, assegnazioni, prove, demo)": {
       "status": "in-progress",
-      "notes": "Fase 1 + passo 3b fatti e verificati (ADR048, ADR049): moduli, tenant e account gestibili dall'admin EDG, root intoccabile. Prossimo: fase 2 UI in pro-frontend (edg-system).",
-      "lastUpdated": "2026-10-01"
+      "notes": "Fasi 1-2 fatte e verificate (ADR048-053): backend, catalogo per root, moduli del tenant in finestra, settore. Prossimo: fase 3 tenant↔cliente, poi gateway/menu (4), demo (5).",
+      "lastUpdated": "2026-10-05"
+    },
+    "gestione moduli (auth-service + pro-frontend)": {
+      "status": "in-progress",
+      "notes": "Fasi 1-3 fatte (ADR048-058) + settori sull'anagrafica (ADR059), verificate dal vivo. Prossimo: commit, poi fase 4 (gateway, app-frontend), fase 5 demo.",
+      "lastUpdated": "2026-10-06"
     }
   }
 }

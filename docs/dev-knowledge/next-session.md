@@ -4,7 +4,7 @@
 > (che riassume moduli, ADR e lezioni da `modules.json`, `decisions.json`,
 > `lessons.json`). Qui c'è ciò che quei file non contengono: il punto esatto in
 > cui siamo, il prossimo argomento con la proposta già ragionata e le domande
-> ancora aperte. Aggiornato: 2026-10-01 (gestione moduli: fase 1, account admin, menu SISTEMA per permessi, systemTenant nel JWT — ADR048-ADR051).
+> ancora aperte. Aggiornato: 2026-10-06 sera (gestione moduli fasi 1-3, aspetto, home a riquadri, vetrina, versione, tenant ↔ cliente, settori — ADR048-ADR059). Prossimo: **commit** (fase 3 + settori, se non già fatto), poi fase 4 (gateway e app-frontend).
 
 ---
 
@@ -26,6 +26,14 @@ verificata dal vivo e committata in edg-docker ed edg-system.
 | Account gestibili dall'admin EDG, root intoccabile (passo 3b) | fatto | ADR049 |
 | Menu SISTEMA per permessi (admin: Account e Tenant), Blocca/Sblocca all'admin | fatto, verificato a video | ADR050 |
 | `systemTenant` nel JWT, `sistema.*` di log-service solo personale EDG; catalogo permessi completo + "Altri permessi del ruolo" | fatto | ADR051 |
+| Ritocchi UI: pannello permessi a 3 colonne (Modal `xxxl`), Logs compatta senza scroll (Table `size='xs'` + `fit`), scheda **Guida** in Info con valori dal vivo | fatto, verificato a video | ADR052, L047 |
+| Gestione moduli fase 2 (UI): SISTEMA → Moduli (root), moduli del tenant in finestra a due colonne, settore del tenant | fatto, verificato a video | ADR053 |
+| Aspetto dei moduli: icona, logo, titolo (immagine o testo Tailwind), finestra Aspetto, scheda del modulo | fatto, verificato a video | ADR054 |
+| Home a riquadri (frontend + moduli, 5:4, ScaleToFit) in @edg/ui; pro-frontend la usa | fatto, verificato a video | ADR055 |
+| Moduli in vetrina (flag `showcase`) e versione del modulo | fatto; filtro per i clienti nella fase 4 | ADR056, ADR057 |
+| Menu a tendina: icone su tutte le voci o su nessuna (`TableRowAction` con icona obbligatoria) | fatto | L048 |
+| Fase 3: tenant ↔ cliente dell'anagrafica EDG (1:1, "Crea tenant" da Anagrafiche, eliminazione del cliente collegato bloccata); prime rotte interne `/internal` di auth-service | fatto, verificato dal vivo (13/13); UI da provare a video | ADR058 |
+| Settore sull'anagrafica (tabella di base Settori), tolto dal tenant; `LookupTableTab` generico per le tabelle di base | fatto, verificato dal vivo (10/10); UI da provare a video | ADR059 |
 | Limite richieste su Redis con ripiego in memoria | fatto | ADR040 |
 
 ## 2. Rimandato (non dimenticare)
@@ -35,7 +43,7 @@ verificata dal vivo e committata in edg-docker ed edg-system.
 - Monitor esterno della piattaforma (serve approvazione della direzione).
 - `CRON_RUN_ON_START: 'false'` in produzione (auth-service e vehicle-service).
 - Sul server, una volta: `node dist/scripts/normalizeServiceNames.js` nel container log-service (ADR044).
-- Sul server, una volta: migrazione `auth-service/migrations/2026-10-01-module-catalog.sql` (ADR048) **insieme** al deploy del nuovo auth-service (toglie la riga `*` di EDG: con il vecchio codice EDG resterebbe senza moduli). Poi `auth-service/migrations/2026-10-01-admin-account-permission.sql` (ADR049).
+- Sul server, una volta: migrazione `auth-service/migrations/2026-10-01-module-catalog.sql` (ADR048) **insieme** al deploy del nuovo auth-service (toglie la riga `*` di EDG: con il vecchio codice EDG resterebbe senza moduli). Poi `auth-service/migrations/2026-10-01-admin-account-permission.sql` (ADR049), `2026-10-05-module-branding.sql` (ADR054), `2026-10-06-module-showcase.sql` (ADR056), `2026-10-06-module-version.sql` (ADR057), `2026-10-06-tenant-cliente.sql` (ADR058), `2026-10-06-tenant-drop-sector.sql` (ADR059). In system-service: `npx sequelize db:migrate` (migrazione `20261006-01-settori.js`, ADR059). Nei compose c'è la nuova variabile `AUTH_SERVICE_URL` per system-service (ADR058).
 - ADR039 punto 5: utente MongoDB con permessi minimi, scadenza/archiviazione dei log (ADR037), riepilogo settimanale di igiene.
 - Allarme cancellazioni in massa: non serve codice, si crea da SISTEMA → Info → Regole (tipo `crud.delete`, es. 16 in 16 min, raggruppa per utente).
 
@@ -101,9 +109,10 @@ verificata dal vivo e committata in edg-docker ed edg-system.
 
 ### 3.5 Fasi proposte (una alla volta, con verifica)
 1. ✅ **Fatta (ADR048)** — Catalogo moduli + attivazioni con periodo e stato (auth-service: migrazione da `tenant_modules`, JWT, processo di scadenza).
-2. pro-frontend: SISTEMA → Moduli (catalogo) e scheda Moduli nel tenant (attivazioni, prove); permessi admin.
-3. Collegamento tenant ↔ cliente anagrafica.
-4. Gateway con mappa rotte → moduli; menu di app-frontend dai manifest.
+2. ✅ **Fatta (ADR049-053)** — pro-frontend: SISTEMA → Moduli (catalogo, root) e finestra Moduli dalla lista Tenant (attivazioni, prove); permessi admin.
+   ✅ **Aggiunte (ADR054-057)** — aspetto dei moduli, home a riquadri, vetrina, versione.
+3. ✅ **Fatta (ADR058)** — Collegamento tenant ↔ cliente anagrafica. Con essa (ADR059) il settore passa all'anagrafica.
+4. Gateway con mappa rotte → moduli; menu di app-frontend dai manifest. Inoltre (ADR054-056): endpoint per gli utenti dei tenant con i propri moduli e quelli in vetrina (filtrati nel backend, con branding e versione); home di app-frontend con `HomeAppTile` + `HomeModuleTile` (stato attivo / non-attivo / sviluppo; scaduti e sospesi sempre visibili; niente moduli senza permessi del ruolo); header con il titolo del modulo; clic su un modulo in vetrina = scheda con descrizione e contatti EDG.
 5. Demo: tenant demo, fixture con date relative, ripristino.
 
 ### 3.6 Stato dopo la fase 1 (2026-10-01)
@@ -117,10 +126,10 @@ verificata dal vivo e committata in edg-docker ed edg-system.
 1. ✅ **Passo 3b fatto (ADR049)**: `/auth/accounts` con `sistema.account` + `requireSystemTenant`; `AccountController.checkActorLimits` (mai ruolo root, mai account root, mai il proprio ruolo); eliminazione definitiva e permessi dei ruoli solo root; l'admin può creare altri admin. 21/21 controlli.
 2. ✅ **Menu SISTEMA per permessi (ADR050)**: `getModules(hasPermission)`; admin vede **solo Account e Tenant** (deciso dall'utente); azioni sui root, Elimina definitivamente, Vedi attività ed Elimina tenant nascoste all'admin. Blocca/Sblocca anche all'admin (`utils/actorLimits.ts` condiviso). Verificato a video (dopo Ctrl+Shift+R: il ricaricamento a caldo di Vite non riapplica il menu calcolato in App.tsx).
    ✅ **ADR051**: JWT con `systemTenant`; log-service richiede `systemTenant` per `sistema.*`; pannello Ruoli con gruppo "Sistema (piattaforma)" completo e sezione "Altri permessi del ruolo". Ora è sicuro dare all'admin anche Log/Salute/Allarmi (menu: voci Logs/Info restano `permission: '*'`, da aprire all'admin se lo si decide).
-3. **Fase 2 — pro-frontend (edg-system)**: SISTEMA → Moduli (catalogo, **solo root**, voce con `permission: '*'`) e **scheda Moduli dentro la pagina Tenant** (attivazioni, prove, proroghe, sospensioni; mostrare `inForce`, `purgeAt`, `lostModules`) usabile anche dall'admin (`sistema.moduli`); campo Settore nel form Tenant.
+3. ✅ **Fase 2 fatta (ADR053)** — scelta dell'utente: moduli del tenant in una **finestra** (non una pagina). Dettaglio originale della proposta: SISTEMA → Moduli (catalogo, **solo root**, voce con `permission: '*'`) e **scheda Moduli dentro la pagina Tenant** (attivazioni, prove, proroghe, sospensioni; mostrare `inForce`, `purgeAt`, `lostModules`) usabile anche dall'admin (`sistema.moduli`); campo Settore nel form Tenant.
 4. Rinviati (serve il contratto comune "cancella i dati di un tenant per un modulo", condiviso con la demo): eliminazione dati dopo 64 giorni da `expiredAt`, eliminazione anticipata da parte dell'admin, avvisi ad admin e root a 8 giorni e a 1 giorno.
 
-**Domande ancora aperte**: avviso anche alla scadenza della prova (a chi?); valori ammessi del settore (oggi chiave libera validata dal formato).
+**Domande ancora aperte**: avviso anche alla scadenza della prova (a chi?). Settore per i moduli (ADR059): un tenant senza cliente (demo) non ha settore; ipotesi di un "profilo" in `tenant_modules.config` che parte dal settore del cliente. Da decidere con Vigilo. Account collegati a un'anagrafica: oggi non bloccano l'eliminazione (scelta dell'utente "per ora"); la rotta interna li conta già.
 
 ## 4. Come lavorare con Mormegil (promemoria)
 - Lingua italiana. **Quantità come potenze di 2** ovunque possibile (16, 32, 64… non 15, 30, 60).

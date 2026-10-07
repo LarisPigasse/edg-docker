@@ -25,6 +25,10 @@ export const createTenantRouter = (Tenant: any): Router => {
     defaultOrder: [['name', 'ASC']],
     softDelete: true,
     protectField: 'isSystem',
+    uniqueMessages: [
+      { match: 'slug', message: 'Esiste già un tenant con questo slug' },
+      { match: 'cliente', message: 'Questo cliente è già collegato a un altro tenant' },
+    ],
   });
 
   const canManageTenants = requirePermission('sistema', 'tenant');

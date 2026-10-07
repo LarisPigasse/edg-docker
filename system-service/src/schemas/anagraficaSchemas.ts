@@ -12,6 +12,8 @@ export const anagraficaSchemas = {
     idTenant: Joi.number().integer().positive().label('Tenant').required().messages({
       'any.required': 'Il tenant è obbligatorio',
     }),
+    // Settore di attività (ADR059): facoltativo, dalla tabella di base Settori
+    idSettore: Joi.number().integer().positive().label('Settore').allow(null).default(null),
     ragioneSociale: Joi.string().max(256).label('Ragione sociale').required().messages({
       'any.required': 'La ragione sociale è obbligatoria',
     }),
@@ -31,6 +33,7 @@ export const anagraficaSchemas = {
   update: Joi.object({
     tipo: Joi.string().valid('partner', 'cliente').label('Tipo'),
     idTenant: Joi.number().integer().positive().label('Tenant'),
+    idSettore: Joi.number().integer().positive().label('Settore').allow(null),
     ragioneSociale: Joi.string().max(256).label('Ragione sociale'),
     partitaIva: Joi.string().max(32).label('Partita IVA').allow(null, ''),
     codiceFiscale: Joi.string().max(32).label('Codice fiscale').allow(null, ''),

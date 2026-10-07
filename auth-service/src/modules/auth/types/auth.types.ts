@@ -99,7 +99,7 @@ export interface TenantAttributes {
   uuid: string;
   name: string;
   slug: string;
-  sector?: string | null; // ADR047: settore di attivita, vale per tutti i moduli
+  clienteUuid?: string | null; // ADR058: cliente dell'anagrafica EDG collegato (al massimo un tenant per cliente)
   isSystem: boolean;
   isActive: boolean;
   defaultLocale?: string;

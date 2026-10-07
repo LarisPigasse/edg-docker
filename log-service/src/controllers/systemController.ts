@@ -12,8 +12,14 @@ import { Request, Response } from 'express';
 import AlertRule from '../models/AlertRule';
 import AlertHistory from '../models/AlertHistory';
 import AzioneLog from '../models/azioneLog';
-import HealthMonitor from '../services/health/HealthMonitor';
-import JobMonitor from '../services/jobs/JobMonitor';
+import HealthMonitor, {
+  DEGRADED_LATENCY_MS,
+  DOWN_AFTER_FAILURES,
+  MANUAL_CHECK_MIN_GAP_MS,
+  RESTART_WINDOW_MS,
+} from '../services/health/HealthMonitor';
+import { PROBE_TIMEOUT_MS } from '../services/health/probes';
+import JobMonitor, { STARTUP_GRACE_MS } from '../services/jobs/JobMonitor';
 
 const HOUR_MS = 60 * 60 * 1000;
 
@@ -48,7 +54,18 @@ async function buildHealthResponse() {
     stats: { logs24h, critici24h, errori24h, alertRules, alertsWeek, alertsFailed },
     lastAlert: lastAlert ?? null,
     jobs: JobMonitor.snapshot(),
-    monitor: { lastRunAt, intervalMs },
+    // Parametri reali del monitor: la scheda Guida li mostra dal vivo,
+    // cosi' il testo non diventa falso se cambiano le variabili d'ambiente
+    monitor: {
+      lastRunAt,
+      intervalMs,
+      downAfterFailures: DOWN_AFTER_FAILURES,
+      degradedLatencyMs: DEGRADED_LATENCY_MS,
+      probeTimeoutMs: PROBE_TIMEOUT_MS,
+      manualCheckMinGapMs: MANUAL_CHECK_MIN_GAP_MS,
+      restartWindowMs: RESTART_WINDOW_MS,
+      jobsStartupGraceMs: STARTUP_GRACE_MS,
+    },
     generatedAt: now.toISOString(),
   };
 }

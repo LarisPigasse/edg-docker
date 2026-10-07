@@ -25,6 +25,9 @@ export interface JobState {
   name: string;
   service: string;
   schedule: string;
+  /** Intervallo atteso tra due esecuzioni riuscite e tolleranza (per la Guida della pagina Info) */
+  everyMs: number;
+  graceMs: number;
   status: JobStatus;
   lastRunAt: string | null;
   lastOutcome: 'completed' | 'failed' | null;
@@ -48,6 +51,8 @@ function emptyState(j: ExpectedJob): JobState {
     name: j.name,
     service: j.service,
     schedule: j.schedule,
+    everyMs: j.everyMs,
+    graceMs: j.graceMs,
     status: 'PENDING',
     lastRunAt: null,
     lastOutcome: null,

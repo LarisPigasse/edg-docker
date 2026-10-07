@@ -74,7 +74,8 @@ export class ModuleActivationService {
         id: tenant.id,
         name: tenant.name,
         slug: tenant.slug,
-        sector: tenant.sector ?? null,
+        // Il settore sta sull'anagrafica del cliente collegato (ADR059)
+        clienteUuid: tenant.clienteUuid ?? null,
         isSystem: tenant.isSystem,
         isActive: tenant.isActive,
         allModules,

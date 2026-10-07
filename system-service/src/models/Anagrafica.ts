@@ -19,6 +19,7 @@ interface AnagraficaAttributes {
   uuidAnagrafica: string;
   tipo: TipoAnagrafica;
   idTenant: number;
+  idSettore: number | null;
   ragioneSociale: string;
   partitaIva: string | null;
   codiceFiscale: string | null;
@@ -40,6 +41,7 @@ interface AnagraficaCreationAttributes
     AnagraficaAttributes,
     | 'idAnagrafica'
     | 'uuidAnagrafica'
+    | 'idSettore'
     | 'partitaIva'
     | 'codiceFiscale'
     | 'indirizzo'
@@ -61,6 +63,7 @@ class Anagrafica
   declare uuidAnagrafica: string;
   declare tipo: TipoAnagrafica;
   declare idTenant: number;
+  declare idSettore: number | null;
   declare ragioneSociale: string;
   declare partitaIva: string | null;
   declare codiceFiscale: string | null;
@@ -107,6 +110,11 @@ Anagrafica.init(
       // (database/servizio diverso), stesso pattern gia' usato per entityId.
       type: DataTypes.INTEGER,
       allowNull: false,
+    },
+    idSettore: {
+      // Settore di attività (ADR059): tabella di base, vincolo vero nel DB
+      type: DataTypes.INTEGER,
+      allowNull: true,
     },
     ragioneSociale: {
       type: DataTypes.STRING(256),

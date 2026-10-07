@@ -29,10 +29,10 @@ export const createTenantModel = (sequelize: Sequelize) => {
         unique: true,
         comment: "Identificativo breve, usato per mapping dominio->tenant (ADR012)",
       },
-      sector: {
-        type: DataTypes.STRING(32),
+      clienteUuid: {
+        type: DataTypes.UUID,
         allowNull: true,
-        comment: 'Settore di attivita (es. trasportatore, agricola, movimento-terra) - vale per tutti i moduli (ADR047)',
+        comment: "Cliente dell'anagrafica EDG (system-service) a cui corrisponde il tenant, al massimo uno (ADR058)",
       },
       isSystem: {
         type: DataTypes.BOOLEAN,
@@ -69,6 +69,11 @@ export const createTenantModel = (sequelize: Sequelize) => {
           unique: true,
           fields: ['slug'],
           name: 'unique_tenant_slug',
+        },
+        {
+          unique: true,
+          fields: ['clienteUuid'],
+          name: 'unique_tenant_cliente',
         },
         { fields: ['isSystem'], name: 'idx_tenant_is_system' },
         { fields: ['isActive'], name: 'idx_tenant_is_active' },
