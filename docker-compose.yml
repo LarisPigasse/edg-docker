@@ -171,6 +171,9 @@ services:
       POSTGRES_VEHICLE_PASSWORD: ${POSTGRES_VEHICLE_PASSWORD}
       POSTGRES_SYSTEM_USER: ${POSTGRES_SYSTEM_USER}
       POSTGRES_SYSTEM_PASSWORD: ${POSTGRES_SYSTEM_PASSWORD}
+      # Vigilo (ADR065): usati da postgres/init/02-vigilo.sh
+      POSTGRES_VIGILO_USER: ${POSTGRES_VIGILO_USER}
+      POSTGRES_VIGILO_PASSWORD: ${POSTGRES_VIGILO_PASSWORD}
     volumes:
       - postgres-data:/var/lib/postgresql/data
       - ./postgres/init:/docker-entrypoint-initdb.d
@@ -588,6 +591,60 @@ services:
       start_period: 40s
 
   #############################################################################
+  # VIGILO SERVICE - scadenze, manutenzioni, abilitazioni (ADR064-070)
+  #############################################################################
+  vigilo-service:
+    build:
+      context: ./vigilo-service
+      dockerfile: Dockerfile
+      target: production
+      # Commit della build, mostrato nella scheda Salute (ADR044).
+      args:
+        GIT_COMMIT: ${GIT_COMMIT:-}
+    container_name: vigilo-service
+    deploy:
+      resources:
+        limits:
+          cpus: '0.50'
+          memory: 512M
+        reservations:
+          cpus: '0.10'
+          memory: 128M
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      SERVICE_NAME: EDG Vigilo Service
+      PORT: 3006
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: edg_vigilo
+      DB_USER: ${POSTGRES_VIGILO_USER}
+      DB_PASSWORD: ${POSTGRES_VIGILO_PASSWORD}
+      DB_SSL: 'false'
+      GATEWAY_SECRET: ${GATEWAY_SECRET}
+      LOG_SERVICE_URL: http://log-service:4000
+      LOG_API_KEY_SECRET: ${LOG_API_KEY_SECRET}
+      AUTH_SERVICE_URL: http://auth-service:3001
+      EMAIL_SERVICE_URL: http://email-service:3002
+    volumes:
+      - vigilo-uploads:/app/uploads
+    expose:
+      - '3006'
+    labels:
+      - 'traefik.enable=false'
+    networks:
+      - internal
+    healthcheck:
+      test: ['CMD-SHELL', 'wget --no-verbose --tries=1 --spider http://localhost:3006/health || exit 1']
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  #############################################################################
   # API GATEWAY - Istanza 1 (Primary)
   #############################################################################
   api-gateway-1:
@@ -627,6 +684,7 @@ services:
       AUTH_SERVICE_URL: http://auth-service:3001
       VEHICLE_SERVICE_URL: http://vehicle-service:3003
       SYSTEM_SERVICE_URL: http://system-service:3004
+      VIGILO_SERVICE_URL: http://vigilo-service:3006
       LOG_SERVICE_URL: http://log-service:4000
       FRONTEND_PRO_URL: http://host.docker.internal:5173
       FRONTEND_APP_URL: http://host.docker.internal:5174
@@ -720,6 +778,7 @@ services:
       AUTH_SERVICE_URL: http://auth-service:3001
       VEHICLE_SERVICE_URL: http://vehicle-service:3003
       SYSTEM_SERVICE_URL: http://system-service:3004
+      VIGILO_SERVICE_URL: http://vigilo-service:3006
       LOG_SERVICE_URL: http://log-service:4000
       FRONTEND_PRO_URL: http://host.docker.internal:5173
       FRONTEND_APP_URL: http://host.docker.internal:5174
@@ -780,6 +839,8 @@ volumes:
   redis-data:
     driver: local
   vehicle-uploads:
+    driver: local
+  vigilo-uploads:
     driver: local
 # =============================================================================
 # ARCHITETTURA HIGH AVAILABILITY

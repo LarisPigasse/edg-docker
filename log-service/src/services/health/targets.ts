@@ -32,6 +32,8 @@ export const HEALTH_TARGETS: HealthTarget[] = [
     probe: () => httpProbe(`${env('AUTH_SERVICE_URL', 'http://auth-service:3001')}/health`) },
   { id: 'system-service', name: 'System Service', group: 'service',
     probe: () => httpProbe(`${env('SYSTEM_SERVICE_URL', 'http://system-service:3004')}/health`) },
+  { id: 'vigilo-service', name: 'Vigilo Service', group: 'service',
+    probe: () => httpProbe(`${env('VIGILO_SERVICE_URL', 'http://vigilo-service:3006')}/health`) },
   { id: 'vehicle-service', name: 'Vehicle Service', group: 'service',
     probe: () => httpProbe(`${env('VEHICLE_SERVICE_URL', 'http://vehicle-service:3003')}/health`) },
   { id: 'email-service', name: 'Email Service', group: 'service',

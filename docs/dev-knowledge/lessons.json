@@ -1,5 +1,5 @@
 {
-  "lastUpdated": "2026-10-07",
+  "lastUpdated": "2026-10-08",
   "lessons": [
     {
       "id": "L001",
@@ -450,6 +450,24 @@
       "title": "Dal VM Linux git vede tutto modificato (CRLF) e python riscrive in LF",
       "problem": "I repository sono su Windows con fine riga CRLF nella copia di lavoro (autocrlf). Dal VM Linux (device_bash) git diff --stat mostra migliaia di righe cambiate in file mai toccati, e open().read()/write() di python in modalità testo converte in silenzio un file CRLF in LF. Inoltre in exec-in-container '2>/dev/null' passa prima da cmd di Windows e fallisce (\"Impossibile trovare il percorso specificato\").",
       "solution": "Non usare git dal VM per capire cosa e' cambiato (e non lanciarlo mentre l'utente lavora, L038). Modificare con uno script che legge in binario, sostituisce su testo normalizzato e riscrive con i fine riga originali (es. edit.py con old/new univoci); controllare con 'file' che i CRLF restino. In exec-in-container niente redirezioni '2>...' (oltre ai vincoli di L046)."
+    },
+    {
+      "id": "L051",
+      "date": "2026-10-08",
+      "category": "gateway",
+      "severity": "medium",
+      "title": "http-proxy-middleware 3: onProxyReq/onError/onProxyReqWs ignorati in silenzio",
+      "problem": "Il gateway usa http-proxy-middleware 3.0.5 ma authProxy e frontendProxy sono scritti con le opzioni del 2.x (onProxyReq, onError, onProxyReqWs). Nel 3.x quelle opzioni sono lette solo da legacyCreateProxyMiddleware: con createProxyMiddleware vengono ignorate senza errori. Quindi gli header impostati li' (x-real-ip, Origin/Host/Cache-Control del frontend) non vengono aggiunti e gli errori usano la risposta predefinita in testo (502/504), non quella scritta nel codice. Oggi funziona perche' x-request-id e x-forwarded-for sono gia' in req.headers.",
+      "solution": "Nel 3.x gli eventi vanno in `on: { proxyReq, proxyReqWs, error }`; per una risposta d'errore propria usare ejectPlugins: true con plugins [debugProxyErrorsPlugin, proxyEventsPlugin]. Il nuovo inoltro a flusso (serviceProxy.streamTo, ADR069) lo fa gia'. Allineare authProxy e frontendProxy con una prova a parte (frontendProxy tocca l'HMR di Vite: verificare a video dopo la modifica)."
+    },
+    {
+      "id": "L052",
+      "date": "2026-10-08",
+      "category": "sequelize",
+      "severity": "medium",
+      "title": "Niente Promise.all di query sulla stessa transazione Sequelize",
+      "problem": "Promise.all di piu' query con la stessa { transaction: t } le manda in parallelo sull'unico client pg della transazione: pg 8 avvisa 'Calling client.query() when the client is already executing a query is deprecated' e pg 9 lo rifiutera'. Visto nelle prove di Vigilo B3.",
+      "solution": "Dentro una transazione eseguire le query in sequenza (for...of con await). Promise.all va bene solo per query senza transazione (ognuna prende un client dal pool), come in io.service.ts."
     }
   ]
 }

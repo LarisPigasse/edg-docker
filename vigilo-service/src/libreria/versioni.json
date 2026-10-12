@@ -1,0 +1,646 @@
+{
+  "categoria:attrezzatura.accessori-sollevamento": {
+    "versione": 1,
+    "impronta": "a703e0baf4944361592c72cadf0a0f37d87b59bc29a8547e2dbab527a6335451"
+  },
+  "categoria:attrezzatura.dpi-anticaduta": {
+    "versione": 1,
+    "impronta": "969365e2dd4e2e8d55a71e241ac2ce1f060129b7fe6f6c2b1688e75690821863"
+  },
+  "categoria:attrezzatura.estintori-co2": {
+    "versione": 1,
+    "impronta": "c2534756a928f9a446e13800920fcb61aa61da714d8c61504e6f6441c1e4af77"
+  },
+  "categoria:attrezzatura.estintori-idrici": {
+    "versione": 1,
+    "impronta": "a0b12a4020b8f9069a2a873ed6533087c3e506bf1ff21d95f6348592834191e9"
+  },
+  "categoria:attrezzatura.estintori-polvere": {
+    "versione": 1,
+    "impronta": "14e1566112a1d889df16ece7ccaf0a8393db235f716b09debcc103f199b71e7e"
+  },
+  "categoria:attrezzatura.scaffalature": {
+    "versione": 1,
+    "impronta": "a200528d7929289004a63f763624988e895ee284c5d3a7c24269470e347894be"
+  },
+  "categoria:attrezzatura.sponde-caricatrici": {
+    "versione": 1,
+    "impronta": "882bcb816c2823b24901dc30edfb61c412d815b71531a1a283e25c4de66dfcea"
+  },
+  "categoria:azienda.azienda": {
+    "versione": 1,
+    "impronta": "167e0646c1f0b006162c2580bdfc81c358d4a96f447bf37c77991251195379cb"
+  },
+  "categoria:macchina.aria-compressa": {
+    "versione": 1,
+    "impronta": "05d94be2490742bba4866b9508fd0e4a95dc98faf4f31fe2a8ed531aca0083e4"
+  },
+  "categoria:macchina.carrelli-elevatori": {
+    "versione": 1,
+    "impronta": "85068c9921a94cd62eace23e1d469cd5c600a34fcad2af3c5d5d453df642ccdf"
+  },
+  "categoria:macchina.carrelli-telescopici": {
+    "versione": 1,
+    "impronta": "303e0ee6bd7299595f4b70f492349a1e99662070fbc40c45370abf01af771d25"
+  },
+  "categoria:macchina.gru-autocarro": {
+    "versione": 1,
+    "impronta": "238468a34af98dba9f26adfe6867fd1d5f8e03c63d22e87000734c26e0542f0d"
+  },
+  "categoria:macchina.gru-mobili": {
+    "versione": 1,
+    "impronta": "282b8b586e1c552faa204f505713f35a0765371062bca2395de3a158f4faf07e"
+  },
+  "categoria:macchina.gru-torre": {
+    "versione": 1,
+    "impronta": "f95077632a7499477ca508e48c6eb687375bc4a0399b219dce128e0ce9156333"
+  },
+  "categoria:macchina.irroratrici": {
+    "versione": 1,
+    "impronta": "64dbb2b7e663b6c541b429a2a79b84acd028da433d76c7424e560ad8940f05f9"
+  },
+  "categoria:macchina.movimento-terra": {
+    "versione": 1,
+    "impronta": "0cc52008039e759a39db2cc856c6fb5ada240faaf5e28ec6684e4782e1bf0cdd"
+  },
+  "categoria:macchina.ple": {
+    "versione": 1,
+    "impronta": "6d3011044be4257918f748d767e682ea1eaf8d5b5bac466643505230f3749456"
+  },
+  "categoria:macchina.ponti-sollevatori": {
+    "versione": 1,
+    "impronta": "3a9c6396363d890505a199169cce996661d050dd857938224bc615137a6909ec"
+  },
+  "categoria:macchina.sollevamento-fisso": {
+    "versione": 1,
+    "impronta": "205133b56af871f7e03ceec2cbfdde6e597359235d88d63d0a18ef4cc39ec418"
+  },
+  "categoria:persona.autisti": {
+    "versione": 1,
+    "impronta": "9bb629d6735fbc58bcfb537cadaf3ab8e15f53b7d652c09c7fd13bdb4959557b"
+  },
+  "categoria:persona.operativi": {
+    "versione": 1,
+    "impronta": "1a9a15eff282e8d29739fe30edc854783fdfab89289562a88675d0412ab0715e"
+  },
+  "categoria:persona.ufficio": {
+    "versione": 1,
+    "impronta": "28f921881969c85db868754cad01936f7e4bd43cfbbaff2f09dc52bc447465be"
+  },
+  "categoria:sede.cantieri": {
+    "versione": 1,
+    "impronta": "2a6eefd85a597afbbfc630934af2f7377adbb767cf85e77c80d55e3afbd0ac53"
+  },
+  "categoria:sede.magazzini": {
+    "versione": 1,
+    "impronta": "475fb1ea8b5b96e5df3bd502450af5bbf84db4e85c95e7da0fe294b7a8469671"
+  },
+  "categoria:sede.officine": {
+    "versione": 1,
+    "impronta": "1a3e88a93fccccc24a7e730fe8d0fdbd0ba8708e9a75101a8e08626defbc6b18"
+  },
+  "categoria:sede.uffici": {
+    "versione": 1,
+    "impronta": "418a3d2a87957c877192c99dfb818a8ffdf562c8bd0b045f6c0b754494e1839d"
+  },
+  "categoria:veicolo.autovetture": {
+    "versione": 1,
+    "impronta": "bbe1601d826e8d3a3ef7732b7fd2de6f15f6e8a5a27a9632dd5ccdad9b44883c"
+  },
+  "categoria:veicolo.furgoni": {
+    "versione": 1,
+    "impronta": "3472120d23f529b347152ad876884d1d2d567529f790b0098a869769f6621f9b"
+  },
+  "categoria:veicolo.pesanti": {
+    "versione": 1,
+    "impronta": "db1d831d2b2f58d43347a79b4e578020ce45f168e1b0925a88c7d84da5a9b9e1"
+  },
+  "categoria:veicolo.rimorchi-leggeri": {
+    "versione": 1,
+    "impronta": "d7d21978da3f5565707cb3fa6dc9621641c9317aec72f68a35985f51a02425bc"
+  },
+  "categoria:veicolo.rimorchi-pesanti": {
+    "versione": 1,
+    "impronta": "82f288fcc948f25005753d0acbcabf7a348c61c780d9488b39fb7e56e9f814af"
+  },
+  "categoria:veicolo.trattori": {
+    "versione": 1,
+    "impronta": "77c708241ea63a113822fdd705f7b2952533f7342543b3f59f65be4e71f58c1a"
+  },
+  "categoria:veicolo.trattori-veloci": {
+    "versione": 1,
+    "impronta": "4b704dd57b65f8e540cf595948f0d306f691fea557cf317517349cea79757f61"
+  },
+  "controllo:attrezzatura.collaudo-estintori": {
+    "versione": 1,
+    "impronta": "020ab293f92cf304f94a0740aa90deb7c0359f0014916351cd78034a9606fe69"
+  },
+  "controllo:attrezzatura.collaudo-estintori-idrici": {
+    "versione": 1,
+    "impronta": "d33d9ad7bfa60137dbcd71199fe6bb8bc9528ea30f070c52ad9fda296fc98f9c"
+  },
+  "controllo:attrezzatura.controllo-accessori": {
+    "versione": 1,
+    "impronta": "9d3923c96398dd401ff94ae79b3b63a6ea0a1ee0ca8819f78483dde1f4cf1758"
+  },
+  "controllo:attrezzatura.fine-vita-anticaduta": {
+    "versione": 1,
+    "impronta": "82bff8feabfd8d89fb1daee047b9b5ba6334ab7383a90cfb62ae1cf367dfaa35"
+  },
+  "controllo:attrezzatura.fine-vita-estintori": {
+    "versione": 1,
+    "impronta": "b2f433d135c3db5c5ffbb60904978e95fb04ef1cac2893d781f5921ee92888d7"
+  },
+  "controllo:attrezzatura.ispezione-anticaduta": {
+    "versione": 1,
+    "impronta": "fc5a35b06cdb4452e8ae7c17b349f58db9f46b831208f9eb9a817475b390a375"
+  },
+  "controllo:attrezzatura.ispezione-scaffalature": {
+    "versione": 1,
+    "impronta": "3c4be1bd80bfb8d0923b29bbc8a846afafd097511a9f4ecba317a3108710a7fe"
+  },
+  "controllo:attrezzatura.manutenzione-sponde": {
+    "versione": 1,
+    "impronta": "58923ac40c9158d623c889f118870a2db3aa3800e755aae847a6330c5d3deef1"
+  },
+  "controllo:attrezzatura.revisione-estintori": {
+    "versione": 1,
+    "impronta": "5719636c2c9fea7b2179ec1f2813feb34e515419943133fb7c1fa02faccaffd4"
+  },
+  "controllo:attrezzatura.revisione-estintori-idrici": {
+    "versione": 1,
+    "impronta": "ced0141f0923cf76cf612f38ee5d02f6e832d9ed35e72e7309b0e887511de3e0"
+  },
+  "controllo:azienda.agenti-fisici": {
+    "versione": 1,
+    "impronta": "9d612aa0aa1d69ecd46d9cbac3ba122df92ab597088050089e6142ea33c8ca70"
+  },
+  "controllo:azienda.albo-autotrasporto": {
+    "versione": 1,
+    "impronta": "2f1c6e8f760b0644c4f6e5e43d02dafaaf81af380ffe863304c60f48d0a94b81"
+  },
+  "controllo:azienda.albo-gestori-ambientali": {
+    "versione": 1,
+    "impronta": "dce4321231ddcf3f7706a8ee5b284afec5bbb8782656b4364e0a2fdfcb69ab2c"
+  },
+  "controllo:azienda.art-acconto": {
+    "versione": 1,
+    "impronta": "ac5d19565c9ac8f2306a34eeaaf827453930f7650363bc8226957568dbe0fea7"
+  },
+  "controllo:azienda.art-saldo": {
+    "versione": 1,
+    "impronta": "4f2bfb89658ac976160fec3ae1a56647edefa5c754aeb6837c1909a1d293fd28"
+  },
+  "controllo:azienda.cancerogeni": {
+    "versione": 1,
+    "impronta": "9372ad24feee57e6534b22648ca130ab047af0294f0869981c47ba6fb7de056d"
+  },
+  "controllo:azienda.disdetta": {
+    "versione": 1,
+    "impronta": "da50aedd8e7df68a6562d42ba2c2fa25ef6172b4021b9e15b64cb28c971df84f"
+  },
+  "controllo:azienda.dominio": {
+    "versione": 1,
+    "impronta": "0cda3caaf1a4c9db0d5089f54eb33405550ae7221dd761b9a25b05f0366d0585"
+  },
+  "controllo:azienda.durc": {
+    "versione": 1,
+    "impronta": "626cd808b7c368b5fc16432614a9e3eae5d48d562df02c1aa913ab443b9424c5"
+  },
+  "controllo:azienda.firma-digitale": {
+    "versione": 1,
+    "impronta": "7bffe3a81f25ea14e8c090c207bce879e8b09c9f38158bfb751bdb9d84c65b27"
+  },
+  "controllo:azienda.iso-rinnovo": {
+    "versione": 1,
+    "impronta": "a49aff4054905fddda1ce22cee129e051727652c097d81aa39de7455239df1a9"
+  },
+  "controllo:azienda.iso-sorveglianza": {
+    "versione": 1,
+    "impronta": "a66c7ac0b792f9eca60b09cfdb2e690ff4a09945bfd77efbfb9378fc27652f6c"
+  },
+  "controllo:azienda.licenza-comunitaria": {
+    "versione": 1,
+    "impronta": "2b4a05f5910c35b3f10f33318569be7514c6a479e73ca8cc626f1d9e0607a203"
+  },
+  "controllo:azienda.mud": {
+    "versione": 1,
+    "impronta": "be91cbc03aac7c1263b706d260d540591f41b9a19d9add36e4008f0fb41708a2"
+  },
+  "controllo:azienda.pec": {
+    "versione": 1,
+    "impronta": "f3c1cb93d9ea2b64e457160b67577276cf463330d19839212337db7bca14876e"
+  },
+  "controllo:azienda.polizza-incendio": {
+    "versione": 1,
+    "impronta": "86c31d2bf655929b2c8e60321179d96014a094498c1da698086faba76929cb11"
+  },
+  "controllo:azienda.polizza-merci": {
+    "versione": 1,
+    "impronta": "912943bf964b3105a832f58ba8d17f3bfd1496c3eecce7b68e74c8be88669fcf"
+  },
+  "controllo:azienda.polizza-rc": {
+    "versione": 1,
+    "impronta": "2982637b8593689067ccdeabc48d2f08dc9c72665388eb6a2f0a1ecb08344d17"
+  },
+  "controllo:azienda.prospetto-disabili": {
+    "versione": 1,
+    "impronta": "cbdb43edc650527b3460d74e893817d0c198f1b35c8f20e954a4983928cf8200"
+  },
+  "controllo:azienda.rata": {
+    "versione": 1,
+    "impronta": "97da6dc6e99ce1e2ea289773d6369016b4c3ea7b4f5148902877a59faa2ce7a4"
+  },
+  "controllo:azienda.ren-capacita-finanziaria": {
+    "versione": 1,
+    "impronta": "766fdc42d7756b78a088cc882e92070f6f70dcffba12efd1981aeb43d833f650"
+  },
+  "controllo:azienda.rentri": {
+    "versione": 1,
+    "impronta": "25f4857cdef5a68090ebd34fce9782ab0a2f90f47338fd8ab0d780bc97cd930f"
+  },
+  "controllo:azienda.rimborso-accise": {
+    "versione": 1,
+    "impronta": "8e0025ba413ba7b276a810591ac296a669736ba77064eb635e7e630ca86144d3"
+  },
+  "controllo:azienda.riunione-periodica": {
+    "versione": 1,
+    "impronta": "61d75fff6ff390d323cedbca8290a1a4735fca7032b3098222548901eb6a9ef6"
+  },
+  "controllo:azienda.stress": {
+    "versione": 1,
+    "impronta": "1f563dbebeadc543bb28d8cd4002c9c1b683ac2fb702be02d5c4bf42656f76e8"
+  },
+  "controllo:macchina.controllo-irroratrici": {
+    "versione": 1,
+    "impronta": "07797f9a45cec8b12246582c97abfbcf7cd5e2b68937d1edb38c27c247bce374"
+  },
+  "controllo:macchina.controllo-irroratrici-contoterzisti": {
+    "versione": 1,
+    "impronta": "ed7e6c3bd35e9b254e8d30ba5f431455248ccddc941e615ef01ad3d168854187"
+  },
+  "controllo:macchina.controllo-ponti": {
+    "versione": 1,
+    "impronta": "d614e18ce7a0557538a337b01fda2348e187b303aa9b89debd0fab158614758b"
+  },
+  "controllo:macchina.funi-catene": {
+    "versione": 1,
+    "impronta": "7eed0acbb92c9747dc83deab00e85cdd61f1f63bb8793dd9b397ede64b9d35aa"
+  },
+  "controllo:macchina.funzionamento-aria": {
+    "versione": 1,
+    "impronta": "3a1aebd6ee7a477b94cd8684f7217634bbd425546d1cae14e83949224ec2ad24"
+  },
+  "controllo:macchina.indagine-supplementare": {
+    "versione": 1,
+    "impronta": "6c91b787285bea9119a18631ec2bdeceb2e4385cd36a371981b93fde7c97e2eb"
+  },
+  "controllo:macchina.integrita-aria": {
+    "versione": 1,
+    "impronta": "ed36b2b17c41f54759826c5d74ce90dff55141f77977f05ce403872702e62f0c"
+  },
+  "controllo:macchina.manutenzione": {
+    "versione": 1,
+    "impronta": "130499432bb08be0c3024faee907d9c1d2bd05e9fcd44f28c27cc8c477e24b44"
+  },
+  "controllo:macchina.manutenzione-carrelli": {
+    "versione": 1,
+    "impronta": "f024db445af11aa131af3a0a007d48e87e2859e14e13595894939b9422f9e17d"
+  },
+  "controllo:macchina.manutenzione-movimento-terra": {
+    "versione": 1,
+    "impronta": "1695c5f69b161f2aecf8d097fa469616dcd4718181a05d5370915f8977893d94"
+  },
+  "controllo:macchina.verifica-gru-torre": {
+    "versione": 1,
+    "impronta": "1c4faff5beb7138ff7f82931973c4c490f023a7258cc93dd6a49dbfc83ab5144"
+  },
+  "controllo:macchina.verifica-ple": {
+    "versione": 1,
+    "impronta": "5aa990ac3800bf7896ca1efa22c6c2c30b94dc02cce43a4a9a23ffca5331f5bc"
+  },
+  "controllo:macchina.verifica-sollevamento-fisso": {
+    "versione": 1,
+    "impronta": "af46b1c7f6748cf98e5eb0aca28292491399bf1e93397b92cf7cf59f31aeb753"
+  },
+  "controllo:macchina.verifica-sollevamento-fisso-edilizia": {
+    "versione": 1,
+    "impronta": "8bd495a141ba09a966da4f7efb63774b4d05d2bfcf8fd4391680a56c2bb22f3f"
+  },
+  "controllo:macchina.verifica-sollevamento-mobile": {
+    "versione": 1,
+    "impronta": "b647d3a2c9c1a5ef8efdafa8f89e472fd62a7f5a58b2fe8514806bea400b0c2f"
+  },
+  "controllo:macchina.verifica-sollevamento-mobile-edilizia": {
+    "versione": 1,
+    "impronta": "925bd3fc47b633d3569620ff8215c8c9372860194ceadff0ae5992a4481b2e7c"
+  },
+  "controllo:macchina.verifica-telescopici": {
+    "versione": 1,
+    "impronta": "4081c7cc74d138e982f8503bd19edc5dc69beeb89695b60e2551928cb04e9ce8"
+  },
+  "controllo:persona.abilitazione-caricatori": {
+    "versione": 1,
+    "impronta": "0a99ecc036f13c810cae6448a8a1e7de1da2c8fcb0f3e435a653a62c6822d521"
+  },
+  "controllo:persona.abilitazione-carrelli": {
+    "versione": 1,
+    "impronta": "4943747cd964e0e859dffdadb81ca86399eeee28356b3fc28a5e51bc16973c43"
+  },
+  "controllo:persona.abilitazione-carroponte": {
+    "versione": 1,
+    "impronta": "04183c199c6c464ac0b8d55947131b8a11db692f297cc4452923ebd47503079a"
+  },
+  "controllo:persona.abilitazione-gru-autocarro": {
+    "versione": 1,
+    "impronta": "0c7cc970ecd8b69c78df61fce7abd084dd53cb2bcf96c187eeab9cfc31df174e"
+  },
+  "controllo:persona.abilitazione-gru-mobili": {
+    "versione": 1,
+    "impronta": "9c02ef8eb806d225d29a9a3c2ca1c16a67bd5679c2fdaaa5e789fede82d7b948"
+  },
+  "controllo:persona.abilitazione-gru-torre": {
+    "versione": 1,
+    "impronta": "d203ba0d14b26600261b861d844a59861a5be8466b66f8bca6cce67aa8f4c31e"
+  },
+  "controllo:persona.abilitazione-movimento-terra": {
+    "versione": 1,
+    "impronta": "2ee4db8bad5be515d23d590d8b4ea8d665ef7d2926a89881819159de642f2c21"
+  },
+  "controllo:persona.abilitazione-ple": {
+    "versione": 1,
+    "impronta": "3310206fcd017c4d7fc63b146de7ef13e891b33fc6cfd24593c9d4971cf332d4"
+  },
+  "controllo:persona.abilitazione-pompe-calcestruzzo": {
+    "versione": 1,
+    "impronta": "603897d3c24b858f25d24831261fdc68faca7a626af779b81dc3711ec2483a72"
+  },
+  "controllo:persona.abilitazione-raccoglifrutta": {
+    "versione": 1,
+    "impronta": "103674fdebfc97b67ac14b3632755f79fdac8fb935b77840804f7a3521fe2870"
+  },
+  "controllo:persona.abilitazione-trattori": {
+    "versione": 1,
+    "impronta": "ff65d834b23c8f2122badecc4e5e964bbbfaff341d959316944055c672165e0b"
+  },
+  "controllo:persona.accertamento-droghe": {
+    "versione": 1,
+    "impronta": "77242ba7a3182f081150329ebbb7f22c8053a1c799db4b8978258926412d842b"
+  },
+  "controllo:persona.addestramento-anticaduta": {
+    "versione": 1,
+    "impronta": "273bbd9830a69db84c5de035d2639b4e1b75a02b5382e4ce3b683452a632b211"
+  },
+  "controllo:persona.adr": {
+    "versione": 1,
+    "impronta": "810118832458a7321f0efc57a1dc969b6dbb2eaae701a7b8a6cfc8e095f05404"
+  },
+  "controllo:persona.antincendio": {
+    "versione": 1,
+    "impronta": "e29e3dfe588808777ff9606c563fa3ce4ded42b6ac50e6e07bbdc78fcebe3ebb"
+  },
+  "controllo:persona.attestato-cml": {
+    "versione": 1,
+    "impronta": "c2255608bcfb4d0bf05bf0ce10bf8581d59d4bb493fedf4b678c7885741a159c"
+  },
+  "controllo:persona.carta-identita": {
+    "versione": 1,
+    "impronta": "f796bb5cfb43c7319e526a901a4594fa255d6d353e74556f712942081f42fdf5"
+  },
+  "controllo:persona.carta-tachigrafica": {
+    "versione": 1,
+    "impronta": "eb1f99b9a64b4403460d58cef57079a05485eeb8eaff1c606e10ff716e94882a"
+  },
+  "controllo:persona.coordinatore-sicurezza": {
+    "versione": 1,
+    "impronta": "19bf2b353c87be9bbc6a15174551a83c392e964162eed5ebfb76acb5f63cbae0"
+  },
+  "controllo:persona.cqc": {
+    "versione": 1,
+    "impronta": "a5fc8acfb6351360fc6fd5a7d59cef2032dce50effdc14687fcceb960f7f2375"
+  },
+  "controllo:persona.datore-di-lavoro": {
+    "versione": 1,
+    "impronta": "2eb0180d51f61078d3a754940e4621ece99ff3c93ad2d9e5add7f37ca3fd7be7"
+  },
+  "controllo:persona.datore-rspp": {
+    "versione": 1,
+    "impronta": "6185e1a4c7e6a30d97155429db44b9ecea27771a02c1225d28fab2dd9c7a2822"
+  },
+  "controllo:persona.dirigente": {
+    "versione": 1,
+    "impronta": "223f6337bdaa0832c84c50f6a69d1e261901f2e2c2a68b2de5ecf9ee5ceb92ea"
+  },
+  "controllo:persona.formazione-lavoratori": {
+    "versione": 1,
+    "impronta": "a50611a92e3a66e499f2a977d5b9bc249c2ab95218ed3f8181496e1d5cabca3f"
+  },
+  "controllo:persona.lavori-su-funi": {
+    "versione": 1,
+    "impronta": "4cfc1eb55a4827465621da0d27564f275d18874f7663e1ed617a75f517569647"
+  },
+  "controllo:persona.passaporto": {
+    "versione": 1,
+    "impronta": "fd09809d306ea4bbc7f0546bcad9becfa37fdecc332e60218491003f2a84f6fd"
+  },
+  "controllo:persona.patente-b": {
+    "versione": 1,
+    "impronta": "5f20c6d971175a47df518961f9cbb8bb18423dc55adde3a799ee1e3b8fad4d37"
+  },
+  "controllo:persona.patente-c": {
+    "versione": 1,
+    "impronta": "06b747b5177e5516cffa8e8d268c82fe748a462b04bae0c928d01e7dc182ead1"
+  },
+  "controllo:persona.patentino-fitosanitari": {
+    "versione": 1,
+    "impronta": "32e67be551b575a9d10bd580b0463eb91704c6821ca53acf64815541e98e1e3d"
+  },
+  "controllo:persona.permesso-soggiorno": {
+    "versione": 1,
+    "impronta": "37f277aed5f366c9928e3e2933a0ecdcfaefb9eee51f9fd0fae89218fd7a3886"
+  },
+  "controllo:persona.ponteggi": {
+    "versione": 1,
+    "impronta": "23bca8e5b77d456deb7164fde8e98d1c939e14170ad04dfee735001d7e76f8e7"
+  },
+  "controllo:persona.preposto": {
+    "versione": 1,
+    "impronta": "68b038279970901a34f05807125c2c5f326de625085fa5066a42112368fd86ee"
+  },
+  "controllo:persona.primo-soccorso": {
+    "versione": 1,
+    "impronta": "fefdc5851a5f92c09d4e783ff28ddad6d142eb86539d4158ad6172149f6e38e1"
+  },
+  "controllo:persona.rls": {
+    "versione": 1,
+    "impronta": "ce9e5143b727c1b6c720a7f6038c5ce06e8dae696d489607c57226a7f466f3f3"
+  },
+  "controllo:persona.rspp": {
+    "versione": 1,
+    "impronta": "c7b0a7b96bb5e6eefb38514eee1da6125026375dcdd152f630c1b881a88035fc"
+  },
+  "controllo:persona.scarico-carta": {
+    "versione": 1,
+    "impronta": "beaaf594d043e6781b56323d38935836aff03a8fa62a9e5eb0e67a5234d90b0f"
+  },
+  "controllo:persona.visita-medica": {
+    "versione": 1,
+    "impronta": "6371729099e5c18441ae3ae56862391ff0b07e4927f5c9211efb4d515d97b61f"
+  },
+  "controllo:persona.visita-videoterminale": {
+    "versione": 1,
+    "impronta": "cba14fa63e369b24064221932b4370052688467e43fbc030be8b585ef61d9e39"
+  },
+  "controllo:sede.aua": {
+    "versione": 1,
+    "impronta": "13a5d747a3badd7a1cdf02c6de54ebdd2c30d09ccfc527ffc9be004d73408eef"
+  },
+  "controllo:sede.autonomia-luci-emergenza": {
+    "versione": 1,
+    "impronta": "92beb4063b5ca29db9ec71ab7032284c76e24046f4d831f9769b0153a63569b5"
+  },
+  "controllo:sede.cpi": {
+    "versione": 1,
+    "impronta": "5c3aff90ca2d5b8c4224d0fe8edb1bfc67c57482ace3149bd2775605a7088072"
+  },
+  "controllo:sede.efficienza-energetica": {
+    "versione": 1,
+    "impronta": "4e2727465b67bcee932a6f406da4a5ae4128cb0d7e7c972fe4fe19f771e0726c"
+  },
+  "controllo:sede.fgas": {
+    "versione": 1,
+    "impronta": "d006f8fb2a2f279145bb0a646e0a2c3d02f3ff042afe964fbf36dfa9e2c5f694"
+  },
+  "controllo:sede.manutenzione-ascensore": {
+    "versione": 1,
+    "impronta": "7d0e9f29df1867164d576d7b7f367d8ec8a325b37d404d497fbfc28bdd69231d"
+  },
+  "controllo:sede.manutenzione-impianto-termico": {
+    "versione": 1,
+    "impronta": "85f2a193fa0e606ea1af7c6539c3e71b6512265020f620b4e82f0a92604c0f39"
+  },
+  "controllo:sede.messa-a-terra": {
+    "versione": 1,
+    "impronta": "3321ed62f9ef5dfead207b171cd09435b6ba7176bbaacbdac948f73c020b4660"
+  },
+  "controllo:sede.messa-a-terra-biennale": {
+    "versione": 1,
+    "impronta": "549e500e1759a98b5cf1cd5c2827d541a7d9c925bc190d21fa5b4846f4b2a185"
+  },
+  "controllo:sede.presidi-antincendio": {
+    "versione": 1,
+    "impronta": "2308d220bd817124a53b41fdaca8aae8f1052adf8ac2bd712210f54cf48bf80c"
+  },
+  "controllo:sede.primo-soccorso": {
+    "versione": 1,
+    "impronta": "9207d091012f75a5c5bc711569e9bbac3e85f88f52b9fb95bf619930523b88bd"
+  },
+  "controllo:sede.radon": {
+    "versione": 1,
+    "impronta": "5c38ba102a3459cda2b222fb3658f752799af17f9706eb410c5e8ea6f36d4342"
+  },
+  "controllo:sede.scariche-atmosferiche": {
+    "versione": 1,
+    "impronta": "2ea853cf35d4a4d8d4bb0cb91679e150e89af10e63ffefbbfe9227b710845811"
+  },
+  "controllo:sede.sorveglianza-antincendio": {
+    "versione": 1,
+    "impronta": "57172cfbaf39302ee3e68ebc72de8a15fd35927aed4cb6fcad49f9edc4c170a8"
+  },
+  "controllo:sede.verifica-ascensore": {
+    "versione": 1,
+    "impronta": "942f3931e8fc1b55fc8b2148713de45534dc7a6215b8da9bf492b646a13985af"
+  },
+  "controllo:veicolo.adr": {
+    "versione": 1,
+    "impronta": "45ba2b34029a3e6822c6e074b5a61837f3fc10ac9939b3c9f5e65d6274efd87c"
+  },
+  "controllo:veicolo.atp": {
+    "versione": 1,
+    "impronta": "ab6fa148514a0629b3098bbe5f063e61448250e0498613400329baa7cd94156c"
+  },
+  "controllo:veicolo.bollo": {
+    "versione": 1,
+    "impronta": "513135d8648a67c3638b645bff12cd2f89c4cb987b0390c6c195130e92771044"
+  },
+  "controllo:veicolo.cisterna-adr": {
+    "versione": 1,
+    "impronta": "a5e2ba9c127b477d8457955e6f0f9df7fd8f04eb17b608f2d7698f0a201bee0c"
+  },
+  "controllo:veicolo.fgas": {
+    "versione": 1,
+    "impronta": "1bbaba79baa366d8fe13df523d3a5b0c57b2502a7401a8dc6425640bdcaa442b"
+  },
+  "controllo:veicolo.gomme-estive": {
+    "versione": 1,
+    "impronta": "4d1819baca5ee62dc49ccfec2d099d1278e895a2de8418d5a409f13c9d5acb7c"
+  },
+  "controllo:veicolo.gomme-invernali": {
+    "versione": 1,
+    "impronta": "8dc9904749f0fdde5113044cb20e121b646eaab2443e58a064518134d77b9f53"
+  },
+  "controllo:veicolo.manutenzione-trattori": {
+    "versione": 1,
+    "impronta": "c6f7ca7601bc3b049de7a333911821f36a2c5176d47a48fff2880a8d1701dbb2"
+  },
+  "controllo:veicolo.rca": {
+    "versione": 1,
+    "impronta": "6ec9db0405872e1eabd96018215b4f393cd831c4146c2f44d32e2502bec6faa2"
+  },
+  "controllo:veicolo.revisione": {
+    "versione": 1,
+    "impronta": "4fa48259dc41de1781dd1b3384c116539cac4af4de7ed4998e6ebc33fa90a2ff"
+  },
+  "controllo:veicolo.revisione-agricole": {
+    "versione": 1,
+    "impronta": "b2be9a75142899d614d7f37ba071a2b1be244957b20a2a31d1fc7f3ab43f155a"
+  },
+  "controllo:veicolo.revisione-annuale": {
+    "versione": 1,
+    "impronta": "1a5844148e743f97fc0c23c83f80117d809323a907f90c5724d8a9c670a71366"
+  },
+  "controllo:veicolo.revisione-trattori-veloci": {
+    "versione": 1,
+    "impronta": "442414e00528dfff803f66ec54269ae123b38607d2da0d2356c3ca9e3f6b18a3"
+  },
+  "controllo:veicolo.scarico-tachigrafo": {
+    "versione": 1,
+    "impronta": "e09259f297b718c3b5d16fc4e58c8f2522c3d53e3ea14454fca66b72f7f95ec6"
+  },
+  "controllo:veicolo.tachigrafo": {
+    "versione": 1,
+    "impronta": "70c95e68bd2c9feaf3cd30995fd1b45b1a33050673d9273e414f68b23c9c1817"
+  },
+  "controllo:veicolo.tagliando-auto": {
+    "versione": 1,
+    "impronta": "9faf182e7bed115a345a863f63f114028a9b541f79b6ce1903afa8dff6dda80f"
+  },
+  "controllo:veicolo.tagliando-furgoni": {
+    "versione": 1,
+    "impronta": "5680164e963e2c36829e0870133a4f1052e2711f2782a1898bd0d075150b2bcf"
+  },
+  "controllo:veicolo.tagliando-pesanti": {
+    "versione": 1,
+    "impronta": "3c3349aec7ed41f0391ecf6850f3457fb9cc810a2b7b0ce0c994fd28bb512c65"
+  },
+  "modello:agricoltura": {
+    "versione": 1,
+    "impronta": "8c98d7184ce547b03605ce85eb4e22c502e60fc6e865fb8d8f304bfd0bc19b9d"
+  },
+  "modello:base": {
+    "versione": 1,
+    "impronta": "9444e891fa35303c21bc0da48a5f9e18a35b8248e9ecff151bdabeeaa1c203f1"
+  },
+  "modello:edilizia": {
+    "versione": 1,
+    "impronta": "05466f2d752c6a6012780a4ca5201f77a2e79d9fd08f16b1ba4bafd98315489e"
+  },
+  "modello:logistica": {
+    "versione": 1,
+    "impronta": "8b644598d406bfd1f224cbbe348ec3ad64aac3301b3f4c631dc7cf25907865b9"
+  },
+  "modello:trasporto": {
+    "versione": 1,
+    "impronta": "df5ba257b942247e63c99b4e1793a0f69f97caa0d4af5ee1129a5c7e053a61d3"
+  }
+}

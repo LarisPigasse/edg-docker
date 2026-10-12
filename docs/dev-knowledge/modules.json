@@ -1,5 +1,5 @@
 {
-  "lastUpdated": "2026-10-07",
+  "lastUpdated": "2026-10-12",
   "modules": {
     "auth-service": {
       "status": "stable",
@@ -107,9 +107,9 @@
       "lastUpdated": "2026-08-31"
     },
     "vigilo (modulo app-frontend)": {
-      "status": "planned",
-      "notes": "Scadenze, manutenzioni e controlli periodici. Sara un modulo in app-frontend/src/features/vigilo, non un'app separata (ADR010). Regola vincolante: i moduli non si importano fra loro.",
-      "lastUpdated": "2026-08-31"
+      "status": "in-progress",
+      "notes": "Analisi completa e approvata (ADR064-070, docs/vigilo/01-07, anteprima visiva). Prossimo: costruzione B1 (scheletro vigilo-service, DB, compose, gateway stream, /me).",
+      "lastUpdated": "2026-10-08"
     },
     "revisione UI @edg/ui": {
       "status": "in-progress",
@@ -143,8 +143,13 @@
     },
     "gestione moduli (auth-service + pro-frontend)": {
       "status": "in-progress",
-      "notes": "Fasi 1-4 fatte e verificate (ADR048-063): gateway a tabella, /auth/me/modules, home e menu di app-frontend, sviluppo mai ai clienti. Prossimo: commit, poi fase 5 (demo).",
+      "notes": "Fasi 1-4 fatte, verificate e committate (ADR048-063). Prossimo: fase 5 (demo) o avvio di Vigilo, da decidere.",
       "lastUpdated": "2026-10-07"
+    },
+    "vigilo-service": {
+      "status": "in-progress",
+      "notes": "B1-B4: servizio, regole (fasce, finestra), schema, libreria EDG 123 controlli con versioni e sync all'avvio (ADR073). Da verificare dal vivo dopo rebuild+migrazione. Prossimo B5 API.",
+      "lastUpdated": "2026-10-12"
     }
   }
 }

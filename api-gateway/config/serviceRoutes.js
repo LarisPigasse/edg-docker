@@ -12,6 +12,10 @@
 //             modulo: gestione interna sempre disponibile a chi ha il permesso
 //             RBAC (lo verifica il servizio)
 //   service   nome per log e messaggi di errore
+//   stream    true = inoltro a flusso (ADR069): il gateway non legge il corpo
+//             e lo passa al servizio cosi' com'e', e la risposta torna cosi'
+//             com'e' (caricamento e scaricamento di file); stessi controlli
+//             (JWT, blacklist, modulo, header). Assente = JSON come sempre.
 //
 // L'ORDINE CONTA: Express prova le voci nell'ordine di registrazione, quindi
 // un prefisso piu' specifico va PRIMA di quello generico che lo contiene
@@ -24,9 +28,12 @@
 const VEHICLE_SERVICE = process.env.VEHICLE_SERVICE_URL || 'http://vehicle-service:3003';
 const SYSTEM_SERVICE = process.env.SYSTEM_SERVICE_URL || 'http://system-service:3004';
 const LOG_SERVICE = process.env.LOG_SERVICE_URL || 'http://log-service:4000';
+const VIGILO_SERVICE = process.env.VIGILO_SERVICE_URL || 'http://vigilo-service:3006';
 
 const SERVICE_ROUTES = Object.freeze([
   // Moduli attivabili per tenant
+  { prefix: '/api/vigilo', target: VIGILO_SERVICE, upstream: '/api/vigilo', module: 'vigilo', service: 'vigilo-service', stream: true },
+  // vecchio Vigilo, da eliminare quando Vigilo sara' pronto (ADR060)
   { prefix: '/api/vehicles', target: VEHICLE_SERVICE, upstream: '/api/vehicles', module: 'vigilo', service: 'vehicle-service' },
 
   // Gestione interna (nessun modulo)
@@ -48,4 +55,10 @@ function assertRouteOrder(routes) {
 
 assertRouteOrder(SERVICE_ROUTES);
 
-module.exports = { SERVICE_ROUTES, VEHICLE_SERVICE, SYSTEM_SERVICE, LOG_SERVICE };
+/** Prefissi a flusso: il gateway non deve leggerne il corpo (gateway.js) */
+const STREAM_PREFIXES = Object.freeze(SERVICE_ROUTES.filter(r => r.stream).map(r => r.prefix));
+
+/** Il percorso appartiene a una rotta a flusso? */
+const isStreamPath = path => STREAM_PREFIXES.some(p => path === p || path.startsWith(p + '/'));
+
+module.exports = { SERVICE_ROUTES, STREAM_PREFIXES, isStreamPath, VEHICLE_SERVICE, SYSTEM_SERVICE, LOG_SERVICE, VIGILO_SERVICE };

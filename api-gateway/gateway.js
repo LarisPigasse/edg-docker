@@ -16,7 +16,7 @@ const { jwtValidatorMiddleware } = require('./middleware/jwtValidator');
 const { injectGatewayHeaders } = require('./middleware/gatewayHeaders');
 const { createSessionGuard } = require('./middleware/sessionGuard');
 const { mountServiceRoutes, runChain } = require('./middleware/serviceProxy');
-const { SERVICE_ROUTES, VEHICLE_SERVICE, SYSTEM_SERVICE } = require('./config/serviceRoutes'); // ADR009, fase 4 moduli
+const { SERVICE_ROUTES, VEHICLE_SERVICE, SYSTEM_SERVICE, VIGILO_SERVICE, isStreamPath } = require('./config/serviceRoutes'); // ADR009, ADR060, ADR069
 
 // Identita' della build (ADR044): build-info.json e' scritto dal Dockerfile.
 // Fuori da Docker il file non c'e': valori null.
@@ -129,16 +129,19 @@ app.use(
 
 // 2. Body Parsing - SOLO per route che NON sono proxied
 // Il proxy gestisce il body direttamente dallo stream
+// Il corpo NON si legge per /auth (proxy) e per le rotte a flusso (ADR069):
+// lo stream deve arrivare intatto al servizio.
+const skipBodyParsing = path => path.startsWith('/auth') || isStreamPath(path);
+
 app.use((req, res, next) => {
-  // Salta body parsing per le route /auth (gestite dal proxy)
-  if (req.path.startsWith('/auth')) {
+  if (skipBodyParsing(req.path)) {
     return next();
   }
   express.json({ limit: '10mb' })(req, res, next);
 });
 
 app.use((req, res, next) => {
-  if (req.path.startsWith('/auth')) {
+  if (skipBodyParsing(req.path)) {
     return next();
   }
   express.urlencoded({ extended: true, limit: '10mb' })(req, res, next);
@@ -220,6 +223,7 @@ app.get('/health', (req, res) => {
       auth: AUTH_SERVICE,
       vehicle: VEHICLE_SERVICE,
       system: SYSTEM_SERVICE,
+      vigilo: VIGILO_SERVICE,
       routes: SERVICE_ROUTES.map(({ prefix, service, module }) => ({ prefix, service, module })),
       frontends: {
         pro: FRONTENDS.pro.url,

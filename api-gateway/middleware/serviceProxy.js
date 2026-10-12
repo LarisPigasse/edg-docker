@@ -7,8 +7,14 @@
 // Prima esistevano cinque blocchi quasi identici in gateway.js: una modifica
 // alla catena andava ripetuta cinque volte. Ora la catena e' qui e la mappa
 // rotte -> moduli e' una tabella.
+//
+// Due modi di inoltro, scelti dalla voce della tabella:
+//   JSON (predefinito)  il gateway legge il corpo e risponde in JSON (axios)
+//   flusso (stream)     richiesta e risposta passano cosi' come sono
+//                       (http-proxy-middleware): file in su e in giu' (ADR069)
 // =============================================================================
 const axios = require('axios');
+const { createProxyMiddleware, debugProxyErrorsPlugin, proxyEventsPlugin } = require('http-proxy-middleware');
 
 const { jwtValidatorMiddleware } = require('./jwtValidator');
 const { injectGatewayHeaders } = require('./gatewayHeaders');
@@ -66,6 +72,40 @@ function forwardTo(route) {
 }
 
 /**
+ * Inoltro a flusso (ADR069). Un'istanza del proxy per voce, creata una sola
+ * volta all'avvio. Gli header del gateway (x-gateway-secret, x-user-data,
+ * x-request-id) sono gia' in req.headers e passano cosi' come sono.
+ * NB http-proxy-middleware 3: le opzioni onProxyReq/onError del 2.x non
+ * esistono piu' (vengono ignorate); gli eventi vanno in `on`.
+ */
+function streamTo(route) {
+  const proxy = createProxyMiddleware({
+    target: route.target,
+    changeOrigin: true,
+    xfwd: true, // x-forwarded-for/-proto/-host verso il servizio
+    proxyTimeout: 64000,
+    timeout: 64000,
+    ejectPlugins: true, // niente risposta d'errore in testo: la scriviamo in JSON qui sotto
+    plugins: [debugProxyErrorsPlugin, proxyEventsPlugin],
+    on: {
+      error: (err, req, res) => {
+        console.error(`❌ [GATEWAY] Errore verso ${route.service} (${route.prefix}, flusso):`, err.message);
+        if (res && typeof res.writeHead === 'function' && !res.headersSent) {
+          res.writeHead(503, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: `${route.service} non disponibile` }));
+        } else if (res && typeof res.destroy === 'function') {
+          res.destroy();
+        }
+      },
+    },
+  });
+  return (req, res, next) => {
+    req.url = `${route.upstream}${restOf(req.url)}`;
+    proxy(req, res, next);
+  };
+}
+
+/**
  * Monta tutte le rotte di servizio sull'app, nell'ordine della tabella.
  *
  * @param {import('express').Express} app
@@ -77,11 +117,11 @@ function mountServiceRoutes(app, routes, { cors, sessionGuard }) {
     const steps = [jwtValidatorMiddleware, sessionGuard];
     if (route.module) steps.push(requireModule(route.module));
     steps.push(injectGatewayHeaders);
-    const forward = forwardTo(route);
+    const forward = route.stream ? streamTo(route) : forwardTo(route);
 
     app.options(`${route.prefix}/*`, cors); // preflight
     app.use(route.prefix, cors); // header CORS su ogni risposta
-    app.use(route.prefix, (req, res) => runChain(steps, req, res, () => forward(req, res)));
+    app.use(route.prefix, (req, res, next) => runChain(steps, req, res, () => forward(req, res, next)));
   }
 }
 

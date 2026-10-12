@@ -1,0 +1,266 @@
+// =============================================================================
+// Libreria EDG — macchine (libreria-bozza.md, sezione 4)
+// =============================================================================
+import { anni, categorieDi, controlliDi, da, m, mesi, ogni, ore, PREAVVISI, unaTantum, USO } from './costruttori';
+import type { Durata, Fasce } from '../regole';
+import type { VoceCategoria, VoceControllo } from './tipi';
+
+const categoria = categorieDi('macchina');
+const controllo = controlliDi('macchina');
+
+const CARRELLI = 'macchina.carrelli-elevatori';
+const TELESCOPICI = 'macchina.carrelli-telescopici';
+const PLE = 'macchina.ple';
+const GRU_AUTOCARRO = 'macchina.gru-autocarro';
+const AUTOGRU = 'macchina.gru-mobili';
+const GRU_TORRE = 'macchina.gru-torre';
+const SOLL_FISSI = 'macchina.sollevamento-fisso';
+const MMT = 'macchina.movimento-terra';
+const IRRORATRICI = 'macchina.irroratrici';
+const ARIA = 'macchina.aria-compressa';
+const PONTI = 'macchina.ponti-sollevatori';
+
+const ALLEGATO_VII = 'art. 71 c.11 e All. VII D.Lgs 81/08; DM 11/4/2011';
+/** Verifiche dell'Allegato VII: la cadenza cambia oltre 10 anni dalla fabbricazione */
+const oltreDieci = (tempo: Durata): Fasce => ({ da: 'fabbricazione', elenco: [da(anni(10), tempo)] });
+
+export const CATEGORIE: VoceCategoria[] = [
+  categoria({ chiave: CARRELLI, nome: 'Carrelli elevatori frontali', icona: 'Forklift', contatori: ['ore'], modelli: m('T L✓ A E') }),
+  categoria({ chiave: TELESCOPICI, nome: 'Carrelli a braccio telescopico', icona: 'Forklift', contatori: ['ore'], modelli: m('L A✓ E✓') }),
+  categoria({
+    chiave: PLE,
+    nome: 'Piattaforme di lavoro mobili elevabili (PLE)',
+    icona: 'ArrowUpFromLine',
+    contatori: ['ore'],
+    modelli: m('L E✓'),
+  }),
+  categoria({ chiave: GRU_AUTOCARRO, nome: 'Gru su autocarro', icona: 'Construction', contatori: ['ore'], modelli: m('T E✓') }),
+  categoria({ chiave: AUTOGRU, nome: 'Gru mobili (autogru)', icona: 'Construction', contatori: ['ore'], modelli: m('E') }),
+  categoria({ chiave: GRU_TORRE, nome: 'Gru a torre', icona: 'Construction', modelli: m('E✓') }),
+  categoria({
+    chiave: SOLL_FISSI,
+    nome: 'Apparecchi di sollevamento fissi',
+    descrizione: 'Carroponte, paranchi, argani oltre 200 kg',
+    icona: 'Cable',
+    modelli: m('L E'),
+  }),
+  categoria({
+    chiave: MMT,
+    nome: 'Macchine movimento terra',
+    descrizione: 'Escavatori, pale, terne, minipale',
+    icona: 'Shovel',
+    contatori: ['ore'],
+    modelli: m('A E✓'),
+  }),
+  categoria({ chiave: IRRORATRICI, nome: 'Irroratrici e atomizzatori', icona: 'SprayCan', modelli: m('A✓') }),
+  categoria({
+    chiave: ARIA,
+    nome: 'Serbatoi di aria compressa',
+    descrizione: 'Solo quelli soggetti a verifica: oltre 12 bar o PS·V oltre 12.000 bar·L',
+    icona: 'Cylinder',
+    modelli: m('T L A E'),
+  }),
+  categoria({ chiave: PONTI, nome: 'Ponti sollevatori per veicoli', descrizione: 'Officina', icona: 'MoveVertical', modelli: m('T') }),
+];
+
+export const CONTROLLI: VoceControllo[] = [
+  controllo({
+    chiave: 'macchina.verifica-sollevamento-mobile-edilizia',
+    codice: 'M01',
+    nome: 'Verifica periodica — sollevamento mobile, edilizia',
+    descrizione: 'Settori costruzioni, siderurgico, portuale, estrattivo',
+    natura: 'adempimento',
+    categorie: [GRU_AUTOCARRO, AUTOGRU],
+    cadenza: ogni(anni(1)),
+    preavvisi: PREAVVISI.prenota(),
+    riferimentoNormativo: ALLEGATO_VII,
+    note: "Prima verifica periodica: INAIL (portale CIVA); dopo 45 giorni ci si può rivolgere a un soggetto abilitato.",
+    modelli: m('E✓'),
+  }),
+  controllo({
+    chiave: 'macchina.verifica-sollevamento-mobile',
+    codice: 'M02',
+    nome: 'Verifica periodica — sollevamento mobile, altri settori',
+    natura: 'adempimento',
+    categorie: [GRU_AUTOCARRO, AUTOGRU],
+    cadenza: ogni(anni(2), { fasce: oltreDieci(anni(1)) }),
+    preavvisi: PREAVVISI.prenota(),
+    riferimentoNormativo: ALLEGATO_VII,
+    note: "Prima verifica periodica: INAIL (portale CIVA); dopo 45 giorni ci si può rivolgere a un soggetto abilitato.",
+    modelli: m('T'),
+  }),
+  controllo({
+    chiave: 'macchina.verifica-gru-torre',
+    codice: 'M03',
+    nome: 'Verifica periodica gru a torre',
+    natura: 'adempimento',
+    categorie: [GRU_TORRE],
+    cadenza: ogni(anni(1)),
+    preavvisi: PREAVVISI.prenota(),
+    riferimentoNormativo: ALLEGATO_VII,
+    modelli: m('E✓'),
+  }),
+  controllo({
+    chiave: 'macchina.verifica-ple',
+    codice: 'M04',
+    nome: 'Verifica periodica PLE',
+    natura: 'adempimento',
+    categorie: [PLE],
+    cadenza: ogni(anni(1)),
+    preavvisi: PREAVVISI.prenota(),
+    riferimentoNormativo: ALLEGATO_VII,
+    modelli: m('L E✓'),
+  }),
+  controllo({
+    chiave: 'macchina.verifica-telescopici',
+    codice: 'M05',
+    nome: 'Verifica periodica carrelli telescopici',
+    natura: 'adempimento',
+    categorie: [TELESCOPICI],
+    cadenza: ogni(anni(1)),
+    preavvisi: PREAVVISI.prenota(),
+    riferimentoNormativo: ALLEGATO_VII,
+    modelli: m('L A✓ E✓'),
+  }),
+  controllo({
+    chiave: 'macchina.verifica-sollevamento-fisso-edilizia',
+    codice: 'M06',
+    nome: 'Verifica periodica — sollevamento fisso, edilizia',
+    descrizione: 'Settori costruzioni, siderurgico, portuale, estrattivo',
+    natura: 'adempimento',
+    categorie: [SOLL_FISSI],
+    cadenza: ogni(anni(2), { fasce: oltreDieci(anni(1)) }),
+    preavvisi: PREAVVISI.prenota(),
+    riferimentoNormativo: ALLEGATO_VII,
+    modelli: m('E'),
+  }),
+  controllo({
+    chiave: 'macchina.verifica-sollevamento-fisso',
+    codice: 'M07',
+    nome: 'Verifica periodica — sollevamento fisso, altri settori',
+    natura: 'adempimento',
+    categorie: [SOLL_FISSI],
+    cadenza: ogni(anni(3), { fasce: oltreDieci(anni(2)) }),
+    preavvisi: PREAVVISI.prenota(),
+    riferimentoNormativo: ALLEGATO_VII,
+    modelli: m('L'),
+  }),
+  controllo({
+    chiave: 'macchina.indagine-supplementare',
+    codice: 'M08',
+    nome: 'Indagine supplementare',
+    descrizione: 'Vita residua delle gru in servizio da oltre 20 anni',
+    natura: 'adempimento',
+    categorie: [GRU_AUTOCARRO, AUTOGRU],
+    automatico: false,
+    cadenza: unaTantum({ tempo: anni(20), da: 'messaInServizio' }),
+    preavvisi: PREAVVISI.lungo(),
+    riferimentoNormativo: 'DM 11/4/2011 All. II; circ. MLPS 18/2013',
+    modelli: m('T E'),
+  }),
+  controllo({
+    chiave: 'macchina.funi-catene',
+    codice: 'M09',
+    nome: 'Controllo trimestrale di funi e catene',
+    natura: 'adempimento',
+    categorie: [GRU_AUTOCARRO, AUTOGRU, GRU_TORRE, SOLL_FISSI],
+    cadenza: ogni(mesi(3)),
+    preavvisi: PREAVVISI.breve(),
+    riferimentoNormativo: 'All. VI punto 3.1.2 D.Lgs 81/08',
+    modelli: m('T L E✓'),
+  }),
+  controllo({
+    chiave: 'macchina.manutenzione-carrelli',
+    codice: 'M10',
+    nome: 'Manutenzione e controllo periodico',
+    natura: 'manutenzione',
+    categorie: [CARRELLI, TELESCOPICI],
+    cadenza: ogni(anni(1), { uso: ore(512) }),
+    preavvisi: PREAVVISI.normale(USO.ore),
+    riferimentoNormativo: 'art. 71 c.4 e c.8 D.Lgs 81/08',
+    note: 'Valori indicativi: vale il libretto (carrelli elettrici di solito 1.024 ore). Con accessori di sollevamento valgono le verifiche periodiche.',
+    modelli: m('T L✓ A E'),
+  }),
+  controllo({
+    chiave: 'macchina.manutenzione-movimento-terra',
+    codice: 'M11',
+    nome: 'Manutenzione programmata',
+    natura: 'manutenzione',
+    categorie: [MMT],
+    cadenza: ogni(anni(1), { uso: ore(512) }),
+    preavvisi: PREAVVISI.normale(USO.ore),
+    riferimentoNormativo: 'art. 71 c.4 D.Lgs 81/08',
+    note: 'Valori indicativi: vale il libretto. Se usate per sollevare carichi valgono le verifiche periodiche.',
+    modelli: m('A E✓'),
+  }),
+  controllo({
+    chiave: 'macchina.manutenzione',
+    codice: 'M12',
+    nome: 'Manutenzione programmata',
+    natura: 'manutenzione',
+    categorie: [PLE, GRU_AUTOCARRO, AUTOGRU, GRU_TORRE, SOLL_FISSI, PONTI],
+    cadenza: ogni(anni(1)),
+    preavvisi: PREAVVISI.normale(),
+    riferimentoNormativo: 'art. 71 c.4 e c.8 D.Lgs 81/08',
+    note: 'Secondo il libretto del costruttore.',
+    modelli: m('T L E✓'),
+  }),
+  controllo({
+    chiave: 'macchina.controllo-irroratrici',
+    codice: 'M13',
+    nome: 'Controllo funzionale',
+    natura: 'adempimento',
+    categorie: [IRRORATRICI],
+    cadenza: ogni(anni(3), { prima: { tempo: anni(5), da: 'messaInServizio' } }),
+    preavvisi: PREAVVISI.prenota(),
+    riferimentoNormativo: 'D.Lgs 150/2012 art. 12; PAN DM 22/1/2014',
+    modelli: m('A✓'),
+  }),
+  controllo({
+    chiave: 'macchina.controllo-irroratrici-contoterzisti',
+    codice: 'M14',
+    nome: 'Controllo funzionale — contoterzisti',
+    natura: 'adempimento',
+    categorie: [IRRORATRICI],
+    automatico: false,
+    cadenza: ogni(anni(2)),
+    preavvisi: PREAVVISI.prenota(),
+    riferimentoNormativo: 'D.Lgs 150/2012 art. 12; PAN DM 22/1/2014',
+    modelli: m('A'),
+  }),
+  controllo({
+    chiave: 'macchina.funzionamento-aria',
+    codice: 'M15',
+    nome: 'Verifica di funzionamento',
+    descrizione: 'Recipienti per gas del gruppo 2 (aria), categorie I e II',
+    natura: 'adempimento',
+    categorie: [ARIA],
+    cadenza: ogni(anni(4), { prima: { tempo: anni(4), da: 'messaInServizio' } }),
+    preavvisi: PREAVVISI.prenota(),
+    riferimentoNormativo: 'DM 329/2004 All. A e B',
+    modelli: m('T L A E'),
+  }),
+  controllo({
+    chiave: 'macchina.integrita-aria',
+    codice: 'M16',
+    nome: 'Verifica di integrità',
+    natura: 'adempimento',
+    categorie: [ARIA],
+    cadenza: ogni(anni(10), { prima: { tempo: anni(10), da: 'messaInServizio' } }),
+    preavvisi: PREAVVISI.lungo(),
+    riferimentoNormativo: 'DM 329/2004',
+    modelli: m('T L A E'),
+  }),
+  controllo({
+    chiave: 'macchina.controllo-ponti',
+    codice: 'M17',
+    nome: 'Controllo periodico',
+    descrizione: "Ponti sollevatori: esclusi dalle verifiche dell'Allegato VII",
+    natura: 'adempimento',
+    categorie: [PONTI],
+    cadenza: ogni(anni(1)),
+    preavvisi: PREAVVISI.normale(),
+    riferimentoNormativo: 'art. 71 c.8 D.Lgs 81/08; circ. MLPS 23/2012',
+    modelli: m('T'),
+  }),
+];
