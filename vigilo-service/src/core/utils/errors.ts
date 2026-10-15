@@ -32,6 +32,13 @@ export class ConflictError extends AppError {
   }
 }
 
+/** Richiesta ben formata ma incoerente (es. un controllo senza nessuna delle sue categorie) */
+export class UnprocessableError extends AppError {
+  constructor(message: string) {
+    super(message, 422);
+  }
+}
+
 export class UnauthorizedError extends AppError {
   constructor(message = 'Non autorizzato') {
     super(message, 401);

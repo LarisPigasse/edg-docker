@@ -48,6 +48,7 @@ Avviso.init(
     sequelize,
     tableName: 'avvisi',
     updatedAt: false,
+    // Validatori sull'intera riga: in Model.update di massa passare validate: false (L054)
     validate: {
       scadenzaOLibreria(this: Avviso) {
         if (this.idScadenza == null && this.tipo !== 'libreria') throw new Error("Un avviso senza scadenza puo' essere solo della libreria");

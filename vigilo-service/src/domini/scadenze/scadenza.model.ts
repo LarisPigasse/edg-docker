@@ -6,7 +6,7 @@
 // Una scadenza aperta per (soggetto, controllo) alla volta: quando si
 // registra l'esecuzione si chiude e nasce la successiva.
 // stato, limiteIl, stimataIl e urgenzaIl sono CALCOLATI (regole/stato.ts) e
-// salvati per il cruscotto: mai scritti a mano.
+// salvati per la dashboard: mai scritti a mano.
 // =============================================================================
 import { CreationOptional, NonAttribute } from 'sequelize';
 import { sequelize } from '../../config/database';
@@ -97,6 +97,7 @@ Scadenza.init(
   {
     sequelize,
     tableName: 'scadenze',
+    // Validatori sull'intera riga: in Model.update di massa passare validate: false (L054)
     validate: {
       // Stessi vincoli della tabella, con un messaggio comprensibile
       promemoriaConTitolo(this: Scadenza) {

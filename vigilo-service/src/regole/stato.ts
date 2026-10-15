@@ -5,7 +5,8 @@
 //   in scadenza    dentro il primo preavviso (o soglia d'uso vicina)
 //   in tolleranza  data/soglia superata ma entro il termine di rinnovo
 //   scaduta        superata anche la tolleranza
-//   da completare  ne' data ne' soglia
+//   da completare  ne' data ne' soglia (o soglia senza nessuna lettura del
+//                  contatore: allora manca la lettura, non la data)
 // Con data E soglia (cadenza combinata) vale lo stato peggiore. Lo stato si
 // calcola sempre, non si scrive mai a mano: questa e' l'unica definizione.
 // =============================================================================
@@ -40,6 +41,8 @@ export interface Situazione {
   mancaUso: number | null;
   /** Fine della tolleranza a uso (= soglia se non c'e' tolleranza) */
   limiteUso: number | null;
+  /** C'e' la soglia ma il contatore non e' mai stato letto: manca la lettura */
+  mancaLettura: boolean;
 }
 
 const massimo = (xs: number[]): number => (xs.length ? Math.max(...xs) : 0);
@@ -111,5 +114,6 @@ export function calcolaSituazione(input: InputStato, oggi: Giorno): Situazione {
     giorniAllaScadenza: scadeIl ? differenzaGiorni(oggi, scadeIl) : null,
     mancaUso,
     limiteUso,
+    mancaLettura: sogliaUso !== null && valoreContatore === null,
   };
 }

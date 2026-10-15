@@ -1,4 +1,4 @@
-import { dataBreve, dataLunga, descriviCadenza, descriviPreavvisi, descriviTolleranza, numero } from '../../src/regole';
+import { conArticolo, dataBreve, dataLunga, descriviCadenza, descriviPreavvisi, descriviTolleranza, numero } from '../../src/regole';
 import { OGGI, cadenza, preavvisi, tolleranza } from './helpers';
 
 describe('testi', () => {
@@ -9,6 +9,16 @@ describe('testi', () => {
     expect(numero(4048)).toBe('4.048');
     expect(numero(264360)).toBe('264.360');
     expect(numero(512)).toBe('512');
+  });
+
+  test('date con l\'articolo', () => {
+    expect(conArticolo('2026-10-23', OGGI)).toBe('il 23 ott');
+    expect(conArticolo('2026-10-08', OGGI)).toBe("l'8 ott");
+    expect(conArticolo('2026-11-11', OGGI)).toBe("l'11 nov");
+    expect(conArticolo('2026-12-01', OGGI)).toBe('il 1° dic');
+    expect(conArticolo('2026-10-08', OGGI, true)).toBe("all'8 ott");
+    expect(conArticolo('2027-03-01', OGGI, true)).toBe('al 1° mar 2027');
+    expect(conArticolo('2026-10-16', OGGI, true)).toBe('al 16 ott');
   });
 
   test('cadenze in una frase', () => {
@@ -25,6 +35,12 @@ describe('testi', () => {
         { immatricolazione: "dall'immatricolazione" }
       )
     ).toBe("prima dopo 4 anni dall'immatricolazione, poi ogni 24 mesi dalla scadenza precedente, a fine mese");
+    expect(
+      descriviCadenza(
+        cadenza({ tempo: { valore: 1, unita: 'anni' }, prima: { tempo: { valore: 1, unita: 'anni' }, da: 'immatricolazione' } }),
+        { immatricolazione: "dall'immatricolazione" }
+      )
+    ).toBe("prima dopo un anno dall'immatricolazione, poi ogni anno dalla scadenza precedente");
   });
 
   test('preavvisi e tolleranza', () => {

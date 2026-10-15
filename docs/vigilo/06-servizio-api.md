@@ -31,7 +31,7 @@ vigilo-service/src/
                        avvisi.ts      eventi dovuti a una data (preavvisi, tolleranza, scaduta, richiami)
   domini/            un modulo per area, ciascuno con model · schemas · service · controller · routes:
                        impostazioni, categorie, soggetti, contatori, assegnazioni, fornitori,
-                       controlli, scadenze, registrazioni, allegati, avvisi, libreria, avvio, cruscotto
+                       controlli, scadenze, registrazioni, allegati, avvisi, libreria, avvio, dashboard
   libreria/          file versionati (categorie, controlli, modelli) + sincronizzazione all'avvio
   processi/          ricalcolo notturno, riepilogo, consegne
   migrations/
@@ -49,17 +49,17 @@ basta.
 | Area | Rotte principali | Permesso |
 |---|---|---|
 | Io | `GET /me` — permessi effettivi, persona collegata, avvio fatto | tutti |
-| Cruscotto | `GET /cruscotto` — conteggi per stato e lista per urgenza, filtri (tipo, sede, natura, stato, testo) | read · own |
+| Dashboard | `GET /dashboard` — conteggi per stato, per controllo, per mese (12 + arretrato), soggetti per tipo, fatte in tempo; stessi filtri dell'elenco (tipo, categoria, sede, natura, testo). L'elenco è `GET /scadenze` (ADR078) | read · own |
 | Calendario | `GET /calendario?dal&al` | read · own |
-| Scadenze | `GET /scadenze`, `GET /scadenze/:id`, `POST /scadenze` (anche promemoria), `PATCH /scadenze/:id` (data, ridefinizioni, note) | read / write |
-| Registrazioni | `POST /scadenze/:id/registrazioni` (esecuzione; dall'addetto = segnalazione), `POST /scadenze/:id/rinvio`, `POST /registrazioni/:id/conferma`, `POST /registrazioni/:id/rifiuto` | write · own |
+| Scadenze | `GET /scadenze` (filtro `controllo` = uno o più uuid separati da virgola, fino a 32), `GET /scadenze/:id` (con impostazioni effettive, ultime registrazioni, `prossimaSeRegistrataOggi`, `richieste` dato per dato e `rinviabile`, per il pannello delle azioni), `POST /scadenze` (anche promemoria), `PATCH /scadenze/:id` (data, ridefinizioni, note) | read / write |
+| Registrazioni | `GET /registrazioni?soggetto=` (storico del soggetto, le più recenti per prime, con il titolo della scadenza), `POST /scadenze/:id/registrazioni` (esecuzione; dall'addetto = segnalazione), `POST /scadenze/:id/rinvio`, `POST /registrazioni/:id/conferma`, `POST /registrazioni/:id/rifiuto` | write · own |
 | Soggetti | `GET/POST /soggetti`, `GET/PATCH /soggetti/:id`, `POST /soggetti/:id/stato` (fermo, dismesso) | read / write |
 | Contatori | `POST /soggetti/:id/contatori`, `POST /contatori/:id/letture`, `GET /contatori/:id/letture` | write · own |
 | Assegnazioni | `POST /assegnazioni`, `PATCH /assegnazioni/:id` | write |
 | Fornitori | `GET/POST/PATCH /fornitori` | read / write |
 | Allegati | `POST /allegati` (multipart), `GET /allegati/:id` (download), `DELETE /allegati/:id` | write · own |
 | Categorie, controlli | `GET/POST/PATCH /categorie`, `/controlli`; `GET /controlli/aggiornamenti`, `POST /controlli/:id/aggiornamento` | config |
-| Libreria e avvio | `GET /libreria`, `GET /avvio`, `POST /avvio` | config |
+| Libreria e avvio | `GET /avvio` (modelli e stato), `GET /avvio/proposta?modelli=…` (voci dei modelli scelti), `POST /avvio` (copia, registro, scadenze; anche "Parto da zero" e "Aggiungi dalla libreria") — B6, ADR076. `GET /libreria` solo se servirà | config |
 | Impostazioni | `GET/PUT /impostazioni` | config |
 | Avvisi | `GET /avvisi`, `POST /avvisi/:id/letto`, `GET/PUT /preferenze` | tutti (i propri) |
 | Costi | `GET /resoconti/…` (passo successivo) | costi |
@@ -112,7 +112,7 @@ inoltra la richiesta così com'è, aggiungendo gli stessi controlli e header.
 | **B4** | libreria: struttura e sincronizzazione, poche voci di prova | sincronizzazione idempotente |
 | **B5** | API di categorie, controlli, soggetti, contatori, scadenze, registrazioni + ricalcolo | prove dal vivo come per i moduli |
 | **B6** | procedura di avvio (API) | avvio con più modelli, ripetibile |
-| **B7** | interfaccia (passo 7): avvio, cruscotto, soggetti, scheda, scadenze | a video |
+| **B7** | interfaccia (passo 7): avvio, dashboard, soggetti, scheda, scadenze | a video |
 | **B8** | avvisi: processi, campanella, email, preferenze | avvisi veri su dati di prova |
 | **B9** | addetto (ambito, segnalazioni) e allegati | con un account addetto |
 | **B10** | aggiornamenti della libreria, resoconti dei costi | |

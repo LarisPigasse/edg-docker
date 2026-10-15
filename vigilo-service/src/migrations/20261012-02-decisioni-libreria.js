@@ -1,14 +1,9 @@
 'use strict';
 
 /**
- * Migration: libreria versionata e registro delle decisioni (blocco B4, ADR073-074)
+ * Migration: registro delle decisioni sulla libreria (blocco B4, ADR074)
  *
  * Libreria
- *   impronta  sha256 del contenuto senza la versione (src/libreria/impronta.ts):
- *             la sincronizzazione rifiuta un contenuto cambiato a parita' di
- *             versione invece di sovrascriverlo in silenzio
- *   ordine    l'ordine dei file, per la procedura di avvio
- *   codice    il codice della bozza (V01, F12...) per ritrovare la voce
  *   novita    che cosa cambia in questa versione e perche' (mostrato al cliente)
  *
  * Copie del cliente (categorie, controlli)
@@ -30,18 +25,8 @@
 module.exports = {
   async up(queryInterface) {
     await queryInterface.sequelize.query(`
-      ALTER TABLE libreria_categorie
-        ADD COLUMN impronta VARCHAR(64) NULL,
-        ADD COLUMN ordine   INTEGER NOT NULL DEFAULT 0,
-        ADD COLUMN novita   TEXT NULL;
-      ALTER TABLE libreria_controlli
-        ADD COLUMN codice   VARCHAR(8) NULL,
-        ADD COLUMN impronta VARCHAR(64) NULL,
-        ADD COLUMN ordine   INTEGER NOT NULL DEFAULT 0,
-        ADD COLUMN novita   TEXT NULL;
-      ALTER TABLE modelli_settore
-        ADD COLUMN impronta VARCHAR(64) NULL;
-      CREATE UNIQUE INDEX uq_libreria_controlli_codice ON libreria_controlli (codice) WHERE codice IS NOT NULL;
+      ALTER TABLE libreria_categorie ADD COLUMN novita TEXT NULL;
+      ALTER TABLE libreria_controlli ADD COLUMN novita TEXT NULL;
 
       ALTER TABLE categorie
         ADD COLUMN versione_ignorata      INTEGER NULL,
@@ -106,12 +91,8 @@ module.exports = {
       ALTER TABLE controlli DROP COLUMN IF EXISTS aggiornamento_visto_da, DROP COLUMN IF EXISTS aggiornamento_visto_il;
       ALTER TABLE categorie DROP COLUMN IF EXISTS aggiornamento_visto_da, DROP COLUMN IF EXISTS aggiornamento_visto_il,
         DROP COLUMN IF EXISTS versione_ignorata;
-      DROP INDEX IF EXISTS uq_libreria_controlli_codice;
-      ALTER TABLE modelli_settore DROP COLUMN IF EXISTS impronta;
-      ALTER TABLE libreria_controlli DROP COLUMN IF EXISTS novita, DROP COLUMN IF EXISTS ordine,
-        DROP COLUMN IF EXISTS impronta, DROP COLUMN IF EXISTS codice;
-      ALTER TABLE libreria_categorie DROP COLUMN IF EXISTS novita, DROP COLUMN IF EXISTS ordine,
-        DROP COLUMN IF EXISTS impronta;
+      ALTER TABLE libreria_controlli DROP COLUMN IF EXISTS novita;
+      ALTER TABLE libreria_categorie DROP COLUMN IF EXISTS novita;
     `);
   },
 };

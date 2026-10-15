@@ -21,6 +21,18 @@ export function dataBreve(g: Giorno, oggi: Giorno): string {
   return a === parti(oggi)[0] ? base : `${base} ${a}`;
 }
 
+/**
+ * La data con l'articolo giusto: "il 23 set", "l'8 ott", "l'11 ott",
+ * "il 1° ott"; con `a` la preposizione articolata ("al 23", "all'8", "al 1°").
+ */
+export function conArticolo(g: Giorno, oggi: Giorno, a = false): string {
+  const d = parti(g)[2];
+  const breve = dataBreve(g, oggi);
+  if (d === 1) return `${a ? 'al' : 'il'} 1°${breve.slice(1)}`;
+  if (d === 8 || d === 11) return `${a ? "all'" : "l'"}${breve}`;
+  return `${a ? 'al' : 'il'} ${breve}`;
+}
+
 /** "30 settembre 2027" */
 export function dataLunga(g: Giorno): string {
   const [a, m, d] = parti(g);
@@ -45,10 +57,11 @@ const giorniTesto = (n: number) => (n === 1 ? '1 giorno' : `${n} giorni`);
 /**
  * Il testo dello stato, come nel cruscotto:
  *   "tra 8 giorni · 30 ott", "scade oggi", "scaduta il 1 ott · rinnovabile fino al 16 ott",
- *   "scaduta da 8 giorni · 30 set", "mancano 640 km · stima 12 ott", "data da inserire"
+ *   "scaduta da 8 giorni · 30 set", "mancano 640 km · stima 12 ott", "data da inserire",
+ *   "lettura km da inserire" (soglia senza letture del contatore)
  */
 export function testoStato(s: Situazione, scadeIl: Giorno | null, unita: UnitaUso | null, oggi: Giorno): string {
-  if (s.stato === 'da-completare') return 'data da inserire';
+  if (s.stato === 'da-completare') return s.mancaLettura && unita ? `lettura ${unita} da inserire` : 'data da inserire';
 
   if (s.per === 'uso' && s.mancaUso !== null && unita) {
     const stima = s.stimataIl && s.mancaUso > 0 ? ` · stima ${dataBreve(s.stimataIl, oggi)}` : '';
@@ -72,8 +85,8 @@ export function testoStato(s: Situazione, scadeIl: Giorno | null, unita: UnitaUs
       return d === -1 ? `scaduta ieri · ${quando}` : `scaduta da ${giorniTesto(-d)} · ${quando}`;
     case 'in-tolleranza':
       return s.limiteIl === oggi
-        ? `scaduta il ${quando} · oggi l'ultimo giorno per rinnovare`
-        : `scaduta il ${quando} · rinnovabile fino al ${dataBreve(s.limiteIl!, oggi)}`;
+        ? `scaduta ${conArticolo(scadeIl, oggi)} · oggi l'ultimo giorno per rinnovare`
+        : `scaduta ${conArticolo(scadeIl, oggi)} · rinnovabile fino ${conArticolo(s.limiteIl!, oggi, true)}`;
     case 'in-scadenza':
       if (d === 0) return 'scade oggi';
       if (d === 1) return `scade domani · ${quando}`;
@@ -88,6 +101,10 @@ export function testoStato(s: Situazione, scadeIl: Giorno | null, unita: UnitaUs
 // -----------------------------------------------------------------------------
 
 const SINGOLARE: Record<Durata['unita'], string> = { giorni: 'giorno', mesi: 'mese', anni: 'anno' };
+
+/** "un anno", "4 anni": dopo una preposizione ("prima dopo un anno") */
+const UNO: Record<Durata['unita'], string> = { giorni: 'un giorno', mesi: 'un mese', anni: 'un anno' };
+const unDurata = (d: Durata): string => (d.valore === 1 ? UNO[d.unita] : `${d.valore} ${d.unita}`);
 
 /** "ogni 12 mesi", "ogni mese", "ogni anno" */
 export function durata(d: Durata, prefisso = 'ogni'): string {
@@ -108,7 +125,7 @@ export function descriviCadenza(c: Cadenza, etichette: Record<string, string> = 
   const pezzi: string[] = [];
   const da = (chiave: string) => etichette[chiave] ?? `da ${chiave}`;
   if (c.prima) {
-    pezzi.push(`prima ${durata(c.prima.tempo, 'dopo')} ${da(c.prima.da)}, poi`);
+    pezzi.push(`prima dopo ${unDurata(c.prima.tempo)} ${da(c.prima.da)}, poi`);
   }
   const tempo = c.tempo ? durata(c.tempo) + fasceTesto(c, da) : '';
   if (c.tempo && c.uso) {

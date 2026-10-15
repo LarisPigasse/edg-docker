@@ -1,5 +1,5 @@
 {
-  "lastUpdated": "2026-10-08",
+  "lastUpdated": "2026-10-14",
   "lessons": [
     {
       "id": "L001",
@@ -468,6 +468,51 @@
       "title": "Niente Promise.all di query sulla stessa transazione Sequelize",
       "problem": "Promise.all di piu' query con la stessa { transaction: t } le manda in parallelo sull'unico client pg della transazione: pg 8 avvisa 'Calling client.query() when the client is already executing a query is deprecated' e pg 9 lo rifiutera'. Visto nelle prove di Vigilo B3.",
       "solution": "Dentro una transazione eseguire le query in sequenza (for...of con await). Promise.all va bene solo per query senza transazione (ognuna prende un client dal pool), come in io.service.ts."
+    },
+    {
+      "id": "L053",
+      "date": "2026-10-12",
+      "category": "sequelize",
+      "severity": "medium",
+      "title": "Mai riscrivere o rinominare una migrazione forse già eseguita",
+      "problem": "Vigilo B4: la migrazione 20261012-01-libreria-impronta.js era già stata eseguita dall'utente quando l'ho estesa e rinominata (registro delle decisioni). SequelizeMeta aveva il vecchio nome 'up' e il nuovo file risultava 'down' con ALTER su colonne già esistenti: la nuova non poteva passare, il servizio partiva con lo schema vecchio.",
+      "solution": "Prima di toccare una migrazione verificare con 'npx sequelize db:migrate:status' nel container se è già 'up'. Se lo è (o non si sa), lasciarla com'era e aggiungere una migrazione nuova con il numero successivo. Qui: ripristinata la 01 identica a quella eseguita, il resto spostato in 20261012-02-decisioni-libreria.js."
+    },
+    {
+      "id": "L054",
+      "date": "2026-10-12",
+      "category": "sequelize",
+      "severity": "high",
+      "title": "Validatori di modello e Model.update di massa: falsi errori",
+      "problem": "Model.update(valori, { where }) costruisce un'istanza con i SOLI valori aggiornati e ci esegue i validatori di modello (options.validate dell'init). Vigilo: chiudere le scadenze (chiusaIl, motivoChiusura) falliva con 'Un promemoria senza controllo ha bisogno di un titolo' perché idControllo e titolo non c'erano nell'istanza parziale.",
+      "solution": "Negli update di massa su modelli con validatori che guardano più campi passare { validate: false } (i vincoli veri restano nei CHECK del database); gli update su istanze (riga.update) invece li eseguono correttamente sulla riga intera. Commento accanto a ogni validate di modello."
+    },
+    {
+      "id": "L055",
+      "date": "2026-10-12",
+      "category": "sequelize",
+      "severity": "low",
+      "title": "Associazioni caricate a mano: assegnarle come proprietà, non con setDataValue",
+      "problem": "Con i modelli in stile 'declare' le associazioni (NonAttribute) non hanno accessori: s.setDataValue('contatori', [...]) le mette solo in dataValues e s.contatori resta undefined. Vigilo: il dettaglio del soggetto usciva senza contatori né assegnazioni.",
+      "solution": "Quando si caricano associazioni con query separate (per evitare subquery con hasMany + limit), assegnarle all'istanza come fa Sequelize con gli include: Object.assign(istanza, { contatori, assegnazioni })."
+    },
+    {
+      "id": "L056",
+      "date": "2026-10-13",
+      "category": "frontend-structure",
+      "severity": "medium",
+      "title": "Ogni feature segue sempre api/components/constants/hooks/pages/types/utils",
+      "problem": "In app-frontend la feature vigilo era stata organizzata per area (avvio/, configurazione/, dashboard/, comune/) invece che con lo schema approvato e usato in pro-frontend. Il codice funzionava, ma la feature si leggeva in modo diverso dalle altre, e la deviazione non era stata concordata.",
+      "solution": "In ogni app (pro-frontend, app-frontend) ogni features/<chiave>/ ha queste cartelle:\n- api: client e chiamate;\n- components: i componenti condivisi della feature in radice, quelli di una sola area in components/<area>/ (come sistema/components/info);\n- constants: tabelle e configurazioni, come etichette e colori;\n- hooks: lo stato e il caricamento dei dati;\n- pages: le pagine montate dal manifest;\n- types;\n- utils: logica pura e senza React, che si può testare da sola.\n\nUn file che mescola costanti e logica si divide fra constants/ e utils/ (es. vigilo constants/fasce.ts + utils/fasce.ts).\n\nPrima di creare la prima cartella di una feature nuova, ricontrollare una feature esistente e, se serve deviare, chiederlo prima.\n\nCorrezione applicata il 2026-10-13: 35 file spostati, import ricalcolati con uno script; controllo dei tipi e lint puliti."
+    },
+    {
+      "id": "L057",
+      "date": "2026-10-14",
+      "category": "ui-components",
+      "severity": "low",
+      "title": "Raggi di curvatura: mai oltre 8 px (rounded-lg) per riquadri e schede",
+      "problem": "Nelle pagine di Vigilo avevo usato rounded-2xl (16 px) per i riquadri principali e rounded-xl (12 px) per tessere, campi e schede: angoli troppo morbidi rispetto allo stile voluto dall'utente.",
+      "solution": "Regola generale per tutte le app (decisa dall'utente il 2026-10-14):\n- riquadri, sezioni, schede, tessere e campi non superano mai 8 px (rounded-lg);\n- valori minori (rounded-md 6 px, rounded 4 px) vanno bene per gli elementi piccoli;\n- il cerchio (rounded-full) resta per pastiglie, contatori e pallini;\n- un raggio maggiore di 8 px si usa solo quando il contesto lo impone davvero, motivandolo.\n\nApplicata a features/vigilo: tutti i rounded-2xl e rounded-xl sono diventati rounded-lg."
     }
   ]
 }

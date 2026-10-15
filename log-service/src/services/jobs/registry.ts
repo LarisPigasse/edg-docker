@@ -45,6 +45,14 @@ export const EXPECTED_JOBS: ExpectedJob[] = [
     graceMs: HOUR_MS,
   },
   {
+    id: 'vigilo.ricalcolo',
+    name: 'Vigilo: ricalcolo notturno delle scadenze',
+    service: 'vigilo-service',
+    schedule: 'ogni giorno alle 00:16',
+    everyMs: 24 * HOUR_MS,
+    graceMs: HOUR_MS,
+  },
+  {
     id: 'backup.daily',
     name: 'Backup di database e file',
     service: 'backup-service',

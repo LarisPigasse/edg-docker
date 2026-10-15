@@ -48,6 +48,7 @@ Consegna.init(
   {
     sequelize,
     tableName: 'consegne',
+    // Validatori sull'intera riga: in Model.update di massa passare validate: false (L054)
     validate: {
       destinatario(this: Consegna) {
         if (this.idAccount == null && !this.email) throw new Error('Una consegna ha bisogno di un account o di un indirizzo email');

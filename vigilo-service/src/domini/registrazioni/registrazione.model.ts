@@ -83,6 +83,7 @@ Registrazione.init(
   {
     sequelize,
     tableName: 'registrazioni',
+    // Validatori sull'intera riga: in Model.update di massa passare validate: false (L054)
     validate: {
       esecuzioneConEsito(this: Registrazione) {
         if (this.tipo === 'esecuzione' && !this.esito) throw new Error("Un'esecuzione ha bisogno dell'esito");

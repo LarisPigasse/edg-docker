@@ -30,6 +30,7 @@ import { BUILD_INFO } from './core/services/buildInfo';
 import { installaAudit } from './core/db/audit';
 import vigiloRoutes from './domini';
 import { sincronizzaAllAvvio } from './libreria/sincronizza';
+import { pianificaProcessi } from './processi/ricalcolo';
 
 // Un errore non gestito va segnalato a log-service prima di uscire (ADR043)
 installCrashHandlers();
@@ -120,6 +121,7 @@ const start = async (): Promise<void> => {
   await connectDatabase();
   // La libreria EDG dai file alle tabelle (03-libreria-avvio 3.2)
   await sincronizzaAllAvvio();
+  pianificaProcessi();
   app.listen(PORT, () => {
     console.log(`[${SERVICE_NAME}] in ascolto sulla porta ${PORT}`);
     console.log(`[${SERVICE_NAME}] ambiente: ${process.env.NODE_ENV}`);

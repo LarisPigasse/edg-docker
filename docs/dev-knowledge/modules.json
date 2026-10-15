@@ -148,7 +148,7 @@
     },
     "vigilo-service": {
       "status": "in-progress",
-      "notes": "B1-B4: servizio, regole (fasce, finestra), schema, libreria EDG 123 controlli con versioni e sync all'avvio (ADR073). Da verificare dal vivo dopo rebuild+migrazione. Prossimo B5 API.",
+      "notes": "B1-B6 verificati dal vivo (B5 54/54, B6 34/34: avvio con registro decisioni, ripetibile). Prossimo B7 interfaccia. Commit unico rimandato a servizio stabile.",
       "lastUpdated": "2026-10-12"
     }
   }

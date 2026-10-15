@@ -25,11 +25,11 @@ describe('stato e testo — a tempo', () => {
     expect(calcolaSituazione({ ...base, scadeIl: '2026-11-10' }, OGGI).stato).toBe('in-regola');
   });
 
-  test('RCA in tolleranza: scaduta il 1 ott, rinnovabile fino al 16 ott', () => {
+  test('RCA in tolleranza: scaduta il 1° ott, rinnovabile fino al 16 ott', () => {
     const s = calcolaSituazione({ ...base, scadeIl: '2026-10-01', tolleranza: tolleranza(15) }, OGGI);
     expect(s.stato).toBe('in-tolleranza');
     expect(s.limiteIl).toBe('2026-10-16');
-    expect(testoStato(s, '2026-10-01', null, OGGI)).toBe('scaduta il 1 ott · rinnovabile fino al 16 ott');
+    expect(testoStato(s, '2026-10-01', null, OGGI)).toBe('scaduta il 1° ott · rinnovabile fino al 16 ott');
   });
 
   test('ultimo giorno di tolleranza e giorno dopo', () => {
@@ -56,6 +56,14 @@ describe('stato e testo — a tempo', () => {
     const s = calcolaSituazione({ ...base, scadeIl: null }, OGGI);
     expect(s.stato).toBe('da-completare');
     expect(testoStato(s, null, null, OGGI)).toBe('data da inserire');
+  });
+
+  test('soglia senza letture: manca la lettura, non la data', () => {
+    const s = calcolaSituazione({ ...base, scadeIl: null, sogliaUso: 16000 }, OGGI);
+    expect(s.stato).toBe('da-completare');
+    expect(s.mancaLettura).toBe(true);
+    expect(testoStato(s, null, 'km', OGGI)).toBe('lettura km da inserire');
+    expect(testoStato(s, null, 'ore', OGGI)).toBe('lettura ore da inserire');
   });
 });
 

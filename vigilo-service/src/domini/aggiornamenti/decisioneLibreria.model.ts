@@ -74,6 +74,7 @@ DecisioneLibreria.init(
     sequelize,
     tableName: 'decisioni_libreria',
     timestamps: false,
+    // Validatori sull'intera riga: in Model.update di massa passare validate: false (L054)
     validate: {
       esitoDelContesto(this: DecisioneLibreria) {
         const avvio = this.esito === 'incluso' || this.esito === 'escluso';

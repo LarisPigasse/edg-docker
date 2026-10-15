@@ -46,6 +46,10 @@ tabelle. Per cambiare una voce:
 
 Una voce tolta dai file diventa *ritirata* (si segnala, non si cancella).
 
+Il cliente riceve le voci con la **procedura di avvio** (`src/domini/avvio`):
+le copia con la fotografia dei valori (`origine`) e scrive ogni scelta, inclusa
+o tolta, nel registro `decisioni_libreria` (ADR074, ADR076).
+
 ## Comandi
 
 - `npm run dev` — sviluppo con ricaricamento
