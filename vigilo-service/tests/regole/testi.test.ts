@@ -44,7 +44,8 @@ describe('testi', () => {
   });
 
   test('preavvisi e tolleranza', () => {
-    expect(descriviPreavvisi(preavvisi([8, 32, 1]))).toBe('avvisi a 32, 8 e 1 giorni');
+    expect(descriviPreavvisi(preavvisi([8, 32, 1]))).toBe('avvisi a 32, 8 e 1 giorno');
+    expect(descriviPreavvisi(preavvisi([1, 8]))).toBe('avvisi a 8 e 1 giorno');
     expect(descriviPreavvisi(preavvisi([8], [1024]), 'km')).toBe('avvisi a 8 giorni e a 1.024 km');
     expect(descriviPreavvisi(preavvisi([1]))).toBe('avvisi a 1 giorno');
     expect(descriviPreavvisi(preavvisi([]))).toBe('nessun preavviso');

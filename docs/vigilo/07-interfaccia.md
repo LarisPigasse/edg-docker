@@ -309,6 +309,52 @@ aggiungi), **tolleranza** e **destinatari**.
 Pagina intera con indicatore dei quattro passi (passo 3.5); al termine,
 invito al primo soggetto.
 
+### 7.9 bis Prova dell'avvio da capo (2026-10-19, ADR080)
+
+Rifatta sul tenant EDG dopo l'azzeramento: Base aziendale + Autotrasporto
+merci con le voci consigliate (13 categorie, 44 controlli; registro 22 + 92
+righe), poi due veicoli di prova. Correzioni emerse:
+
+- **Prima dell'avvio** si apre solo la home e la procedura: Scadenze,
+  Soggetti (elenco, nuovo, scheda) e Configurazione passano da
+  `components/RichiedeAvvio` (nel manifest con `dopoAvvio(...)`). Chi
+  configura viene portato alla procedura; gli altri vedono "Vigilo è in
+  preparazione" (`components/InPreparazione`). La home usa lo stesso
+  componente (figli come funzione del profilo).
+- **Passo Fatto**: *Vai alla Dashboard* e *Aggiungi il primo soggetto* (dopo
+  "Aggiungi dalla libreria": *Vai alla Configurazione*); l'indicatore segna
+  fatti tutti i passi.
+- **"Aggiungi le voci"** disattivato quando l'invio non cambierebbe nulla
+  (nessuna voce nuova, stessi settori, stessi predefiniti), con la nota
+  "Niente di nuovo da aggiungere".
+- **Dashboard senza soggetti** (né promemoria, senza filtri): niente numeri
+  a zero né "tutto in regola", ma il riquadro *Per cominciare*
+  (`dashboard/PrimiPassi`) con *Vedi i controlli* e *Aggiungi il primo
+  soggetto*; il saluto invita a inserire i soggetti.
+- **Nuovo soggetto**: nessuna categoria preselezionata, nemmeno "Nessuna
+  categoria"; "Avanti" spento e "Manca: categoria" finché non si sceglie.
+  Conferma delle date: "Data inserita" / "Date inserite per N scadenze".
+- Nelle procedure a passi la pagina torna in cima a ogni passo
+  (`hooks/useInCima`).
+- Ritorno all'elenco dei soggetti: pulsante a icona unico
+  (`components/TornaAllElenco`) nella scheda e nel nuovo soggetto.
+- Valori degli elenchi: sigle scritte come tali ("GPL": `constants/sigle`,
+  `utils/testo` con `maiuscola` ed `etichettaOpzione`).
+- "avvisi a 32, 8 e 1 giorno": il nome si accorda con l'ultimo numero
+  (Configurazione e `regole/testi.ts` del servizio).
+- In @edg/ui: anello di focus solo da tastiera (`focus-visible`) in Button e
+  Tabs (nelle schede interno, `ring-inset`, perché il contenitore che scorre
+  lo tagliava); Stepper con i titoli dei passi futuri leggibili; DatePicker
+  chiuso da Invio dopo una data scritta a mano; FloatingFieldShell con la
+  label collegata al campo (nome accessibile di DatePicker e TimePicker).
+- Tabs (@edg/ui): quando le schede non stanno nella riga, sfumatura di 32 px
+  solo dal lato dove c'è altro (maschera `mask-image` sul contenitore, hook
+  `useScrollEdges`); la scheda scelta scorre in vista per intero, anche
+  aprendo la pagina su una scheda lontana.
+
+Ancora da decidere: `focus-visible` negli altri componenti cliccabili di
+@edg/ui (Card, HomeTile, ActionMenu, Accordion, QuickLink…).
+
 ## 7.10 L'addetto (pensato prima per il telefono)
 
 - **Le mie scadenze**: le sue e quelle dei mezzi assegnati, in schede grandi

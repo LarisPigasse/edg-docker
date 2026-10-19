@@ -1,5 +1,5 @@
 {
-  "lastUpdated": "2026-10-12",
+  "lastUpdated": "2026-10-19",
   "modules": {
     "auth-service": {
       "status": "stable",
@@ -78,8 +78,8 @@
     },
     "@edg/ui (packages/ui)": {
       "status": "stable",
-      "notes": "ADR063: moduleStatus (6 stati), HomeModuleTile con scadenza, ModuleInfoModal, EdgModuleConfig.brand + Logo title (titolo modulo nell'header), icona Phone. Additive.",
-      "lastUpdated": "2026-10-07"
+      "notes": "ADR080: focus-visible Button/Tabs, Stepper leggibile, DatePicker con Invio, label collegata; Tabs con sfumatura 32px e scheda in vista (useScrollEdges). Da valutare: focus-visible altrove.",
+      "lastUpdated": "2026-10-19"
     },
     "@edg/auth (packages/auth)": {
       "status": "stable",
@@ -108,8 +108,8 @@
     },
     "vigilo (modulo app-frontend)": {
       "status": "in-progress",
-      "notes": "Analisi completa e approvata (ADR064-070, docs/vigilo/01-07, anteprima visiva). Prossimo: costruzione B1 (scheletro vigilo-service, DB, compose, gateway stream, /me).",
-      "lastUpdated": "2026-10-08"
+      "notes": "B7 committato; prova dell'avvio da capo fatta (ADR080: guardia RichiedeAvvio, primi passi, categoria esplicita). Prossimo: calendario, poi permessi vigilo.* e B8.",
+      "lastUpdated": "2026-10-19"
     },
     "revisione UI @edg/ui": {
       "status": "in-progress",
@@ -148,8 +148,8 @@
     },
     "vigilo-service": {
       "status": "in-progress",
-      "notes": "B1-B6 verificati dal vivo (B5 54/54, B6 34/34: avvio con registro decisioni, ripetibile). Prossimo B7 interfaccia. Commit unico rimandato a servizio stabile.",
-      "lastUpdated": "2026-10-12"
+      "notes": "B1-B7 committati, 97 test Jest. Da ricostruire: testi \"e 1 giorno\" (ADR080). Prossimi: GET /calendario, rotta interna auth per vigilo.*, B8 avvisi.",
+      "lastUpdated": "2026-10-19"
     }
   }
 }

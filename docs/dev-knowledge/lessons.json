@@ -1,5 +1,5 @@
 {
-  "lastUpdated": "2026-10-14",
+  "lastUpdated": "2026-10-19",
   "lessons": [
     {
       "id": "L001",
@@ -513,6 +513,69 @@
       "title": "Raggi di curvatura: mai oltre 8 px (rounded-lg) per riquadri e schede",
       "problem": "Nelle pagine di Vigilo avevo usato rounded-2xl (16 px) per i riquadri principali e rounded-xl (12 px) per tessere, campi e schede: angoli troppo morbidi rispetto allo stile voluto dall'utente.",
       "solution": "Regola generale per tutte le app (decisa dall'utente il 2026-10-14):\n- riquadri, sezioni, schede, tessere e campi non superano mai 8 px (rounded-lg);\n- valori minori (rounded-md 6 px, rounded 4 px) vanno bene per gli elementi piccoli;\n- il cerchio (rounded-full) resta per pastiglie, contatori e pallini;\n- un raggio maggiore di 8 px si usa solo quando il contesto lo impone davvero, motivandolo.\n\nApplicata a features/vigilo: tutti i rounded-2xl e rounded-xl sono diventati rounded-lg."
+    },
+    {
+      "id": "L058",
+      "date": "2026-10-15",
+      "category": "tooling",
+      "severity": "medium",
+      "title": "Prettier non è configurato nel repo: non lanciarlo",
+      "problem": "Ho lanciato npx prettier su due file: non essendoci configurazione nel repo, ha messo virgolette doppie e righe a 80 colonne, contro lo stile del progetto.",
+      "solution": "Mai lanciare Prettier sui file del progetto. Stile da rispettare a mano: virgolette singole (anche in JSX), righe fino a ~120 colonne, arrow function senza parentesi sul parametro singolo, nessuna virgola finale negli argomenti. Rispettare le riformattazioni fatte dall'utente nel suo editor."
+    },
+    {
+      "id": "L059",
+      "date": "2026-10-15",
+      "category": "ui-components",
+      "severity": "medium",
+      "title": "cn() di @edg/ui non risolve i conflitti di classi Tailwind",
+      "problem": "cn di @edg/ui unisce le classi senza tailwind-merge: passando a un componente una classe che contrasta con una sua (es. sm:max-w-lg contro sm:max-w-sm dello Sheet, w-full contro w-3/4) vince l'ordine del CSS generato, non l'ultima scritta.",
+      "solution": "Per sovrascrivere una classe interna usare il modificatore importante di Tailwind 4 (es. 'w-full! sm:max-w-lg!') oppure, meglio, una prop dedicata nel componente. Non spostare il colore del bordo in due posti: un solo responsabile (es. FASCE_ASPETTO.card dà bordo e hover)."
+    },
+    {
+      "id": "L060",
+      "date": "2026-10-15",
+      "category": "ui-components",
+      "severity": "medium",
+      "title": "Animazioni dei componenti Radix: serve tw-animate-css",
+      "problem": "Sheet, Modal, Tooltip, Toast e menu usavano classi animate-in, fade-in, slide-in-from-* senza il plugin che le definisce: comparivano di colpo.",
+      "solution": "@edg/ui importa 'tw-animate-css' in styles/index.css (dipendenza di packages/ui). Durate e curve con data-[state=open]:duration-512 ecc.; motion-reduce:animate-none per chi riduce il movimento. Con il pannello del browser nascosto le animazioni restano ferme: verificarle leggendo gli stili calcolati."
+    },
+    {
+      "id": "L061",
+      "date": "2026-10-15",
+      "category": "docker",
+      "severity": "medium",
+      "title": "exec-in-container passa dal cmd di Windows: niente pipe né redirezioni",
+      "problem": "I comandi di exec-in-container vengono avvolti in sh -c ma passano prima dal cmd di Windows: pipe (|), redirezioni e virgolette annidate falliscono.",
+      "solution": "Per script nel container: preparare il file con node -e \"require('fs').writeFileSync('/tmp/x.js', require('zlib').gunzipSync(Buffer.from('<gzip+base64>','base64')))\" e poi sh -c \"node /tmp/x.js; rm -f /tmp/x.js\". In vigilo-service lo script usa require('/app/dist/config/database') e transazioni. Backup a richiesta: node dist/cli.js in backup-service (file in /backups/daily/<data_ora>, compreso postgres-edg_vigilo.dump)."
+    },
+    {
+      "id": "L062",
+      "date": "2026-10-15",
+      "category": "ui-components",
+      "severity": "low",
+      "title": "Pulsanti stirati accanto a griglie responsive: evitarli",
+      "problem": "Pulsanti resi alti quanto i riquadri accanto (h-auto in un flex che va a capo) diventavano colonne altissime a larghezze medie e finivano sopra i riquadri a larghezze strette.",
+      "solution": "Non affiancare pulsanti stirati a griglie che vanno a capo. Le azioni di una scheda di dettaglio vanno in un menu Azioni (ActionMenu con trigger) sulla riga delle schede o nell'intestazione; i riquadri restano soli a tutta larghezza. Verificare sempre a 1440, 1024 e ~470 px."
+    },
+    {
+      "id": "L063",
+      "date": "2026-10-15",
+      "category": "ui-components",
+      "severity": "low",
+      "title": "Valori composti nelle Select: normalizzare l'ordine",
+      "problem": "Il filtro Controllo usa come valore più uuid separati da virgola: arrivando dalla dashboard l'ordine era diverso da quello delle opzioni e la Select restava vuota.",
+      "solution": "Quando il valore di un'opzione è un elenco (uuid separati da virgola), ordinarlo sempre allo stesso modo (sort) sia nelle opzioni sia nel valore scelto."
+    },
+    {
+      "id": "L064",
+      "date": "2026-10-19",
+      "category": "testing",
+      "severity": "low",
+      "title": "Stati dell'interfaccia irraggiungibili con i dati: alterare fetch nel browser",
+      "problem": "Alcuni stati (Vigilo non avviato, Dashboard vuota, passo Fatto del primo avvio) non si possono vedere a video senza azzerare i dati o rifare operazioni non ripetibili; azzerare costa e cancella i dati di prova.",
+      "solution": "Nella pagina, sostituire window.fetch con un involucro che modifica le risposte (es. /me con avviatoIl null, /dashboard con soggetti vuoti) e risponde da sé ai POST da non inviare; navigare con history.pushState + dispatchEvent(new PopStateEvent('popstate')) per non ricaricare; a prova finita ricaricare la pagina. apiFetch di @edg/auth usa fetch. Attenzione: resize_window può ricaricare la pagina e togliere l'involucro."
     }
   ]
 }

@@ -171,11 +171,11 @@ function ancoraggioTesto(c: Cadenza): string {
 
 const elenco = (xs: string[]) => (xs.length <= 1 ? xs.join('') : `${xs.slice(0, -1).join(', ')} e ${xs[xs.length - 1]}`);
 
-/** "avvisi a 32, 8 e 1 giorni e a 1.024 km" */
+/** "avvisi a 32, 8 e 1 giorno e a 1.024 km": il nome si accorda con l'ultimo numero */
 export function descriviPreavvisi(p: Preavvisi, unita: UnitaUso | null = null): string {
   const parti: string[] = [];
   const giorni = [...p.giorni].sort((a, b) => b - a);
-  if (giorni.length) parti.push(`a ${elenco(giorni.map(String))} ${giorni.length === 1 && giorni[0] === 1 ? 'giorno' : 'giorni'}`);
+  if (giorni.length) parti.push(`a ${elenco(giorni.map(String))} ${giorni[giorni.length - 1] === 1 ? 'giorno' : 'giorni'}`);
   const uso = [...p.uso].sort((a, b) => b - a);
   if (uso.length && unita) parti.push(`a ${elenco(uso.map(numero))} ${unita}`);
   return parti.length ? `avvisi ${parti.join(' e ')}` : 'nessun preavviso';
