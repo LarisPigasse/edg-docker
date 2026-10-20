@@ -22,6 +22,9 @@ const ACCOUNT_INCLUDE_ROLE = { attributes: ['id', 'name'] };
 const ACCOUNT_INCLUDE_TENANT = { attributes: ['id', 'name', 'slug'] };
 const ACCOUNT_EXCLUDE = { exclude: ['password', 'refreshToken', 'passwordResetToken', 'passwordResetExpires'] };
 
+/** ADR081: nome e cognome puliti; vuoto = null (il frontend ricava allora il nome dall'email) */
+const nomeOppureNull = (v: unknown): string | null => (typeof v === 'string' && v.trim() ? v.trim() : null);
+
 /**
  * Ruoli non assegnabili per certi accountType: regola di business, non
  * derivabile dal solo permesso. Oggi solo root → mai su un account cliente
@@ -166,8 +169,10 @@ export class AccountController {
 
       const where: any = {};
 
+      // Ricerca per email, nome o cognome (ADR081)
       if (search && typeof search === 'string') {
-        where.email = { [Op.like]: `%${search}%` };
+        const like = { [Op.like]: `%${search}%` };
+        where[Op.or] = [{ email: like }, { firstName: like }, { lastName: like }];
       }
 
       if (roleId) {
@@ -234,7 +239,7 @@ export class AccountController {
    */
   async createAccount(req: Request, res: Response): Promise<void> {
     try {
-      const { email, password, roleId, tenantId, accountType, entityId } = req.body;
+      const { email, firstName, lastName, password, roleId, tenantId, accountType, entityId } = req.body;
 
       const passwordCheck = PasswordUtils.validate(password);
       if (!passwordCheck.valid) {
@@ -269,6 +274,8 @@ export class AccountController {
       const hash = await PasswordUtils.hash(password);
       const record = await this.Account.create({
         email,
+        firstName: nomeOppureNull(firstName),
+        lastName: nomeOppureNull(lastName),
         password: hash,
         roleId,
         tenantId,
@@ -283,6 +290,8 @@ export class AccountController {
       this.audit(req, 'auth.account_created', `Creato account ${email}`, {
         accountId: record.id,
         email,
+        firstName: nomeOppureNull(firstName),
+        lastName: nomeOppureNull(lastName),
         roleId,
         accountType,
         tenantId: tenantId ?? null,
@@ -321,7 +330,7 @@ export class AccountController {
   async updateAccount(req: Request, res: Response): Promise<void> {
     try {
       const { id } = req.params;
-      const { email, password, roleId, accountType, entityId, tenantId } = req.body;
+      const { email, firstName, lastName, password, roleId, accountType, entityId, tenantId } = req.body;
 
       const account = await this.Account.findByPk(id);
       if (!account) {
@@ -366,7 +375,7 @@ export class AccountController {
       }
 
       // Stato prima della modifica, per registrare cosa cambia (da -> a)
-      const TRACKED = ['email', 'roleId', 'accountType', 'entityId', 'tenantId'] as const;
+      const TRACKED = ['email', 'firstName', 'lastName', 'roleId', 'accountType', 'entityId', 'tenantId'] as const;
       const before = Object.fromEntries(TRACKED.map(f => [f, (account as any)[f] ?? null]));
       let passwordReset = false;
 
@@ -395,6 +404,8 @@ export class AccountController {
       }
 
       if (email) account.email = email;
+      if (firstName !== undefined) account.firstName = nomeOppureNull(firstName);
+      if (lastName !== undefined) account.lastName = nomeOppureNull(lastName);
       if (roleId) account.roleId = roleId;
       if (accountType) account.accountType = accountType;
       if (entityId !== undefined) account.entityId = entityId;

@@ -14,6 +14,8 @@ export interface AccountAttributes {
   id: number; // ✅ AGGIORNATO: number invece di string (pattern dual-key)
   uuid: string; // ✅ NUOVO: UUID pubblico
   email: string;
+  firstName?: string | null; // ADR081
+  lastName?: string | null; // ADR081
   password?: string;
   accountType: AccountType;
   entityId: string;
@@ -130,6 +132,8 @@ export interface LoginRequest {
 export interface LoginResponseAccount {
   id: number;
   email: string;
+  firstName: string | null; // ADR081: nome della persona (null = da ricavare dall'email)
+  lastName: string | null; // ADR081
   accountType: AccountType;
   tenantId: number; // ✅ NUOVO (ADR009)
   roleId: number;

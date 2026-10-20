@@ -206,6 +206,8 @@ export class AuthService {
       account: {
         id: account.id,
         email: account.email,
+        firstName: account.firstName ?? null, // ADR081
+        lastName: account.lastName ?? null,
         accountType: account.accountType,
         tenantId: account.tenantId, // ✅ NUOVO (ADR009)
         roleId: account.roleId,
@@ -294,6 +296,8 @@ export class AuthService {
       account: {
         id: account.id,
         email: account.email,
+        firstName: account.firstName ?? null, // ADR081
+        lastName: account.lastName ?? null,
         accountType: account.accountType,
         tenantId: account.tenantId, // ✅ NUOVO (ADR009)
         roleId: account.roleId,

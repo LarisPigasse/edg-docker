@@ -1,5 +1,5 @@
 {
-  "lastUpdated": "2026-10-19",
+  "lastUpdated": "2026-10-20",
   "decisions": [
     {
       "id": "ADR001",
@@ -719,6 +719,24 @@
       "context": "Prova a video della procedura di avvio sul tenant EDG azzerato (2026-10-19). Prima dell'avvio le pagine Scadenze, Soggetti e Configurazione si aprivano (Configurazione diceva \"partito da zero\"); il passo Fatto non invitava al primo soggetto; la Dashboard senza soggetti diceva \"tutto in regola\"; nel nuovo soggetto \"Nessuna categoria\" era preselezionata, con il rischio di creare soggetti senza scadenze automatiche.",
       "decision": "1) Guardia unica components/RichiedeAvvio: prima dell'avvio chi configura va alla procedura, gli altri vedono \"Vigilo è in preparazione\"; le pagine del manifest diverse da home e avvio passano da dopoAvvio(() => import(...)); la home usa lo stesso componente con i figli come funzione del profilo.\n2) Passo Fatto: Vai alla Dashboard + Aggiungi il primo soggetto (dopo \"Aggiungi dalla libreria\": Vai alla Configurazione); indicatore con tutti i passi fatti. \"Aggiungi le voci\" disattivato se l'invio non cambia nulla (voci, settori, predefiniti).\n3) Dashboard senza soggetti né promemoria (senza filtri): riquadro \"Per cominciare\" al posto di numeri e colonne.\n4) Nuovo soggetto: la categoria (anche \"Nessuna categoria\") va scelta esplicitamente; Avanti spento con \"Manca: categoria\".\n5) Comuni: useInCima (procedure a passi), TornaAllElenco, utils/testo + constants/sigle (GPL). Preavvisi: il nome si accorda con l'ultimo numero (\"32, 8 e 1 giorno\").\n6) @edg/ui: focus-visible in Button e Tabs (Tabs con ring-inset), Stepper leggibile, DatePicker chiuso da Invio, FloatingFieldShell con label collegata.",
       "rationale": "Una sola regola sull'avvio invece di controlli sparsi in ogni pagina; il cliente non vede mai stati falsi (zero = tutto in regola, partito da zero) né crea per distrazione soggetti senza scadenze. Le correzioni restano nel frontend senza nuovi endpoint (costo basso); il /me in più per pagina è trascurabile rispetto a una cache da invalidare.",
+      "status": "accepted"
+    },
+    {
+      "id": "ADR081",
+      "date": "2026-10-19",
+      "title": "Identità degli utenti: un account = una persona, con nome e cognome sull'account; entità = tenant",
+      "context": "L'header delle due app mostrava un segnaposto (\"Admin Demo\") e il nome era ricavato dall'email: l'account non ha un nome. In pro-frontend ogni account è collegato a un operatore EDG (entityId); in app-frontend ogni cliente con un tenant (ADR058, 1:1) ha più utenti (admin, operatore...), senza un posto per il loro nome. Ci si chiedeva se servisse una lista utenti per cliente.",
+      "decision": "1) Un account = una persona, mai account condivisi (registri \"chi ha fatto cosa\", ADR034).\n2) auth-service: firstName e lastName (VARCHAR 64, facoltativi) su accounts, restituiti da login e /auth/me; finché vuoti il nome si ricava dall'email.\n3) Nessuna lista utenti separata: gli utenti di un cliente sono gli account del suo tenant. Le persone senza account restano nei moduli (Vigilo: soggetti persona, collegati con soggetti.idAccount) o, in futuro, nei contatti dell'anagrafica.\n4) Account operatore (pro-frontend): resta il collegamento entityId -> operatore; nome e cognome si copiano dall'operatore nel modulo Account, con il pulsante \"Aggiorna dall'operatore\" (nessuna sincronizzazione automatica per ora).\n5) Account cliente: entityId -> anagrafica non è più richiesto (il tenant identifica già il cliente, ADR058); la colonna resta.\n6) Header di app-frontend e pro-frontend: nome e cognome e, sotto, il nome del tenant (tenantName); menu utente più largo (288-384 px), ruolo in grassetto senza icona. @edg/ui riceve i dati dalle app (nessuna dipendenza da @edg/auth).",
+      "rationale": "Il nome appartiene all'identità di accesso, che vive in auth-service: un solo posto, nessuna tabella da tenere allineata con gli account. Il tenant è già il cliente (1:1), quindi l'entità da mostrare c'è senza nuove chiamate. Il pulsante al posto della sincronizzazione automatica: un operatore cambia nome di rado (il gioco non vale la candela).",
+      "status": "accepted"
+    },
+    {
+      "id": "ADR082",
+      "date": "2026-10-20",
+      "title": "Header a due righe: moduli sopra, titolo del modulo e sottovoci sotto; logo solo testo",
+      "context": "Con i sottomenu sulla stessa riga dei moduli l'header di pro-frontend superava i 1024 px (SISTEMA con sette voci) e non lasciava spazio a nome e tenant (ADR081). In app-frontend il titolo del modulo sostituiva il nome del frontend (EdgApp) e accanto al logo c'era un'immagine senza funzione.",
+      "decision": "1) Prima riga: logo dell'app solo testo (sigla + nome, nessuna immagine), indietro, HOME e moduli principali (attivo in grassetto nel colore attivo); a destra nome e tenant (da 1024 px), campanella, avatar, impostazioni.\n2) Seconda riga (32 px, filo di separazione) solo dentro un modulo con titolo o sottovoci: a sinistra, sotto il logo, il titolo del modulo (EdgModuleConfig.brand); poi le sottovoci allineate alla prima voce dopo HOME (posizione misurata dal vivo), voce attiva sottolineata come nelle Tabs; sottovoce attiva = percorso più lungo che contiene la pagina.\n3) Nessun menu al passaggio del mouse; su telefono le sottovoci restano nel menu a scomparsa e la seconda riga mostra solo il titolo.\n4) L'header pubblica la sua altezza in --edg-header-h (il menu utente si apre sotto).",
+      "rationale": "La gerarchia si legge (sezione sopra, pagine sotto, allineate alla zona dei moduli), la prima riga resta corta a qualunque numero di sottovoci e il nome del frontend resta sempre visibile. Costo: 32 px in verticale solo nelle pagine dei moduli; tutto in @edg/ui, nessuna modifica alle app.",
       "status": "accepted"
     }
   ]

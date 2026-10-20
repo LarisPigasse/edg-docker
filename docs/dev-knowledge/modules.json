@@ -3,8 +3,8 @@
   "modules": {
     "auth-service": {
       "status": "stable",
-      "notes": "ADR048: catalogo moduli e attivazioni, ModuleService per il JWT, /auth/modules, tenant con sistema.tenant e requireSystemTenant, job auth.module-expiry. 36/36 test via gateway.",
-      "lastUpdated": "2026-10-01"
+      "notes": "ADR081: firstName/lastName su accounts (migrazione 2026-10-19 eseguita), in login/refresh, gestione account e ricerca. Verificato dal vivo 7/7 + audit.",
+      "lastUpdated": "2026-10-19"
     },
     "log-service": {
       "status": "stable",
@@ -83,8 +83,8 @@
     },
     "@edg/auth (packages/auth)": {
       "status": "stable",
-      "notes": "Estratto da pro-frontend (~26 file): authSlice, useAuth, apiService, UserMenu, ConnectionStatus. Lo store app monta authReducer sotto chiave 'auth'. Nessuna dipendenza circolare con @edg/ui.",
-      "lastUpdated": "2026-08-31"
+      "notes": "ADR081: nome/iniziali da firstName/lastName (riserva email), getFirstName, useEdgUser per l'header, account aggiornato al refresh; UserMenu largo con ruolo in grassetto.",
+      "lastUpdated": "2026-10-19"
     },
     "app-frontend (edg-system)": {
       "status": "in-progress",

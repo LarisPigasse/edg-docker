@@ -9,11 +9,17 @@ import Joi from 'joi';
 // base (lunghezza minima) prima di arrivarci.
 const ACCOUNT_TYPES = ['operatore', 'cliente'] as const;
 
+// ADR081: nome e cognome della persona, facoltativi (vuoto = null)
+const firstName = Joi.string().trim().max(64).label('Nome').allow(null, '');
+const lastName = Joi.string().trim().max(64).label('Cognome').allow(null, '');
+
 export const accountSchemas = {
   create: Joi.object({
     email: Joi.string().max(256).email().label('Email').required().messages({
       'any.required': "L'email è obbligatoria",
     }),
+    firstName,
+    lastName,
     password: Joi.string().min(8).label('Password').required().messages({
       'any.required': 'La password è obbligatoria',
     }),
@@ -36,6 +42,8 @@ export const accountSchemas = {
 
   update: Joi.object({
     email: Joi.string().max(256).email().label('Email'),
+    firstName,
+    lastName,
     // Password opzionale: valorizzata solo se root sceglie di cambiarla —
     // vuota/assente = non toccarla (vedi AccountController.updateAccount).
     password: Joi.string().min(8).label('Password'),

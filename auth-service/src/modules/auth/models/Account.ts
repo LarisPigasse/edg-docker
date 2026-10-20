@@ -26,6 +26,19 @@ export const createAccountModel = (sequelize: Sequelize) => {
         },
         comment: "Email dell'utente (username)",
       },
+      // ADR081: un account = una persona. Facoltativi: vuoti = nome ricavato dall'email
+      firstName: {
+        type: DataTypes.STRING(64),
+        allowNull: true,
+        field: 'firstName',
+        comment: 'Nome della persona',
+      },
+      lastName: {
+        type: DataTypes.STRING(64),
+        allowNull: true,
+        field: 'lastName',
+        comment: 'Cognome della persona',
+      },
       password: {
         type: DataTypes.STRING(256),
         allowNull: true,
