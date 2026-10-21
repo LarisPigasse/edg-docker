@@ -14,6 +14,7 @@ import {
   createTenantModel,
   createTenantModuleModel,
   createModuleModel,
+  createAssistedSessionModel,
   setupAuthAssociations,
 } from './modules/auth/models';
 
@@ -34,6 +35,9 @@ import { ModuleCatalogService } from './modules/auth/services/ModuleCatalogServi
 import { ModuleActivationService } from './modules/auth/services/ModuleActivationService';
 import { ModuleHomeService } from './modules/auth/services/ModuleHomeService';
 import { ModuleController } from './modules/auth/controllers/ModuleController';
+import { AssistenzaService } from './modules/auth/services/AssistenzaService';
+import { AssistenzaController } from './modules/auth/controllers/AssistenzaController';
+import { createAssistenzaRouter } from './modules/auth/routes/assistenza.routes';
 import { Router, Application, Request, Response, NextFunction } from 'express';
 import { installCrashHandlers, logger } from './services/logger';
 import { requestActor } from './services/requestActor';
@@ -74,6 +78,7 @@ const AuthModuleConfig: ServerModule = {
     createAccountModel,
     createSessionModel,
     createResetTokenModel,
+    createAssistedSessionModel, // ADR085: accesso assistito
   ],
   associations: setupAuthAssociations,
 };
@@ -162,8 +167,9 @@ const startServer = async () => {
     const Tenant = models.find((m: any) => m.name === 'Tenant');
     const TenantModule = models.find((m: any) => m.name === 'TenantModule');
     const Module = models.find((m: any) => m.name === 'Module');
+    const AssistedSession = models.find((m: any) => m.name === 'AssistedSession');
 
-    if (!Account || !Session || !ResetToken || !Role || !RolePermission || !Tenant || !TenantModule || !Module) {
+    if (!Account || !Session || !ResetToken || !Role || !RolePermission || !Tenant || !TenantModule || !Module || !AssistedSession) {
       throw new Error('Errore: modelli richiesti non trovati dopo inizializzazione');
     }
     console.log('  Tutti i modelli trovati');
@@ -241,6 +247,11 @@ const startServer = async () => {
     app.use('/auth/tenants/:tenantId/modules', createTenantModuleRouter(moduleController, Tenant));
     app.use('/auth/me/modules', createMyModulesRouter(moduleController)); // home dell'utente (fase 4)
     console.log('   ✅ Router moduli registrati (/auth/modules, /auth/tenants/:tenantId/modules, /auth/me/modules)');
+
+    // 5.1ter-bis ACCESSO ASSISTITO (ADR085): il personale EDG entra nel tenant di un cliente
+    const assistenzaService = new AssistenzaService(AssistedSession, Account, Role, RolePermission, Tenant, moduleService);
+    app.use('/auth/assistenza', createAssistenzaRouter(new AssistenzaController(assistenzaService), Tenant));
+    console.log('   ✅ Router accesso assistito registrato (/auth/assistenza)');
 
     // 5.1quater ROTTE INTERNE (ADR058): solo per gli altri servizi, fuori dal gateway
     app.use('/internal', createInternalRouter(Tenant, Account));

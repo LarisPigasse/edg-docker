@@ -71,7 +71,11 @@ const AUTH_SERVICE = process.env.AUTH_SERVICE_URL || 'http://auth-service:3001';
 // Gli altri servizi (vehicle, system, log) sono in config/serviceRoutes.js
 
 // Route protette che richiedono JWT validation + gateway headers
-const PROTECTED_AUTH_ROUTES = ['/change-password', '/logout-all', '/me', '/sessions', '/blocked-users', '/users', '/accounts', '/tenants', '/modules']; // '/modules': catalogo moduli (ADR047)
+const PROTECTED_AUTH_ROUTES = ['/change-password', '/logout-all', '/me', '/sessions', '/blocked-users', '/users', '/accounts', '/tenants', '/modules', '/assistenza']; // '/modules': catalogo moduli (ADR047); '/assistenza': accesso assistito (ADR085)
+
+// Eccezioni pubbliche dentro un prefisso protetto: lo scambio del codice monouso
+// dell'accesso assistito (il codice e' la credenziale, ADR085)
+const PUBLIC_AUTH_ROUTES = ['/assistenza/scambio'];
 
 // Helper per check route admin (wildcard match)
 function isAdminRoute(path) {
@@ -79,6 +83,7 @@ function isAdminRoute(path) {
 }
 
 function isProtectedRoute(path) {
+  if (PUBLIC_AUTH_ROUTES.includes(path)) return false;
   return PROTECTED_AUTH_ROUTES.some(route => path === route || path.startsWith(route + '/'));
 }
 

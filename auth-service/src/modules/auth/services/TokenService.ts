@@ -21,9 +21,10 @@ export class TokenService {
   /**
    * Genera access token JWT
    */
-  generateAccessToken(payload: AuthTokenPayload): string {
+  generateAccessToken(payload: AuthTokenPayload, expiresInSeconds?: number): string {
     return jwt.sign(payload, this.jwtSecret, {
-      expiresIn: this.accessTokenExpiry,
+      // ADR085: il token della sessione assistita scade con la sessione
+      expiresIn: expiresInSeconds ?? this.accessTokenExpiry,
       issuer: 'edg-auth-service',
     } as any);
   }

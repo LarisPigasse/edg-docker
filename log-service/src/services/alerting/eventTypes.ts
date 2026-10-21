@@ -21,6 +21,11 @@ export const KNOWN_EVENT_TYPES: Record<string, string> = {
   'auth.account_deactivated': 'Account disattivato',
   'auth.account_reactivated': 'Account riattivato',
   'auth.account_deleted': 'Account eliminato definitivamente',
+  // ADR085: accesso assistito
+  'auth.assistenza_aperta': 'Accesso assistito aperto',
+  'auth.assistenza_entrata': 'Ingresso con l\'accesso assistito',
+  'auth.assistenza_chiusa': 'Accesso assistito chiuso',
+  'auth.assistenza_codice': 'Codice di accesso assistito non valido',
   'crud.deactivate': 'Disattivazione di un dato (referenziato altrove)',
   'crud.toggle': 'Attivazione/disattivazione di un dato',
   'health.down': 'Servizio non raggiungibile',

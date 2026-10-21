@@ -38,6 +38,7 @@ const DEFAULT_ROLES: RoleDefinition[] = [
       'sistema.moduli',
       'sistema.tenant',
       'sistema.account', // ADR049: account di tutti i tenant, mai root
+      'vigilo.*', // ADR084: tutto Vigilo (configurazione, dati, costi)
     ],
   },
   {
@@ -49,6 +50,8 @@ const DEFAULT_ROLES: RoleDefinition[] = [
       'report.read',
       'report.create',
       'report.export',
+      'vigilo.write', // ADR084: dati operativi di Vigilo (comprende la lettura)
+      'vigilo.costi', // ADR084: importi, costi e resoconti
       // NO 'gestione.*' - non può gestire utenti/ruoli
     ],
   },
@@ -59,8 +62,17 @@ const DEFAULT_ROLES: RoleDefinition[] = [
     permissions: [
       'spedizioni.read',
       'report.read',
+      'vigilo.read', // ADR084: Vigilo in sola lettura
       // Solo visualizzazione, nessuna modifica
     ],
+  },
+  {
+    // ADR084 (docs/vigilo/05-permessi.md 5.4): la persona che vede solo le
+    // proprie scadenze e quelle dei mezzi che ha assegnati
+    name: 'addetto',
+    description: 'Addetto - solo le proprie scadenze e quelle dei mezzi assegnati',
+    isSystem: true,
+    permissions: ['vigilo.own'],
   },
 ];
 

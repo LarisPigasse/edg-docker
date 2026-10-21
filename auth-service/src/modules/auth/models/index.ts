@@ -16,5 +16,8 @@ export { createTenantModuleModel } from './TenantModule';
 // Catalogo moduli (ADR047)
 export { createModuleModel } from './Module';
 
+// Accesso assistito (ADR085)
+export { createAssistedSessionModel } from './AssistedSession';
+
 // Associazioni
 export { setupAuthAssociations } from './associations';

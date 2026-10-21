@@ -45,6 +45,9 @@ create/update/delete per ogni tabella):
 | **addetto** (nuovo) | `vigilo.own` |
 | root | tutto (jolly) |
 
+> Applicato il 2026-10-21 (ADR084): migrazione `auth-service/migrations/2026-10-21-vigilo-permissions.sql`
+> e seed dei ruoli; gruppo Vigilo nel pannello Ruoli di pro-frontend.
+
 I ruoli personalizzati **per tenant** (ogni cliente con i suoi ruoli) sono un
 cambiamento della piattaforma, non di Vigilo: si rimanda, e i permessi di
 Vigilo sono già pensati per funzionare anche con ruoli del cliente.

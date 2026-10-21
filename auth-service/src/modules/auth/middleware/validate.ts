@@ -52,7 +52,12 @@ export function validate(schema: Joi.Schema, target: ValidationTarget = 'body') 
       return;
     }
 
-    (req as unknown as Record<string, unknown>)[target] = value;
+    // Express 5: req.query e' un getter, non si puo' riassegnare (L065)
+    if (target === 'query') {
+      Object.defineProperty(req, 'query', { value, configurable: true, enumerable: true, writable: true });
+    } else {
+      (req as unknown as Record<string, unknown>)[target] = value;
+    }
     next();
   };
 }

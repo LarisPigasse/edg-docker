@@ -61,6 +61,7 @@ function validateToken(token, jwtSecret) {
       modules: payload.modules || [], // ADR009: moduli attivi del tenant, usati da moduleGuard
       systemTenant: payload.systemTenant === true, // ADR051: personale EDG (token vecchi: false)
       sessionId: payload.sessionId || null,
+      assistenza: payload.assistenza || null, // ADR085: solo nei token della sessione assistita
     };
   } catch (error) {
     // Token invalido, scaduto o malformato

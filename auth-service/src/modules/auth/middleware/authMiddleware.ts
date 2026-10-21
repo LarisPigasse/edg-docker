@@ -63,6 +63,7 @@ const authenticateFromGateway = (req: Request, res: Response, next: NextFunction
         permissions: user.permissions || [],
         modules: user.modules || [], // ADR009
         sessionId: user.sessionId ?? null,
+        assistenza: user.assistenza ?? null, // ADR085: le due identita' della sessione assistita
       };
       // sessionId anche a livello top — SessionController.revokeSession lo
       // legge da qui per impedire all'admin di revocare la propria sessione

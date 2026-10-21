@@ -8,6 +8,7 @@ export const setupAuthAssociations = (models: any[]) => {
   const Tenant = models.find(m => m.name === 'Tenant');
   const TenantModule = models.find(m => m.name === 'TenantModule');
   const Module = models.find(m => m.name === 'Module');
+  const AssistedSession = models.find(m => m.name === 'AssistedSession');
 
   // ============================================================================
   // ASSOCIAZIONI BASE (Account - Session - ResetToken)
@@ -70,6 +71,18 @@ export const setupAuthAssociations = (models: any[]) => {
     TenantModule.belongsTo(Account, { foreignKey: 'grantedBy', as: 'grantor' });
   }
 
+  // ============================================================================
+  // ACCESSO ASSISTITO (AssistedSession - Account - Tenant) - ADR085
+  // ============================================================================
+
+  if (AssistedSession && Account) {
+    AssistedSession.belongsTo(Account, { foreignKey: 'operatorAccountId', as: 'operatore' });
+  }
+
+  if (AssistedSession && Tenant) {
+    AssistedSession.belongsTo(Tenant, { foreignKey: 'tenantId', as: 'tenant' });
+  }
+
   console.log('Associazioni Auth configurate:');
   console.log(' - Account → Session (hasMany)');
   console.log(' - Account → ResetToken (hasMany)');
@@ -80,4 +93,5 @@ export const setupAuthAssociations = (models: any[]) => {
   console.log(' - Tenant → Account (hasMany)');
   console.log(' - Tenant → TenantModule (hasMany)');
   console.log(' - Module → TenantModule (hasMany, per chiave)');
+  console.log(' - AssistedSession → Account, Tenant (belongsTo)');
 };

@@ -11,7 +11,7 @@ const router = Router();
 const h = createCrudHandlers({
   model: Anagrafica,
   resourceName: 'Anagrafica',
-  searchFields: ['ragioneSociale', 'partitaIva', 'codiceFiscale', 'referente'],
+  searchFields: ['ragioneSociale', 'partitaIva', 'codiceFiscale', 'referente', 'emailReferente'],
   defaultOrder: [['ragioneSociale', 'ASC']],
   softDelete: true,
   // ADR021: isolamento multi-tenant. Per account non-operatore, idTenant è
@@ -23,6 +23,7 @@ const h = createCrudHandlers({
     if (query.tipo) where.tipo = query.tipo;
     if (query.idTenant) where.idTenant = Number(query.idTenant);
     if (query.idSettore) where.idSettore = Number(query.idSettore); // ADR059
+    if (query.idOperatoreReferente) where.idOperatoreReferente = Number(query.idOperatoreReferente); // ADR086: Seguito da
     return where;
   },
   tenantScoped: true,

@@ -29,6 +29,8 @@ function createSessionGuard(redisClient) {
   const isAccountBlocked = accountId => (accountId ? isFlagged(`blocked:${accountId}`) : Promise.resolve(false));
   const isSessionBlocked = sessionId =>
     sessionId ? isFlagged(`blocked:session:${sessionId}`) : Promise.resolve(false);
+  // ADR085: sessione assistita chiusa (uscita o chiusura da EDG) prima della scadenza
+  const isAssistBlocked = assistId => (assistId ? isFlagged(`blocked:assist:${assistId}`) : Promise.resolve(false));
 
   /** Middleware: 401 se l'account e' disattivato o la sessione revocata */
   const sessionGuard = async (req, res, next) => {
@@ -38,10 +40,13 @@ function createSessionGuard(redisClient) {
     if (await isSessionBlocked(req.userData?.sessionId)) {
       return res.status(401).json({ success: false, error: 'Sessione revocata' });
     }
+    if (await isAssistBlocked(req.userData?.assistenza?.id)) {
+      return res.status(401).json({ success: false, error: 'Sessione di assistenza terminata' });
+    }
     next();
   };
 
-  return { isAccountBlocked, isSessionBlocked, sessionGuard };
+  return { isAccountBlocked, isSessionBlocked, isAssistBlocked, sessionGuard };
 }
 
 module.exports = { createSessionGuard };

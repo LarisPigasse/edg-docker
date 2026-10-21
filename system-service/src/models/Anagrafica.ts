@@ -30,6 +30,9 @@ interface AnagraficaAttributes {
   telefono: string | null;
   email: string | null;
   referente: string | null;
+  telefonoReferente: string | null;
+  emailReferente: string | null;
+  idOperatoreReferente: number | null;
   note: string | null;
   isActive: boolean;
   createdAt?: Date;
@@ -51,6 +54,9 @@ interface AnagraficaCreationAttributes
     | 'telefono'
     | 'email'
     | 'referente'
+    | 'telefonoReferente'
+    | 'emailReferente'
+    | 'idOperatoreReferente'
     | 'note'
     | 'isActive'
   > {}
@@ -74,6 +80,9 @@ class Anagrafica
   declare telefono: string | null;
   declare email: string | null;
   declare referente: string | null;
+  declare telefonoReferente: string | null;
+  declare emailReferente: string | null;
+  declare idOperatoreReferente: number | null;
   declare note: string | null;
   declare isActive: boolean;
   declare createdAt: Date;
@@ -154,6 +163,20 @@ Anagrafica.init(
     },
     referente: {
       type: DataTypes.STRING(64),
+      allowNull: true,
+    },
+    // ADR086: contatti del referente presso il cliente (email = dell'azienda)
+    telefonoReferente: {
+      type: DataTypes.STRING(64),
+      allowNull: true,
+    },
+    emailReferente: {
+      type: DataTypes.STRING(64),
+      allowNull: true,
+    },
+    // ADR086: "Seguito da", l'operatore EDG che segue il cliente (vincolo vero nel DB)
+    idOperatoreReferente: {
+      type: DataTypes.INTEGER,
       allowNull: true,
     },
     note: {

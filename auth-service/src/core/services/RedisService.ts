@@ -119,6 +119,44 @@ class RedisService {
     return result === '1';
   }
 
+  // ==========================================================================
+  // ACCESSO ASSISTITO (ADR085)
+  // ==========================================================================
+
+  /**
+   * Memorizza il codice monouso di una sessione assistita.
+   * false se Redis non e' disponibile: senza Redis il codice non puo' essere
+   * monouso, quindi la sessione non si apre.
+   */
+  async saveAssistCode(code: string, sessionId: number, ttlSeconds: number): Promise<boolean> {
+    if (!this.client || !this.connected) return false;
+    await this.client.setex(`assist:code:${code}`, ttlSeconds, String(sessionId));
+    return true;
+  }
+
+  /**
+   * Legge e cancella il codice in un colpo solo (monouso): null se non c'e',
+   * se e' scaduto o se e' gia' stato usato.
+   */
+  async takeAssistCode(code: string): Promise<number | null> {
+    if (!this.client || !this.connected) return null;
+    const key = `assist:code:${code}`;
+    const results = await this.client.multi().get(key).del(key).exec();
+    const value = results?.[0]?.[1];
+    const sessionId = typeof value === 'string' ? Number(value) : NaN;
+    return Number.isInteger(sessionId) && sessionId > 0 ? sessionId : null;
+  }
+
+  /**
+   * Chiude subito una sessione assistita: il gateway respinge i suoi token
+   * (sessionGuard). TTL = tempo che restava alla sessione.
+   */
+  async blockAssistSession(sessionId: number, ttlSeconds: number): Promise<void> {
+    if (!this.client || !this.connected) return;
+    await this.client.setex(`blocked:assist:${sessionId}`, Math.max(1, ttlSeconds), '1');
+    console.log(`🔒 [Redis] Sessione assistita ${sessionId} chiusa per ${ttlSeconds}s`);
+  }
+
   /**
    * Verifica se Redis è disponibile.
    */

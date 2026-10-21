@@ -14,4 +14,8 @@ Reparto.hasMany(Operatore, { foreignKey: 'idReparto', as: 'operatori' });
 Anagrafica.belongsTo(Settore, { foreignKey: 'idSettore', as: 'settore' });
 Settore.hasMany(Anagrafica, { foreignKey: 'idSettore', as: 'anagrafiche' });
 
+// Anagrafica N:1 Operatore: "Seguito da" (facoltativo, ADR086)
+Anagrafica.belongsTo(Operatore, { foreignKey: 'idOperatoreReferente', as: 'seguitoDa' });
+Operatore.hasMany(Anagrafica, { foreignKey: 'idOperatoreReferente', as: 'clientiSeguiti' });
+
 export { Reparto, Operatore, Anagrafica, Settore };

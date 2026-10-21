@@ -56,6 +56,7 @@ function injectGatewayHeaders(req, res, next) {
     modules: req.userData.modules || [], // ADR009: informativo per i microservizi a valle, il controllo reale è moduleGuard
     systemTenant: req.userData.systemTenant === true, // ADR051: dal JWT firmato; log-service lo richiede per 'sistema.*'
     sessionId: req.userData.sessionId || null, // usato da SessionController per non far revocare all'admin la propria sessione corrente
+    assistenza: req.userData.assistenza || null, // ADR085: le due identita' della sessione assistita (chi agisce e in quale tenant)
   });
 
   next();

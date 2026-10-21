@@ -1,4 +1,5 @@
 // src/modules/auth/types/auth.types.ts
+import type { AssistenzaClaim } from './assistenza.types';
 
 // ============================================================================
 // ACCOUNT TYPES
@@ -176,6 +177,7 @@ export interface AuthTokenPayload {
   modules: string[]; // ✅ NUOVO (ADR009): moduli attivi del tenant ['vehicles', 'vigilo', ...] o ['*']. Valori attesi: FeatureModule
   systemTenant?: boolean; // ADR051: account del tenant di sistema (personale EDG); assente nei token emessi prima
   sessionId?: number; // ✅ AGGIORNATO: number
+  assistenza?: AssistenzaClaim; // ADR085: solo nei token della sessione assistita
 
   // JWT standard fields (aggiunti automaticamente da jsonwebtoken)
   iat?: number; // issued at

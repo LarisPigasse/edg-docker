@@ -1,5 +1,5 @@
 {
-  "lastUpdated": "2026-10-19",
+  "lastUpdated": "2026-10-21",
   "lessons": [
     {
       "id": "L001",
@@ -576,6 +576,15 @@
       "title": "Stati dell'interfaccia irraggiungibili con i dati: alterare fetch nel browser",
       "problem": "Alcuni stati (Vigilo non avviato, Dashboard vuota, passo Fatto del primo avvio) non si possono vedere a video senza azzerare i dati o rifare operazioni non ripetibili; azzerare costa e cancella i dati di prova.",
       "solution": "Nella pagina, sostituire window.fetch con un involucro che modifica le risposte (es. /me con avviatoIl null, /dashboard con soggetti vuoti) e risponde da sé ai POST da non inviare; navigare con history.pushState + dispatchEvent(new PopStateEvent('popstate')) per non ricaricare; a prova finita ricaricare la pagina. apiFetch di @edg/auth usa fetch. Attenzione: resize_window può ricaricare la pagina e togliere l'involucro."
+    },
+    {
+      "id": "L065",
+      "date": "2026-10-21",
+      "category": "express",
+      "severity": "medium",
+      "title": "Express 5: req.query non si riassegna; campi nuovi del JWT da copiare in auth-service",
+      "problem": "1) In auth-service (Express 5) validateQuery faceva req.query = value: req.query è un getter e l'assegnazione lancia un TypeError, quindi 500 prima del controller. validateQuery non era mai stato usato, il difetto era nascosto. 2) In gateway mode auth-service non usa x-user-data così com'è: verifyGateway (req.user) e authMiddleware (req.account) ricopiano campo per campo, quindi un campo nuovo del JWT passato dal gateway (es. assistenza, ADR085) sparisce.",
+      "solution": "1) In middleware/validate.ts per target 'query' si usa Object.defineProperty(req, 'query', { value, configurable, enumerable, writable }). 2) Un campo nuovo del token va aggiunto in quattro punti: jwtValidator.validateToken e gatewayHeaders (gateway), verifyGateway.extractUserData e authMiddleware.authenticateFromGateway (auth-service). Negli altri servizi va controllato il loro middleware auth."
     }
   ]
 }

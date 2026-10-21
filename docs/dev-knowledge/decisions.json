@@ -1,5 +1,5 @@
 {
-  "lastUpdated": "2026-10-20",
+  "lastUpdated": "2026-10-21",
   "decisions": [
     {
       "id": "ADR001",
@@ -746,6 +746,42 @@
       "context": "Calendario previsto subito dopo B7 (ADR070, 07-interfaccia 7.11). Da decidere che cosa mostra, in quale giorno e come nella cella.",
       "decision": "1) API GET /api/vigilo/calendario?dal&al (al massimo 64 giorni) con gli stessi filtri di elenco e dashboard (tipo, natura, sede, categoria, testo, controllo): solo scadenze APERTE, ciascuna nel giorno urgenzaIl (la prima fra data e data stimata dall'uso; \"stimata\" se arriva prima la stima), testo dello stato pronto; arretrato = aperte con data prima del mese corrente; fino a 1024 voci (troncato). Regole pure in domini/calendario/periodo.ts con test.\n2) @edg/ui MonthCalendar generico: 6 settimane da lunedì, mese precedente/successivo e Oggi, giorno scelto; il contenuto del giorno lo decide chi lo usa.\n3) Pagina /vigilo/calendario (menu tra Soggetti e Configurazione): filtri come la dashboard; mese a sinistra con etichette brevi colorate per stato (fino a 3, poi \"+N altre\"; pallini sotto i 1024 px), a destra l'elenco del giorno scelto con il pannello della scadenza; mese nell'indirizzo (?mese=AAAA-MM), le tessere dei 12 mesi della dashboard ci portano; \"Arretrato: N\" con collegamento all'elenco.\n4) Le scadenze già fatte non compaiono (lo storico è nell'elenco e nella scheda del soggetto).",
       "rationale": "Il calendario risponde a \"che cosa devo fare e quando\": le etichette dicono che cosa scade senza aprire il giorno; urgenzaIl è la stessa data usata per l'ordine per urgenza, quindi calendario e dashboard concordano. Componente generico perché servirà anche ad altri moduli.",
+      "status": "accepted"
+    },
+    {
+      "id": "ADR084",
+      "date": "2026-10-21",
+      "title": "Permessi vigilo.* sui ruoli, ruolo addetto e Accesso assistito prima di \"chi prepara Vigilo\"",
+      "context": "vigilo-service controllava già cinque capacità (config, write, read, costi, own), ma nessun ruolo aveva permessi vigilo.*: Vigilo lo vedeva solo root. Discutendo \"chi prepara Vigilo\" (ADR077) è emerso il processo voluto dall'utente: EDG crea tenant, account e anagrafica; all'attivazione si sceglie se prepara il cliente o un operatore EDG, che resta registrato; a preparazione completata partono un'email al cliente e una a chi lo segue in EDG. L'anagrafica avrà l'email del referente e un \"Seguito da\" (operatore EDG). La toppa di ADR077 punto 3 (account nominativo nel tenant del cliente) urta contro l'email unica degli account (indice unique su accounts.email) e sporcherebbe per sempre il registro non modificabile delle decisioni.",
+      "decision": "1) Migrazione auth-service 2026-10-21-vigilo-permissions.sql (eseguita) e seed allineato: admin vigilo.*; operatore vigilo.write + vigilo.costi; guest vigilo.read; nuovo ruolo di sistema addetto con vigilo.own. Valgono dal prossimo login/rinnovo. 2) pro-frontend: gruppo Vigilo attivo nel catalogo dei permessi (Configurazione, Dati operativi, Lettura, Costi e resoconti, Solo il proprio (addetto)); etichetta Addetto in roleLabels. 3) Priorità riviste: niente toppa. Ordine: analisi e realizzazione dell'Accesso assistito (prima la modalità Preparazione, l'Assistenza in sola lettura dopo) → anagrafica (email referente, Seguito da) → attivazione con chi prepara, quale operatore e settori suggeriti → vigilo-service (chi può avviare = sessione assistita in Preparazione, \"EDG sta preparando Vigilo per te\", nome di chi decide) → email al completamento (email-service; al cliente solo se ha preparato EDG, a chi lo segue sempre). Chi prepara si registra come operatore (persona), non come account.",
+      "rationale": "I permessi seguono l'analisi approvata (05-permessi 5.3) e sbloccano Vigilo per admin e operatori, e per B8 (l'ufficio degli avvisi). L'Accesso assistito era già previsto (ADR077 punto 2): farlo prima evita lavoro da buttare (regola sul tipo di account, account alias da creare e disattivare per ogni cliente) e dà nel registro l'attribuzione alla persona che agisce davvero.",
+      "status": "accepted"
+    },
+    {
+      "id": "ADR085",
+      "date": "2026-10-21",
+      "title": "Accesso assistito: modello approvato (sessione assistita, token con due identità, codice monouso)",
+      "context": "ADR077 prevedeva l'Accesso assistito; ADR084 lo ha anticipato per evitare l'account nominativo provvisorio. Analisi in docs/piattaforma/accesso-assistito.md, approvata il 2026-10-21.",
+      "decision": "Tabella assisted_sessions in edg_auth (operatore, tenant, modo preparazione/assistenza, perConto, motivo obbligatorio, inizio/scadenza/fine, ip). Token JWT normale con campo assistenza { id, modo, operatore, tenant, scade }: in Preparazione accountId = operatore, tenantId = cliente, permessi = quelli del ruolo admin limitati ai moduli attivi del tenant e mai sistema.*, systemTenant false; durata 64 minuti fissi senza refresh né proroga; chiusura immediata con blocked:assist:<id> in sessionGuard. Permesso nuovo sistema.assistenza (solo personale EDG), chiunque lo abbia può entrare in qualsiasi tenant attivo non di sistema, una sessione aperta per operatore. Flusso: pro-frontend \"Entra nel tenant\" → POST /auth/assistenza → codice monouso (64 s, Redis) → app-frontend /assistenza#codice → POST /auth/assistenza/scambio → token solo in sessionStorage della scheda con precedenza sulla sessione normale → barra sempre visibile con scadenza e Esci → POST /auth/assistenza/fine. Log di inizio e fine in log-service; assistenza passata in x-user-data. Blocchi: AA1 auth-service+gateway, AA2 @edg/auth+@edg/ui+app-frontend, AA3 pro-frontend; dopo AA4 Assistenza in sola lettura, AA5 accessi visibili al cliente.",
+      "rationale": "Il token resta un JWT normale, quindi gateway e servizi funzionano senza modifiche e l'audit attribuisce le azioni alla persona che agisce davvero. Niente password altrui né account di comodo; durata breve, tracce complete e chiusura immediata limitano il rischio. Il codice dopo '#' non arriva ai server; la sessione per scheda non tocca quella normale dell'operatore.",
+      "status": "accepted"
+    },
+    {
+      "id": "ADR086",
+      "date": "2026-10-21",
+      "title": "Anagrafica: contatti del referente e \"Seguito da\" (operatore EDG)",
+      "context": "Per il processo di Vigilo (ADR084) servono, a preparazione completata, l'email del referente presso il cliente e l'operatore EDG che lo segue. L'anagrafica aveva solo referente (testo) ed email dell'azienda.",
+      "decision": "Migrazione system-service 20261021-01-anagrafiche-referente.js (eseguita): telefono_referente, email_referente (VARCHAR 64, facoltativi) e id_operatore_referente (FK operatori, ON DELETE RESTRICT: un operatore che segue clienti si disattiva invece di eliminarsi, ADR014). Modello con associazione seguitoDa, Joi (email valida), filtro ?idOperatoreReferente=, ricerca anche su emailReferente. pro-frontend Anagrafiche: riga Referente · Telefono del referente · Email del referente e selettore \"Seguito da\" (operatori attivi \"Nome Cognome · Reparto\", più quello già scelto se disattivato, hook useOperatoriEdg); sezione Referente nel dettaglio, colonna e filtro \"Seguito da\", colonne nel PDF. Valgono per clienti e partner. La rotta interna per leggerli arriva con P5.",
+      "rationale": "Operatori e anagrafiche stanno nello stesso database: un vincolo vero è più solido di un testo libero e permette nome ed email sempre aggiornati e, in futuro, \"i miei clienti\". Email dell'azienda e del referente restano separate.",
+      "status": "accepted"
+    },
+    {
+      "id": "ADR087",
+      "date": "2026-10-21",
+      "title": "Impostazioni dei moduli all'attivazione: registro degli editor e \"chi prepara Vigilo\"",
+      "context": "ADR077/ADR084: all'attivazione di Vigilo per un cliente si sceglie chi lo prepara (cliente o EDG, con l'operatore registrato, obbligatorio se EDG) e i settori suggeriti. tenant_modules.config esisteva ma nessuna interfaccia lo usava; i settori stanno nella libreria di vigilo-service.",
+      "decision": "vigilo-service: GET /api/vigilo/libreria/modelli (qualunque permesso Vigilo) con chiave, nome, descrizione, sempreProposto. pro-frontend: registro components/tenant/config (types.ts con ModuleConfigDef {initial, validate, Summary, Editor}; index.ts chiave → definizione); ActivationFormModal mostra l'editor del modulo sotto il periodo, blocca la conferma con l'errore dell'editor (mostrato solo accanto al campo) e invia config in create/update; ModuleActivationRow mostra il riassunto. Vigilo: config { preparazione: 'cliente'|'edg', idOperatore (operatore di system-service, obbligatorio se edg, proposto dal Seguito da del cliente collegato al tenant), modelli: [...] (default ['base']) }; file vigiloConfig.ts (logica e hook useModelliLibreria), VigiloConfigEditor.tsx, VigiloConfigSummary.tsx. Config senza valori = prepara il cliente, settore Base.",
+      "rationale": "La finestra di attivazione resta generica e ogni modulo porta le sue impostazioni con una voce nel registro. La lista dei settori viene dalla libreria (niente duplicati nel codice) senza passare dalla procedura di avvio del proprio tenant.",
       "status": "accepted"
     }
   ]

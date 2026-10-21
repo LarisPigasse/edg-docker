@@ -105,6 +105,7 @@ export const extractUserData = (req: Request, res: Response, next: NextFunction)
       permissions: userData.permissions || [],
       modules: userData.modules || [], // ADR009
       sessionId: userData.sessionId ?? null,
+      assistenza: userData.assistenza ?? null, // ADR085: solo nella sessione assistita
     };
 
     next();

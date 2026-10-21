@@ -6,6 +6,7 @@ import { SessionController } from '../controllers/SessionController';
 import { authenticate } from '../middleware/authMiddleware';
 import { requirePermission, requireRoot } from '../middleware/permissionMiddleware';
 import { requireSystemTenant } from '../middleware/tenantMiddleware';
+import { vietatoInAssistenza } from '../middleware/assistenzaMiddleware';
 
 /**
  * Rate Limiters SPECIFICI per business logic
@@ -113,11 +114,11 @@ export const createAuthRouter = (
   console.log('      ✅ POST /logout');
 
   // Logout all - richiede autenticazione
-  router.post('/logout-all', authenticate, authController.logoutAll);
+  router.post('/logout-all', authenticate, vietatoInAssistenza, authController.logoutAll); // ADR085
   console.log('      ✅ POST /logout-all (+ authenticate)');
 
   // Change password - richiede autenticazione
-  router.post('/change-password', authenticate, authController.changePassword);
+  router.post('/change-password', authenticate, vietatoInAssistenza, authController.changePassword); // ADR085
   console.log('      ✅ POST /change-password (+ authenticate)');
 
   // Get current account - richiede autenticazione
