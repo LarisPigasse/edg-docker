@@ -371,6 +371,21 @@ Ancora da decidere: `focus-visible` negli altri componenti cliccabili di
 - **Calendario**: mese con i puntini colorati per stato, elenco del giorno
   scelto, stessi filtri della dashboard.
 
+**Calendario realizzato il 2026-10-20 (ADR083)**: `pages/CalendarioPage` su
+`/vigilo/calendario` (voce di menu tra Soggetti e Configurazione). Servizio
+`GET /calendario?dal&al` (al massimo 64 giorni): solo scadenze aperte, nel
+giorno `urgenzaIl` (stimate dall'uso in corsivo), arretrato. Pagina: filtri e
+ricerca come la dashboard; a sinistra le schede del giorno scelto (256 px,
+alte quanto il calendario con lo scorrimento interno; sotto i 1024 px sopra il
+calendario, alte quanto serve), che aprono il pannello della scadenza; a
+destra `MonthCalendar` di @edg/ui (6 settimane da lunedì, frecce, Oggi) con,
+da 1024 px, etichette colorate per fascia come le schede di Da fare (titolo e,
+sotto, il soggetto; al massimo 3, poi "+N altre"), più stretto pallini. Il mese è nell'indirizzo (`?mese=AAAA-MM`): le
+tessere di "I prossimi 12 mesi" della dashboard ci portano. "Arretrato: N" →
+elenco delle scadenze. Codice: `hooks/useCalendario`, `components/calendario/`
+(CellaGiorno, ElencoGiorno), `api/calendario`, `types/calendario`;
+`constants/fasce` ha il colore `fondo` per etichette e pallini.
+
 ## 7.12 Componenti
 
 - Specifici di Vigilo in `features/vigilo/components/` (StatoScadenza,

@@ -738,6 +738,15 @@
       "decision": "1) Prima riga: logo dell'app solo testo (sigla + nome, nessuna immagine), indietro, HOME e moduli principali (attivo in grassetto nel colore attivo); a destra nome e tenant (da 1024 px), campanella, avatar, impostazioni.\n2) Seconda riga (32 px, filo di separazione) solo dentro un modulo con titolo o sottovoci: a sinistra, sotto il logo, il titolo del modulo (EdgModuleConfig.brand); poi le sottovoci allineate alla prima voce dopo HOME (posizione misurata dal vivo), voce attiva sottolineata come nelle Tabs; sottovoce attiva = percorso più lungo che contiene la pagina.\n3) Nessun menu al passaggio del mouse; su telefono le sottovoci restano nel menu a scomparsa e la seconda riga mostra solo il titolo.\n4) L'header pubblica la sua altezza in --edg-header-h (il menu utente si apre sotto).",
       "rationale": "La gerarchia si legge (sezione sopra, pagine sotto, allineate alla zona dei moduli), la prima riga resta corta a qualunque numero di sottovoci e il nome del frontend resta sempre visibile. Costo: 32 px in verticale solo nelle pagine dei moduli; tutto in @edg/ui, nessuna modifica alle app.",
       "status": "accepted"
+    },
+    {
+      "id": "ADR083",
+      "date": "2026-10-20",
+      "title": "Vigilo: Calendario — scadenze aperte nel giorno in cui arrivano, etichette brevi nella cella, MonthCalendar generico",
+      "context": "Calendario previsto subito dopo B7 (ADR070, 07-interfaccia 7.11). Da decidere che cosa mostra, in quale giorno e come nella cella.",
+      "decision": "1) API GET /api/vigilo/calendario?dal&al (al massimo 64 giorni) con gli stessi filtri di elenco e dashboard (tipo, natura, sede, categoria, testo, controllo): solo scadenze APERTE, ciascuna nel giorno urgenzaIl (la prima fra data e data stimata dall'uso; \"stimata\" se arriva prima la stima), testo dello stato pronto; arretrato = aperte con data prima del mese corrente; fino a 1024 voci (troncato). Regole pure in domini/calendario/periodo.ts con test.\n2) @edg/ui MonthCalendar generico: 6 settimane da lunedì, mese precedente/successivo e Oggi, giorno scelto; il contenuto del giorno lo decide chi lo usa.\n3) Pagina /vigilo/calendario (menu tra Soggetti e Configurazione): filtri come la dashboard; mese a sinistra con etichette brevi colorate per stato (fino a 3, poi \"+N altre\"; pallini sotto i 1024 px), a destra l'elenco del giorno scelto con il pannello della scadenza; mese nell'indirizzo (?mese=AAAA-MM), le tessere dei 12 mesi della dashboard ci portano; \"Arretrato: N\" con collegamento all'elenco.\n4) Le scadenze già fatte non compaiono (lo storico è nell'elenco e nella scheda del soggetto).",
+      "rationale": "Il calendario risponde a \"che cosa devo fare e quando\": le etichette dicono che cosa scade senza aprire il giorno; urgenzaIl è la stessa data usata per l'ordine per urgenza, quindi calendario e dashboard concordano. Componente generico perché servirà anche ad altri moduli.",
+      "status": "accepted"
     }
   ]
 }

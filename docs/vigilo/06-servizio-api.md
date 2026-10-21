@@ -50,7 +50,7 @@ basta.
 |---|---|---|
 | Io | `GET /me` — permessi effettivi, persona collegata, avvio fatto | tutti |
 | Dashboard | `GET /dashboard` — conteggi per stato, per controllo, per mese (12 + arretrato), soggetti per tipo, fatte in tempo; stessi filtri dell'elenco (tipo, categoria, sede, natura, testo). L'elenco è `GET /scadenze` (ADR078) | read · own |
-| Calendario | `GET /calendario?dal&al` | read · own |
+| Calendario | `GET /calendario?dal&al` (al massimo 64 giorni; scadenze aperte nel giorno `urgenzaIl`, `stimata` se arriva prima la stima; `arretrato`; stessi filtri dell'elenco; ADR083) | read · own |
 | Scadenze | `GET /scadenze` (filtro `controllo` = uno o più uuid separati da virgola, fino a 32), `GET /scadenze/:id` (con impostazioni effettive, ultime registrazioni, `prossimaSeRegistrataOggi`, `richieste` dato per dato e `rinviabile`, per il pannello delle azioni), `POST /scadenze` (anche promemoria), `PATCH /scadenze/:id` (data, ridefinizioni, note) | read / write |
 | Registrazioni | `GET /registrazioni?soggetto=` (storico del soggetto, le più recenti per prime, con il titolo della scadenza), `POST /scadenze/:id/registrazioni` (esecuzione; dall'addetto = segnalazione), `POST /scadenze/:id/rinvio`, `POST /registrazioni/:id/conferma`, `POST /registrazioni/:id/rifiuto` | write · own |
 | Soggetti | `GET/POST /soggetti`, `GET/PATCH /soggetti/:id`, `POST /soggetti/:id/stato` (fermo, dismesso) | read / write |

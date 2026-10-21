@@ -1,5 +1,5 @@
 {
-  "lastUpdated": "2026-10-19",
+  "lastUpdated": "2026-10-20",
   "modules": {
     "auth-service": {
       "status": "stable",
@@ -108,8 +108,8 @@
     },
     "vigilo (modulo app-frontend)": {
       "status": "in-progress",
-      "notes": "B7 committato; prova dell'avvio da capo fatta (ADR080: guardia RichiedeAvvio, primi passi, categoria esplicita). Prossimo: calendario, poi permessi vigilo.* e B8.",
-      "lastUpdated": "2026-10-19"
+      "notes": "Calendario fatto (ADR083): pagina /vigilo/calendario con MonthCalendar, etichette/pallini, elenco del giorno, ?mese. Prossimo: permessi vigilo.* e chi prepara Vigilo, poi B8.",
+      "lastUpdated": "2026-10-20"
     },
     "revisione UI @edg/ui": {
       "status": "in-progress",
@@ -148,8 +148,8 @@
     },
     "vigilo-service": {
       "status": "in-progress",
-      "notes": "B1-B7 committati, 97 test Jest. Da ricostruire: testi \"e 1 giorno\" (ADR080). Prossimi: GET /calendario, rotta interna auth per vigilo.*, B8 avvisi.",
-      "lastUpdated": "2026-10-19"
+      "notes": "GET /calendario (ADR083) verificato dal vivo 13/13; 105 test Jest. Prossimi: rotta interna auth per vigilo.* e nome di chi decide, B8 avvisi.",
+      "lastUpdated": "2026-10-20"
     }
   }
 }

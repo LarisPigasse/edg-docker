@@ -19,6 +19,7 @@ import { contatoriRoutes } from './contatori/contatore.routes';
 import { scadenzeRoutes } from './scadenze/scadenza.routes';
 import { avvioRoutes } from './avvio/avvio.routes';
 import { dashboardRoutes } from './dashboard/dashboard.routes';
+import { calendarioRoutes } from './calendario/calendario.routes';
 
 const router = Router();
 
@@ -34,5 +35,6 @@ router.use(contatoriRoutes);
 router.use(scadenzeRoutes);
 router.use(avvioRoutes);
 router.use(dashboardRoutes);
+router.use(calendarioRoutes);
 
 export default router;
