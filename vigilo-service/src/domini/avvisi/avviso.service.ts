@@ -2,18 +2,25 @@
 // Avvisi dell'utente: la campanella (ADR090)
 // =============================================================================
 import type { Contesto } from '../../core/contesto';
-import { Avviso, Consegna, Scadenza, Soggetto } from '../modelli';
+import { Avviso, Consegna, Controllo, Scadenza, Soggetto } from '../modelli';
+import { statoDelTesto, tonoAvviso, type TonoAvviso } from './testo';
 
 export interface VoceAvviso {
   uuid: string;
+  /** Il testo intero, come nelle email */
   testo: string;
+  /** Prima riga: il titolo della scadenza (o del controllo) di oggi */
+  titolo: string;
+  /** Lo stato alla nascita dell'avviso ("scade tra 2 giorni · 24 ott") */
+  stato: string;
+  tono: TonoAvviso;
   tipo: string;
   urgente: boolean;
   /** inviato = da leggere · letto · risolto (non serve più) */
-  stato: string;
+  consegna: string;
   creatoIl: Date;
   scadenza: { uuid: string } | null;
-  soggetto: { uuid: string; nome: string } | null;
+  soggetto: { uuid: string; nome: string; identificativo: string | null } | null;
 }
 
 const delUtente = (ctx: Contesto) => ({ idTenant: ctx.idTenant, idAccount: ctx.utente.id, canale: 'app' as const });
@@ -34,8 +41,11 @@ export async function mieiAvvisi(ctx: Contesto, limit: number): Promise<{ nonLet
             {
               model: Scadenza,
               as: 'scadenza',
-              attributes: ['uuidScadenza'],
-              include: [{ model: Soggetto, as: 'soggetto', attributes: ['uuidSoggetto', 'nome'] }],
+              attributes: ['uuidScadenza', 'titolo'],
+              include: [
+                { model: Soggetto, as: 'soggetto', attributes: ['uuidSoggetto', 'nome', 'identificativo'] },
+                { model: Controllo, as: 'controllo', attributes: ['nome'] },
+              ],
             },
           ],
         },
@@ -49,15 +59,19 @@ export async function mieiAvvisi(ctx: Contesto, limit: number): Promise<{ nonLet
     voci: righe.map(c => {
       const a = c.avviso!;
       const s = a.scadenza ?? null;
+      const stato = statoDelTesto(a.testo);
       return {
         uuid: a.uuidAvviso,
         testo: a.testo,
+        titolo: s?.titolo || s?.controllo?.nome || a.testo.slice(0, Math.max(0, a.testo.length - stato.length - 2)) || 'Avviso',
+        stato,
+        tono: tonoAvviso(a.evento, a.urgente),
         tipo: a.tipo,
         urgente: a.urgente,
-        stato: c.stato,
+        consegna: c.stato,
         creatoIl: a.createdAt,
         scadenza: s ? { uuid: s.uuidScadenza } : null,
-        soggetto: s?.soggetto ? { uuid: s.soggetto.uuidSoggetto, nome: s.soggetto.nome } : null,
+        soggetto: s?.soggetto ? { uuid: s.soggetto.uuidSoggetto, nome: s.soggetto.nome, identificativo: s.soggetto.identificativo ?? null } : null,
       };
     }),
   };

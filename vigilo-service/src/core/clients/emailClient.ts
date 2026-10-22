@@ -11,7 +11,7 @@ const TIMEOUT_MS = 8192;
 export interface EmailDaInviare {
   to: string;
   subject: string;
-  template: 'vigilo/pronto-cliente' | 'vigilo/pronto-edg';
+  template: 'vigilo/pronto-cliente' | 'vigilo/pronto-edg' | 'vigilo/avviso' | 'vigilo/riepilogo';
   data: Record<string, unknown>;
   replyTo?: string;
 }

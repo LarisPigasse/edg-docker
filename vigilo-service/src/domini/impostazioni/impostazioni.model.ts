@@ -9,8 +9,11 @@
 // =============================================================================
 import { CreationOptional, DataTypes, InferAttributes, InferCreationAttributes, Model } from 'sequelize';
 import { sequelize } from '../../config/database';
-import { AUDIT, istante, json } from '../../core/db/colonne';
-import type { Preavvisi, Tolleranza } from '../../regole';
+import { AUDIT, giorno, istante, json } from '../../core/db/colonne';
+import type { Giorno, Preavvisi, Tolleranza } from '../../regole';
+import { AVVISI_INIZIALI, type RegoleAvvisi } from './limiti';
+
+export { AVVISI_INIZIALI, type RegoleAvvisi };
 
 export interface ModelloApplicato {
   chiave: string;
@@ -22,25 +25,10 @@ export interface Predefiniti {
   tolleranza: Tolleranza;
 }
 
-export interface RegoleAvvisi {
-  /** 'HH:MM', ora italiana */
-  orarioRiepilogo: string;
-  /** 1 = lunedi' ... 7 = domenica */
-  giorniLavorativi: number[];
-  /** Giorni fra un richiamo e il successivo per una scadenza scaduta (ADR067) */
-  intervalloRichiami: number;
-}
-
 /** Proposti ai controlli nuovi finche' il cliente non li cambia (stessi valori della migrazione) */
 export const PREDEFINITI_INIZIALI: Predefiniti = {
   preavvisi: { giorni: [32, 8, 1], uso: [] },
   tolleranza: { giorni: 0, uso: 0 },
-};
-
-export const AVVISI_INIZIALI: RegoleAvvisi = {
-  orarioRiepilogo: '08:00',
-  giorniLavorativi: [1, 2, 3, 4, 5],
-  intervalloRichiami: 8,
 };
 
 export class ImpostazioniTenant extends Model<InferAttributes<ImpostazioniTenant>, InferCreationAttributes<ImpostazioniTenant>> {
@@ -48,7 +36,10 @@ export class ImpostazioniTenant extends Model<InferAttributes<ImpostazioniTenant
   declare avviatoIl: CreationOptional<Date | null>;
   declare modelliApplicati: CreationOptional<ModelloApplicato[]>;
   declare predefiniti: CreationOptional<Predefiniti>;
-  declare avvisi: CreationOptional<RegoleAvvisi>;
+  /** Regole salvate: leggerle sempre con avvisiEffettivi (limiti.ts) */
+  declare avvisi: CreationOptional<Partial<RegoleAvvisi>>;
+  /** Giorno dell'ultimo riepilogo degli avvisi completato (ADR093) */
+  declare ultimoRiepilogoIl: CreationOptional<Giorno | null>;
   declare createdAt: CreationOptional<Date>;
   declare updatedAt: CreationOptional<Date>;
   declare creatoDa: CreationOptional<number | null>;
@@ -62,6 +53,7 @@ ImpostazioniTenant.init(
     modelliApplicati: json(false, []),
     predefiniti: json(false, PREDEFINITI_INIZIALI),
     avvisi: json(false, AVVISI_INIZIALI),
+    ultimoRiepilogoIl: giorno(),
     createdAt: istante(false),
     updatedAt: istante(false),
     ...AUDIT,

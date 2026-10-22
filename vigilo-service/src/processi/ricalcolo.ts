@@ -6,7 +6,7 @@
 // "in scadenza" o "scaduta" con il passare dei giorni, senza modifiche).
 // Registrato in log-service (job.completed / job.failed); log-service lo
 // conosce fra i processi attesi e segnala se non gira.
-// Gli eventi di avviso del giorno si aggiungono qui con il blocco B8.
+// Poi gli avvisi del giorno (ADR090), che a loro volta avviano le email urgenti.
 // =============================================================================
 import cron from 'node-cron';
 import { runJob } from '../core/services/jobRunner';
@@ -29,7 +29,7 @@ export async function ricalcoloNotturno(): Promise<string> {
 
 const ricalcolo = () => runJob(ID_RICALCOLO, 'Ricalcolo notturno delle scadenze', ricalcoloNotturno);
 
-export function pianificaProcessi(): void {
+export function pianificaRicalcolo(): void {
   cron.schedule('16 0 * * *', () => void ricalcolo(), { timezone: 'Europe/Rome' });
   console.log(`[Processi] ${ID_RICALCOLO} pianificato alle 00:16 (Europe/Rome)`);
   // Anche all'avvio: dopo un fermo del servizio gli stati tornano subito giusti

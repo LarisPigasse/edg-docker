@@ -1,0 +1,12 @@
+{{oggetto}}{{#if tenant}} · {{tenant}}{{/if}}
+
+{{#if nome}}Ciao {{nome}},{{else}}Buongiorno,{{/if}} {{#if urgente}}questa scadenza richiede un intervento subito:{{else}}ecco una scadenza da tenere d’occhio:{{/if}}
+
+{{titolo}}
+{{#if soggetto}}{{soggetto}}
+{{/if}}{{stato}}
+{{#if url}}
+Apri la scadenza: {{url}}
+{{/if}}
+Ricevi questo avviso da Vigilo, il servizio di Express Delivery Group che tiene d’occhio le scadenze per te.
+© {{year}} Express Delivery Group

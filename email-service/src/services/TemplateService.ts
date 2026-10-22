@@ -73,6 +73,8 @@ export class TemplateService {
       'reports/daily-digest',
       'vigilo/pronto-cliente',
       'vigilo/pronto-edg',
+      'vigilo/avviso',
+      'vigilo/riepilogo',
     ];
 
     templates.forEach(template => {

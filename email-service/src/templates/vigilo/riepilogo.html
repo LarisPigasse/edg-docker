@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="it">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>{{oggetto}}</title>
+  </head>
+  <!-- Riepilogo degli avvisi di Vigilo (ADR093): i numeri del tenant, poi le voci nuove in tre gruppi. Solo tabelle e stili in linea: i client di posta ignorano gran parte del CSS. -->
+  <body style="margin:0;padding:0;background:#f2f4f7;font-family:-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:#101828;">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f2f4f7;padding:24px 12px;">
+      <tr>
+        <td align="center">
+          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:640px;background:#ffffff;border-radius:8px;overflow:hidden;border:1px solid #e4e7ec;">
+            <tr>
+              <td style="padding:24px 24px 8px 24px;">
+                <div style="font-size:12px;letter-spacing:0.08em;text-transform:uppercase;color:#667085;">Vigilo{{#if tenant}} · {{tenant}}{{/if}}</div>
+                <div style="font-size:20px;font-weight:600;margin-top:4px;">{{oggetto}}</div>
+              </td>
+            </tr>
+            <tr>
+              <td style="padding:16px 24px 8px 24px;font-size:15px;line-height:1.6;">
+                <p style="margin:0;">{{#if nome}}Ciao {{nome}},{{else}}Buongiorno,{{/if}} ecco le scadenze da guardare.</p>
+              </td>
+            </tr>
+            {{#if numeri}}
+            <tr>
+              <td style="padding:8px 24px;">
+                <div style="background:#f5f3ff;border-left:4px solid #7c3aed;border-radius:4px;padding:12px 16px;font-size:14px;font-weight:600;color:#5b21b6;">{{numeri}}</div>
+              </td>
+            </tr>
+            {{/if}}
+            {{#each gruppi}}
+            <tr>
+              <td style="padding:16px 24px 4px 24px;">
+                <div style="font-size:12px;letter-spacing:0.08em;text-transform:uppercase;font-weight:700;color:{{colore}};">{{titolo}}</div>
+              </td>
+            </tr>
+            {{#each voci}}
+            <tr>
+              <td style="padding:8px 24px;border-bottom:1px solid #f2f4f7;">
+                <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
+                  <tr>
+                    <td style="font-size:15px;line-height:1.4;">
+                      <div style="font-weight:600;color:#101828;">{{titolo}}</div>
+                      <div style="font-size:13px;color:#475467;margin-top:2px;">{{#if soggetto}}{{soggetto}} · {{/if}}<span style="color:{{../colore}};font-weight:600;">{{stato}}</span></div>
+                    </td>
+                    {{#if url}}
+                    <td align="right" valign="middle" style="padding-left:12px;white-space:nowrap;">
+                      <a href="{{url}}" style="font-size:13px;font-weight:600;color:#7c3aed;text-decoration:none;">Apri</a>
+                    </td>
+                    {{/if}}
+                  </tr>
+                </table>
+              </td>
+            </tr>
+            {{/each}}
+            {{/each}}
+            {{#if urlVigilo}}
+            <tr>
+              <td style="padding:24px 24px 16px 24px;" align="left">
+                <a href="{{urlVigilo}}" style="display:inline-block;background:#7c3aed;color:#ffffff;text-decoration:none;font-weight:600;font-size:15px;padding:12px 24px;border-radius:6px;">Apri Vigilo</a>
+              </td>
+            </tr>
+            {{/if}}
+            <tr>
+              <td style="padding:16px 24px 24px 24px;border-top:1px solid #e4e7ec;font-size:12px;line-height:1.5;color:#667085;">
+                <div>Ricevi questo riepilogo da Vigilo, il servizio di Express Delivery Group che tiene d’occhio le scadenze per te. Parte solo quando c’è qualcosa di nuovo.</div>
+                <div style="margin-top:4px;">© {{year}} Express Delivery Group</div>
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+    </table>
+  </body>
+</html>

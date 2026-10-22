@@ -30,7 +30,7 @@ import { BUILD_INFO } from './core/services/buildInfo';
 import { installaAudit } from './core/db/audit';
 import vigiloRoutes from './domini';
 import { sincronizzaAllAvvio } from './libreria/sincronizza';
-import { pianificaProcessi } from './processi/ricalcolo';
+import { pianificaProcessi } from './processi';
 
 // Un errore non gestito va segnalato a log-service prima di uscire (ADR043)
 installCrashHandlers();

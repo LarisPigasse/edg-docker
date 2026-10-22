@@ -53,6 +53,15 @@ export const EXPECTED_JOBS: ExpectedJob[] = [
     graceMs: HOUR_MS,
   },
   {
+    // ADR093: nei giorni lavorativi all'orario del tenant (08:00), negli altri dopo le 12:00
+    id: 'vigilo.riepilogo-avvisi',
+    name: 'Vigilo: riepilogo degli avvisi',
+    service: 'vigilo-service',
+    schedule: "ogni giorno, all'orario del riepilogo",
+    everyMs: 24 * HOUR_MS,
+    graceMs: 8 * HOUR_MS,
+  },
+  {
     id: 'backup.daily',
     name: 'Backup di database e file',
     service: 'backup-service',

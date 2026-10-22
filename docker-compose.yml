@@ -632,6 +632,11 @@ services:
       # ADR089: contatti del cliente (email "Vigilo è pronto") e collegamento "Apri Vigilo"
       SYSTEM_SERVICE_URL: http://system-service:3004
       APP_FRONTEND_URL: ${APP_FRONTEND_URL:-http://localhost:5174}
+      # ADR093: parametri della piattaforma (fuori dai limiti si riportano dentro, vedi src/core/parametri.ts)
+      VIGILO_GIRO_EMAIL_MINUTI: ${VIGILO_GIRO_EMAIL_MINUTI:-16} # email e riepiloghi degli avvisi, da 4 a 64 minuti
+      VIGILO_TENTATIVI_EMAIL: ${VIGILO_TENTATIVI_EMAIL:-4} # tentativi di invio prima di "fallito", da 1 a 8
+      VIGILO_LOTTO: ${VIGILO_LOTTO:-512} # righe per blocco nei giri, da 64 a 2048
+      VIGILO_ATTESA_MODIFICA_MS: ${VIGILO_ATTESA_MODIFICA_MS:-4096} # attesa prima di generare gli avvisi dopo una modifica, da 1024 a 16384
     volumes:
       - vigilo-uploads:/app/uploads
     expose:

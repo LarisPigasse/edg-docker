@@ -6,34 +6,43 @@
 // evento + ciclo: un avviso già dato non si ripete. A ogni avviso nuovo si
 // risolvono i destinatari (destinatari.ts) e si creano le consegne:
 //   - in app per gli account (subito "inviato": le legge la campanella);
-//   - per email, in coda, per le persone senza account e gli indirizzi
-//     aggiuntivi (le invia B8c).
+//   - per email, in coda: agli account secondo le loro preferenze (ADR092),
+//     alle persone senza account e agli indirizzi aggiuntivi sempre; le
+//     invia invio.service (subito) o il riepilogo.
 // Poi gli avvisi di cicli superati (scadenza registrata, rinviata, chiusa)
 // passano a "risolto": niente campanelle accese per niente.
 //
 // Quando: ogni notte dopo il ricalcolo e, per un tenant, poco dopo ogni
-// modifica che ricalcola le sue scadenze (segnalaModifica, 4096 ms).
+// modifica che ricalcola le sue scadenze (segnalaModifica: attesa e lotto
+// sono parametri della piattaforma, ADR093).
 // Se auth-service non risponde (ufficio sconosciuto) il tenant si salta e si
 // riprova al giro successivo: meglio un avviso in ritardo che uno perso.
 // =============================================================================
 import { Op, UniqueConstraintError } from 'sequelize';
 import { capacitaDi } from '../../core/middleware/permessi';
 import { accountTenant } from '../../core/clients/authClient';
+import { PARAMETRI } from '../../core/parametri';
 import { logger } from '../../core/services/logger';
 import { oggiInItalia } from '../../core/utils/oggi';
 import { eventiDovuti, riferimentoCiclo, testoStato, type Giorno } from '../../regole';
-import { AVVISI_INIZIALI } from '../impostazioni/impostazioni.model';
-import { Assegnazione, Avviso, Consegna, Contatore, Controllo, ImpostazioniTenant, Scadenza, Soggetto } from '../modelli';
+import { avvisiEffettivi } from '../impostazioni/limiti';
+import { Assegnazione, Avviso, Consegna, Contatore, Controllo, ImpostazioniTenant, PreferenzeAvvisi, Scadenza, Soggetto } from '../modelli';
 import { predefinitiDi, situazioneDi } from '../scadenze/ricalcolo.service';
 import { risolviDestinatari, ufficioDa, type PersonaAvvisabile } from './destinatari';
+import { PREFERENZE_INIZIALI, invioEmail, type PreferenzeEmail } from './invio';
+import { segnalaInvio } from './invio.service';
 import { testoAvviso } from './testo';
-
-const LOTTO = 512;
 
 export interface EsitoGenerazione {
   avvisi: number;
   consegne: number;
   risolte: number;
+}
+
+/** Le preferenze salvate degli account del tenant (chi non ne ha usa i predefiniti) */
+async function preferenzeDi(idTenant: number): Promise<Map<number, PreferenzeEmail>> {
+  const righe = await PreferenzeAvvisi.findAll({ where: { idTenant } });
+  return new Map(righe.map(r => [r.idAccount, { frequenza: r.frequenza, urgentiSubito: r.urgentiSubito, canali: r.canali }]));
 }
 
 const personaDi = (s: Soggetto | null | undefined): PersonaAvvisabile | null =>
@@ -46,9 +55,11 @@ export async function generaAvvisiTenant(idTenant: number, oggi: Giorno = oggiIn
   const esito: EsitoGenerazione = { avvisi: 0, consegne: 0, risolte: 0 };
   const [imp, account] = await Promise.all([ImpostazioniTenant.findByPk(idTenant), accountTenant(idTenant)]);
   if (!imp?.avviatoIl) return esito;
-  const intervalloRichiami = imp.avvisi?.intervalloRichiami ?? AVVISI_INIZIALI.intervalloRichiami;
+  const { intervalloRichiami } = avvisiEffettivi(imp.avvisi);
   const ufficio = ufficioDa(account.map(a => ({ id: a.id, capacita: capacitaDi(a.permissions) })));
   const predefiniti = (await predefinitiDi([idTenant])).get(idTenant)!;
+  const preferenze = await preferenzeDi(idTenant);
+  let email = 0;
 
   let ultimo = 0;
   for (;;) {
@@ -67,7 +78,7 @@ export async function generaAvvisiTenant(idTenant: number, oggi: Giorno = oggiIn
         },
       ],
       order: [['idScadenza', 'ASC']],
-      limit: LOTTO,
+      limit: PARAMETRI.lotto,
     });
     if (!lotto.length) break;
 
@@ -107,19 +118,25 @@ export async function generaAvvisiTenant(idTenant: number, oggi: Giorno = oggiIn
           interessato: sog?.tipo === 'persona' ? personaDi(sog) : null,
         });
         const adesso = new Date();
+        // email agli account solo se le loro preferenze la vogliono, per questo avviso
+        const conEmail = recapiti.account.filter(id => invioEmail(preferenze.get(id) ?? PREFERENZE_INIZIALI, ev.urgente) !== 'mai');
         const righe = [
           ...recapiti.account.map(idAccount => ({ idTenant, idAvviso: avviso.idAvviso, idAccount, canale: 'app' as const, stato: 'inviato' as const, inviatoIl: adesso })),
-          ...recapiti.email.map(email => ({ idTenant, idAvviso: avviso.idAvviso, email, canale: 'email' as const, stato: 'in-coda' as const })),
+          ...conEmail.map(idAccount => ({ idTenant, idAvviso: avviso.idAvviso, idAccount, canale: 'email' as const, stato: 'in-coda' as const })),
+          ...recapiti.email.map(indirizzo => ({ idTenant, idAvviso: avviso.idAvviso, email: indirizzo, canale: 'email' as const, stato: 'in-coda' as const })),
         ];
         if (righe.length) await Consegna.bulkCreate(righe);
         esito.consegne += righe.length;
+        email += conEmail.length + recapiti.email.length;
       }
     }
     ultimo = lotto[lotto.length - 1].idScadenza;
-    if (lotto.length < LOTTO) break;
+    if (lotto.length < PARAMETRI.lotto) break;
   }
 
   esito.risolte = await risolviSuperati(idTenant);
+  // le urgenti (e chi vuole tutto subito) partono senza aspettare il giro successivo
+  if (email) segnalaInvio();
   return esito;
 }
 
@@ -165,7 +182,6 @@ export async function generaAvvisiTutti(oggi: Giorno = oggiInItalia()): Promise<
 
 // --- dopo una modifica: un giro per tenant, raggruppando le modifiche vicine ---
 
-const ATTESA_MS = 4096;
 const inAttesa = new Map<number, NodeJS.Timeout>();
 const inCorsoGiro = new Set<number>();
 
@@ -184,6 +200,6 @@ export function segnalaModifica(idTenant: number): void {
       generaAvvisiTenant(idTenant)
         .catch(err => logger.warn('vigilo.avvisi', `Avvisi del tenant ${idTenant} non generati: ${String(err)}`, { idTenant }))
         .finally(() => inCorsoGiro.delete(idTenant));
-    }, ATTESA_MS)
+    }, PARAMETRI.attesaModificaMs)
   );
 }

@@ -13,7 +13,11 @@ export type EmailTemplate =
   | 'reports/daily-digest'
   // ADR089: Vigilo pronto, al cliente e all'operatore EDG che lo segue
   | 'vigilo/pronto-cliente'
-  | 'vigilo/pronto-edg';
+  | 'vigilo/pronto-edg'
+  // ADR092: un avviso di Vigilo da far sapere subito (urgenti, o chi vuole tutto subito)
+  | 'vigilo/avviso'
+  // ADR093: il riepilogo giornaliero o settimanale degli avvisi di Vigilo
+  | 'vigilo/riepilogo';
 
 /**
  * Livelli di severità per alert

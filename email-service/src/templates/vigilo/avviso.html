@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="it">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>{{oggetto}}</title>
+  </head>
+  <!-- Un avviso di Vigilo da far sapere subito (ADR092): urgenti, o per chi vuole tutto subito. Solo tabelle e stili in linea: i client di posta ignorano gran parte del CSS. -->
+  <body style="margin:0;padding:0;background:#f2f4f7;font-family:-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:#101828;">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f2f4f7;padding:24px 12px;">
+      <tr>
+        <td align="center">
+          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:640px;background:#ffffff;border-radius:8px;overflow:hidden;border:1px solid #e4e7ec;">
+            <tr>
+              <td style="padding:24px 24px 8px 24px;">
+                <div style="font-size:12px;letter-spacing:0.08em;text-transform:uppercase;color:#667085;">Vigilo{{#if tenant}} · {{tenant}}{{/if}}</div>
+                <div style="font-size:20px;font-weight:600;margin-top:4px;">{{oggetto}}</div>
+              </td>
+            </tr>
+            <tr>
+              <td style="padding:16px 24px 8px 24px;font-size:15px;line-height:1.6;">
+                <p style="margin:0;">{{#if nome}}Ciao {{nome}},{{else}}Buongiorno,{{/if}} {{#if urgente}}questa scadenza richiede un intervento subito:{{else}}ecco una scadenza da tenere d’occhio:{{/if}}</p>
+              </td>
+            </tr>
+            <tr>
+              <td style="padding:8px 24px;">
+                {{#if urgente}}
+                <div style="background:#fef3f2;border-left:4px solid #d92d20;border-radius:4px;padding:12px 16px;">
+                  <div style="font-size:16px;font-weight:600;color:#101828;">{{titolo}}</div>
+                  {{#if soggetto}}<div style="font-size:14px;color:#475467;margin-top:2px;">{{soggetto}}</div>{{/if}}
+                  <div style="font-size:14px;font-weight:600;color:#b42318;margin-top:6px;">{{stato}}</div>
+                </div>
+                {{else}}
+                <div style="background:#f5f3ff;border-left:4px solid #7c3aed;border-radius:4px;padding:12px 16px;">
+                  <div style="font-size:16px;font-weight:600;color:#101828;">{{titolo}}</div>
+                  {{#if soggetto}}<div style="font-size:14px;color:#475467;margin-top:2px;">{{soggetto}}</div>{{/if}}
+                  <div style="font-size:14px;font-weight:600;color:#5b21b6;margin-top:6px;">{{stato}}</div>
+                </div>
+                {{/if}}
+              </td>
+            </tr>
+            {{#if url}}
+            <tr>
+              <td style="padding:16px 24px;" align="left">
+                <a href="{{url}}" style="display:inline-block;background:#7c3aed;color:#ffffff;text-decoration:none;font-weight:600;font-size:15px;padding:12px 24px;border-radius:6px;">Apri la scadenza</a>
+              </td>
+            </tr>
+            {{/if}}
+            <tr>
+              <td style="padding:16px 24px 24px 24px;border-top:1px solid #e4e7ec;font-size:12px;line-height:1.5;color:#667085;">
+                <div>Ricevi questo avviso da Vigilo, il servizio di Express Delivery Group che tiene d’occhio le scadenze per te.</div>
+                <div style="margin-top:4px;">© {{year}} Express Delivery Group</div>
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+    </table>
+  </body>
+</html>

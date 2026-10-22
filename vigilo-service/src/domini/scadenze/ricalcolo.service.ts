@@ -19,6 +19,7 @@ import {
 import { PREDEFINITI_INIZIALI } from '../impostazioni/impostazioni.model';
 import { Contatore, Controllo, ImpostazioniTenant, Scadenza } from '../modelli';
 import { segnalaModifica } from '../avvisi/generazione.service';
+import { PARAMETRI } from '../../core/parametri';
 
 /** Le impostazioni effettive di una scadenza: controllo (o predefiniti) + ridefinizioni */
 export function effettiveDi(s: Scadenza, controllo: Controllo | null | undefined, preavvisiPredefiniti: number[]): ImpostazioniEffettive {
@@ -82,7 +83,6 @@ export async function predefinitiDi(idTenants: number[], transaction?: Transacti
   return mappa;
 }
 
-const LOTTO = 512;
 
 /**
  * Ricalcola e salva le scadenze APERTE che rispondono al filtro (sempre con
@@ -99,7 +99,7 @@ export async function ricalcolaScadenze(where: WhereOptions<Scadenza>, oggi: Gio
         { model: Contatore, as: 'contatore' },
       ],
       order: [['idScadenza', 'ASC']],
-      limit: LOTTO,
+      limit: PARAMETRI.lotto,
       transaction,
     });
     if (!lotto.length) break;
@@ -113,7 +113,7 @@ export async function ricalcolaScadenze(where: WhereOptions<Scadenza>, oggi: Gio
       }
     }
     ultimo = lotto[lotto.length - 1].idScadenza;
-    if (lotto.length < LOTTO) break;
+    if (lotto.length < PARAMETRI.lotto) break;
   }
   // ADR090: dopo una modifica di un tenant, gli avvisi che ne derivano (poco dopo,
   // a transazione chiusa); il processo notturno li genera da sé per tutti

@@ -25,7 +25,8 @@ type Filtri = Awaited<ReturnType<typeof filtri>>;
 /** Le include dei filtri senza colonne: servono solo a filtrare (per i raggruppamenti) */
 const soloFiltro = (f: Filtri): Includeable[] => f.include.map(i => ({ ...(i as object), attributes: [] }) as Includeable);
 
-async function conteggi(ctx: Contesto, f: Filtri) {
+/** I riquadri per stato; usati anche dal riepilogo degli avvisi (con il solo tenant come filtro) */
+export async function conteggi(ctx: Pick<Contesto, 'oggi'>, f: Pick<Filtri, 'where' | 'include'>) {
   const conta = (extra: Record<string, unknown>) =>
     // solo include belongsTo: una riga per scadenza, niente distinct
     Scadenza.count({ where: { ...f.where, chiusaIl: null, ...extra } as WhereOptions<Scadenza>, include: f.include });
