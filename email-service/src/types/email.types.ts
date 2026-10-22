@@ -10,7 +10,10 @@ export type EmailTemplate =
   | 'alerts/security-alert'
   | 'alerts/system-error'
   | 'alerts/vehicle-notification'
-  | 'reports/daily-digest';
+  | 'reports/daily-digest'
+  // ADR089: Vigilo pronto, al cliente e all'operatore EDG che lo segue
+  | 'vigilo/pronto-cliente'
+  | 'vigilo/pronto-edg';
 
 /**
  * Livelli di severità per alert
@@ -26,6 +29,8 @@ export interface SendEmailRequest {
   template: EmailTemplate;
   data: Record<string, any>;
   from?: string; // Opzionale: default noreply
+  /** Indirizzo a cui vanno le risposte (es. l'operatore EDG che segue il cliente, ADR089) */
+  replyTo?: string;
 }
 
 /**

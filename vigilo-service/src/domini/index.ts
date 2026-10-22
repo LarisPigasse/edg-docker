@@ -21,6 +21,7 @@ import { avvioRoutes } from './avvio/avvio.routes';
 import { dashboardRoutes } from './dashboard/dashboard.routes';
 import { calendarioRoutes } from './calendario/calendario.routes';
 import { libreriaRoutes } from './libreria/libreria.routes';
+import { avvisiRoutes } from './avvisi/avviso.routes';
 
 const router = Router();
 
@@ -38,5 +39,6 @@ router.use(avvioRoutes);
 router.use(dashboardRoutes);
 router.use(calendarioRoutes);
 router.use(libreriaRoutes);
+router.use(avvisiRoutes);
 
 export default router;

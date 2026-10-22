@@ -1,0 +1,14 @@
+{{oggetto}}
+
+Ciao {{nome}},
+
+Vigilo è stato avviato per {{ragioneSociale}} il {{quando}} da {{chiHaAvviato}} ({{#if daEdg}}preparato da EDG con l'accesso assistito{{else}}preparato dal cliente{{/if}}).
+Settori: {{settori}}
+
+{{categorie}} categorie · {{controlli}} controlli{{#if scadenze}} · {{scadenze}} scadenze{{/if}}
+{{#if daEdg}}
+
+{{#if emailCliente}}Il cliente ha ricevuto l'email «Vigilo è pronto» all'indirizzo {{emailCliente}}.{{else}}Al cliente non è stata inviata l'email: manca un indirizzo in anagrafica.{{/if}}
+{{/if}}
+
+© {{year}} Express Delivery Group

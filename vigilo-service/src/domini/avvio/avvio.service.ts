@@ -12,7 +12,7 @@ import { Op, type Transaction } from 'sequelize';
 import { sequelize } from '../../config/database';
 import type { Contesto } from '../../core/contesto';
 import { traccia } from '../../core/services/traccia';
-import { ConflictError, UnprocessableError, ValidationError } from '../../core/utils/errors';
+import { ConflictError, ForbiddenError, UnprocessableError, ValidationError } from '../../core/utils/errors';
 import { registraDecisioni, type NuovaDecisione } from '../aggiornamenti/registro';
 import { generaPer } from '../controlli/controllo.service';
 import { PREDEFINITI_INIZIALI, type ModelloApplicato, type Predefiniti } from '../impostazioni/impostazioni.model';
@@ -28,16 +28,20 @@ import { TIPI_SOGGETTO, type EntitaDecisione, type EsitoDecisione, type TipoSogg
 import type { RiassuntoModello } from './avvio.presenta';
 import { copiaCategoria, copiaControllo } from './copia';
 import { pianoAvvio, type PianoAvvio } from './piano';
+import { puoAvviare } from './preparazione';
+import { preparazioneDelTenant } from './preparazione.service';
+import { notificaVigiloPronto } from './pronto.service';
 import { costruisciProposta, type Proposta } from './proposta';
 
 // --- passo 1 ------------------------------------------------------------------
 
 export async function statoAvvio(ctx: Contesto) {
-  const [imp, modelli, voci, controlli] = await Promise.all([
+  const [imp, modelli, voci, controlli, preparazione] = await Promise.all([
     ImpostazioniTenant.findByPk(ctx.idTenant),
     ModelloSettore.findAll({ order: [['ordine', 'ASC']] }),
     ModelloVoce.findAll(),
     LibreriaControllo.findAll({ where: { ritirato: false }, attributes: ['chiave', 'tipoSoggetto'] }),
+    preparazioneDelTenant(ctx.idTenant),
   ]);
   const tipoDi = new Map(controlli.map(c => [c.chiave, c.tipoSoggetto]));
   const applicati = new Set((imp?.modelliApplicati ?? []).map(m => m.chiave));
@@ -63,6 +67,10 @@ export async function statoAvvio(ctx: Contesto) {
     modelliApplicati: imp?.modelliApplicati ?? [],
     predefiniti: imp?.predefiniti ?? PREDEFINITI_INIZIALI,
     riquadri,
+    // ADR088: chi prepara (scelta di EDG all'attivazione), se l'utente può avviare, settori suggeriti
+    preparazione: preparazione.chi,
+    puoAvviare: puoAvviare(preparazione, !!imp?.avviatoIl, ctx.utente.assistenza, ctx.idTenant),
+    modelliSuggeriti: preparazione.modelli,
   };
 }
 
@@ -127,10 +135,15 @@ const decisione = (
 ): NuovaDecisione => ({ contesto: 'avvio', entita, chiaveLibreria: lib.chiave, nome: lib.nome, versioneA: lib.versione, esito, idEntita });
 
 export async function avvia(ctx: Contesto, scelta: SceltaAvvio): Promise<EsitoAvvio> {
+  // ADR088: chi prepara, letto prima della transazione (nessuna chiamata con il lucchetto preso)
+  const preparazione = await preparazioneDelTenant(ctx.idTenant, true);
   const esito = await sequelize.transaction(async transaction => {
     // Una procedura per volta per cliente: la riga delle impostazioni fa da lucchetto
     await ImpostazioniTenant.findOrCreate({ where: { idTenant: ctx.idTenant }, transaction });
     const imp = (await ImpostazioniTenant.findByPk(ctx.idTenant, { transaction, lock: transaction.LOCK.UPDATE }))!;
+    if (!puoAvviare(preparazione, !!imp.avviatoIl, ctx.utente.assistenza, ctx.idTenant)) {
+      throw new ForbiddenError('EDG sta preparando Vigilo per te: lo troverai pronto a breve');
+    }
 
     const p = await costruisciProposta(ctx, scelta.modelli, transaction);
     const piano = pianoAvvio({
@@ -201,5 +214,14 @@ export async function avvia(ctx: Contesto, scelta: SceltaAvvio): Promise<EsitoAv
     null,
     { modelli: scelta.modelli, ...esito }
   );
+  // ADR089: a primo avvio le email "Vigilo è pronto", senza attendere e senza mai bloccare
+  if (esito.primoAvvio) {
+    void notificaVigiloPronto(ctx, {
+      modelli: scelta.modelli,
+      categorie: esito.categorieCreate,
+      controlli: esito.controlliCreati,
+      scadenze: esito.scadenzeCreate,
+    });
+  }
   return esito;
 }

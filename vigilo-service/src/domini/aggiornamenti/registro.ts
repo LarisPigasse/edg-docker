@@ -2,13 +2,16 @@
 // Registro delle decisioni sulla libreria (ADR074)
 // =============================================================================
 // Una riga per ogni scelta del cliente, all'avvio (incluso/escluso) e sugli
-// aggiornamenti (B10). Chi decide si copia nella riga: account, email e, se
-// l'account e' l'addetto di una persona, il suo nome (il gateway non porta il
-// nome dell'account). Le righe non si modificano: lo vieta il database.
+// aggiornamenti (B10). Chi decide si copia nella riga: account, email e nome.
+// Il nome (ADR088): nell'accesso assistito quello dell'operatore EDG (dal
+// token); altrimenti la persona di cui l'account e' l'addetto, poi nome e
+// cognome dell'account da auth-service. Le righe non si modificano: lo vieta
+// il database.
 // =============================================================================
 import type { Transaction } from 'sequelize';
 import type { Contesto } from '../../core/contesto';
 import { DecisioneLibreria, Soggetto } from '../modelli';
+import { nomiAccount } from '../../core/clients/authClient';
 import type { CampoDecisione, ContestoDecisione, EntitaDecisione, EsitoDecisione } from '../valori';
 
 export interface NuovaDecisione {
@@ -28,6 +31,10 @@ export interface NuovaDecisione {
 
 /** Chi decide, copiato nella riga */
 async function chiDecide(ctx: Contesto, transaction: Transaction) {
+  const base = { decisoDa: ctx.utente.id || null, decisoDaEmail: ctx.utente.email };
+  // Accesso assistito: decide l'operatore EDG, che e' anche l'account del token
+  if (ctx.utente.assistenza) return { ...base, decisoDaNome: ctx.utente.assistenza.operatore.nome };
+
   const persona = ctx.utente.id
     ? await Soggetto.findOne({
         where: { idTenant: ctx.idTenant, idAccount: ctx.utente.id, tipo: 'persona' },
@@ -35,7 +42,13 @@ async function chiDecide(ctx: Contesto, transaction: Transaction) {
         transaction,
       })
     : null;
-  return { decisoDa: ctx.utente.id || null, decisoDaNome: persona?.nome ?? null, decisoDaEmail: ctx.utente.email };
+  if (persona) return { ...base, decisoDaNome: persona.nome };
+  if (!ctx.utente.id) return { ...base, decisoDaNome: null };
+  // Il nome dell'account: se auth-service non risponde la decisione si registra lo stesso, senza nome
+  const nome = await nomiAccount([ctx.utente.id])
+    .then(r => r[0]?.nome ?? null)
+    .catch(() => null);
+  return { ...base, decisoDaNome: nome };
 }
 
 /** Scrive le decisioni con lo stesso istante e lo stesso autore; restituisce quante */

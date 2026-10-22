@@ -23,6 +23,17 @@ export interface GatewayUser {
   permissions: string[];
   /** Personale EDG (tenant di sistema), dal JWT firmato (ADR051) */
   systemTenant: boolean;
+  /** Accesso assistito (ADR085): chi agisce davvero e in quale tenant; null fuori dall'assistenza */
+  assistenza?: AssistenzaUtente | null;
+}
+
+/** Il campo `assistenza` del token, come lo passa il gateway in x-user-data */
+export interface AssistenzaUtente {
+  id: number;
+  modo: 'preparazione' | 'assistenza';
+  operatore: { id: number; email: string; nome: string };
+  tenant: { id: number; nome: string };
+  scade: string;
 }
 
 declare global {
@@ -65,6 +76,8 @@ export function requireAuth(req: Request, res: Response, next: NextFunction): vo
       roleId: parsed.roleId,
       permissions: Array.isArray(parsed.permissions) ? parsed.permissions : [],
       systemTenant: parsed.systemTenant === true,
+      // L065: ogni campo nuovo del token va ricopiato qui
+      assistenza: parsed.assistenza && typeof parsed.assistenza === 'object' ? parsed.assistenza : null,
     };
     setCurrentAccount(req.user.id);
     next();

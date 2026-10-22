@@ -254,7 +254,7 @@ const startServer = async () => {
     console.log('   ✅ Router accesso assistito registrato (/auth/assistenza)');
 
     // 5.1quater ROTTE INTERNE (ADR058): solo per gli altri servizi, fuori dal gateway
-    app.use('/internal', createInternalRouter(Tenant, Account));
+    app.use('/internal', createInternalRouter(Tenant, Account, TenantModule, moduleService, Role, RolePermission));
     console.log('   ✅ Router interno registrato (/internal)');
 
     // 5.2 CRON JOB — pulizia sessioni e token scaduti

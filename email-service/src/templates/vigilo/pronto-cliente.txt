@@ -1,0 +1,13 @@
+{{oggetto}}
+
+Gentile {{#if referente}}{{referente}}{{else}}cliente{{/if}},
+
+abbiamo preparato Vigilo per {{ragioneSociale}}: le categorie e i controlli per la tua azienda sono pronti{{#if scadenze}}, con le prime scadenze già calcolate.{{else}}. Il prossimo passo è inserire i veicoli, le persone e le sedi da tenere sotto controllo.{{/if}}
+
+{{#if scadenze}}{{controlli}} controlli · {{scadenze}} scadenze{{else}}{{categorie}} categorie · {{controlli}} controlli{{/if}}
+
+Apri Vigilo: {{urlVigilo}}
+
+Da qui in avanti Vigilo ti avvisa per tempo di ogni scadenza.{{#if operatore}} Per qualsiasi domanda rispondi pure a questa email: ti segue {{operatore}}.{{/if}}
+
+© {{year}} Express Delivery Group

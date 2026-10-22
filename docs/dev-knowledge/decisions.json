@@ -1,5 +1,5 @@
 {
-  "lastUpdated": "2026-10-21",
+  "lastUpdated": "2026-10-22",
   "decisions": [
     {
       "id": "ADR001",
@@ -782,6 +782,33 @@
       "context": "ADR077/ADR084: all'attivazione di Vigilo per un cliente si sceglie chi lo prepara (cliente o EDG, con l'operatore registrato, obbligatorio se EDG) e i settori suggeriti. tenant_modules.config esisteva ma nessuna interfaccia lo usava; i settori stanno nella libreria di vigilo-service.",
       "decision": "vigilo-service: GET /api/vigilo/libreria/modelli (qualunque permesso Vigilo) con chiave, nome, descrizione, sempreProposto. pro-frontend: registro components/tenant/config (types.ts con ModuleConfigDef {initial, validate, Summary, Editor}; index.ts chiave → definizione); ActivationFormModal mostra l'editor del modulo sotto il periodo, blocca la conferma con l'errore dell'editor (mostrato solo accanto al campo) e invia config in create/update; ModuleActivationRow mostra il riassunto. Vigilo: config { preparazione: 'cliente'|'edg', idOperatore (operatore di system-service, obbligatorio se edg, proposto dal Seguito da del cliente collegato al tenant), modelli: [...] (default ['base']) }; file vigiloConfig.ts (logica e hook useModelliLibreria), VigiloConfigEditor.tsx, VigiloConfigSummary.tsx. Config senza valori = prepara il cliente, settore Base.",
       "rationale": "La finestra di attivazione resta generica e ogni modulo porta le sue impostazioni con una voce nel registro. La lista dei settori viene dalla libreria (niente duplicati nel codice) senza passare dalla procedura di avvio del proprio tenant.",
+      "status": "accepted"
+    },
+    {
+      "id": "ADR088",
+      "date": "2026-10-22",
+      "title": "Vigilo legge \"chi prepara\" da auth-service: rotte interne, regola di avvio e nome di chi decide",
+      "context": "P4 della catena di Vigilo (ADR084): la scelta fatta all'attivazione (ADR087, tenant_modules.config) deve valere in vigilo-service; serviva anche il nome di chi decide nel registro delle decisioni (ADR074), che il gateway non porta.",
+      "decision": "auth-service: GET /internal/tenants/:id/modules/:key → { inForce, status, config } e GET /internal/accounts?ids= (max 64) → [{ id, email, nome }], col segreto dei servizi. vigilo-service: middleware auth ricopia assistenza (L065); core/clients/authClient.ts (4096 ms); domini/avvio/preparazione.ts (regole pure, 6 test) e preparazione.service.ts (cache 64 s per tenant; GET morbida = prepara il cliente se auth non risponde, POST rigorosa = 503). Regola: se prepara EDG, prima dell'avvio solo una sessione assistita in Preparazione nello stesso tenant può avviare; dopo l'avvio \"Aggiungi dalla libreria\" torna del cliente. GET /avvio e /me espongono preparazione e puoAvviare (/me anche inAssistenza); i settori suggeriti arrivano preselezionati; POST /avvio 403 \"EDG sta preparando Vigilo per te\". Registro: decisoDaNome = operatore dell'assistenza, poi persona collegata, poi nome dell'account da auth-service (senza nome se non risponde). app-frontend: InPreparazione con variante daEdg in RichiedeAvvio e AvvioPage.",
+      "rationale": "La scelta resta in un solo posto (auth-service) e vigilo-service la legge con una cache breve; nel dubbio la procedura non si avvia. Il nome dell'operatore viaggia già nel token assistito, quello degli altri account arriva dalla rotta interna senza cambiare il JWT.",
+      "status": "accepted"
+    },
+    {
+      "id": "ADR089",
+      "date": "2026-10-22",
+      "title": "Vigilo è pronto: email al cliente e all'operatore EDG a primo avvio",
+      "context": "Processo di Vigilo (ADR084): a preparazione completata un'email al cliente (se ha preparato EDG) e una all'operatore EDG che lo segue (ADR086). Testi approvati dall'utente il 2026-10-22.",
+      "decision": "A primo avvio riuscito vigilo-service, dopo la risposta e senza mai bloccare (domini/avvio/pronto.service.ts), chiede ad auth-service il cliente collegato al tenant (la rotta interna dell'attivazione ora restituisce tenant { nome, clienteUuid }), a system-service i contatti (nuova rotta interna GET /internal/anagrafiche/:uuid/contatti, segreto dei servizi) e invia via email-service i modelli vigilo/pronto-cliente e vigilo/pronto-edg (HTML+testo, grafica del riepilogo giornaliero). Destinatari (pronto.ts, 6 test): cliente solo se l'avvio l'ha fatto una sessione assistita, email del referente → email dell'azienda → nessuna; operatore che segue il cliente se attivo e con email; Rispondi a = operatore (email-service accetta replyTo). Subito dopo l'avvio le scadenze sono 0 (nascono con i soggetti): il testo al cliente dice allora che il prossimo passo è inserire veicoli, persone e sedi e mostra categorie e controlli. vigilo-service: core/clients systemClient ed emailClient (8192 ms); compose con SYSTEM_SERVICE_URL e APP_FRONTEND_URL (collegamento Apri Vigilo). Miglioria futura: pulsante \"Avvisa il cliente\" per l'operatore EDG, per mandare l'email dopo aver inserito anche i primi soggetti.",
+      "rationale": "Le email non devono mai mettere a rischio l'avvio: ogni passo che fallisce si salta e resta nel log. I contatti stanno dove nascono (system-service), il collegamento tenant-cliente in auth-service; vigilo-service li compone senza duplicarli.",
+      "status": "accepted"
+    },
+    {
+      "id": "ADR090",
+      "date": "2026-10-22",
+      "title": "Vigilo: generazione degli avvisi e campanella (B8a)",
+      "context": "Le regole pure degli avvisi (eventiDovuti, riferimentoCiclo) e le tabelle avvisi/consegne esistevano, ma nessuno generava gli avvisi né li mostrava all'utente. Bisognava decidere quando generarli, a chi consegnarli e come evitare ripetizioni.",
+      "decision": "1) generaAvvisiTenant(idTenant, oggi) prende le scadenze aperte a blocchi di 512 e salta i soggetti dismessi. Gli eventi dovuti diventano righe di avvisi, uniche per (scadenza, evento, riferimento ciclo): l'unicità la garantisce il DB, e UniqueConstraintError vuol dire \"già dato\". 2) Si esegue ogni notte dopo il ricalcolo (generaAvvisiTutti) e, per un tenant, 4096 ms dopo ogni ricalcolaScadenze con idTenant (segnalaModifica: modifiche vicine raggruppate in un solo giro, un giro alla volta per tenant). 3) Destinatari: risolviDestinatari è una funzione pura. L'ufficio è fatto dagli account del tenant con capacità read o write, presi dalla nuova rotta interna auth GET /internal/tenants/:id/accounts. Se il soggetto è fermo, senza avvisaAncheSeFermo, l'avviso va solo all'ufficio. Una persona con account riceve in app, altrimenti al suo indirizzo email. 4) Consegne: canale app subito 'inviato' (le legge la campanella), canale email 'in-coda' (le invierà B8c). 5) risolviSuperati: le consegne in app e le email in coda di avvisi la cui scadenza è chiusa o il cui ciclo è cambiato passano a 'risolto'. 6) API GET /avvisi (limit 32, max 128, con nonLetti), POST /avvisi/:uuid/letto, POST /avvisi/letti: sempre e solo sulle consegne in app dell'account del token. 7) Se auth-service non risponde, il tenant si salta e si riprova al giro successivo.",
+      "rationale": "L'unicità nel DB rende la generazione idempotente e rilanciabile da più punti (notte e modifiche) senza coordinamento. Il debounce evita un giro per ogni singola scrittura. Separare il calcolo dei destinatari (puro, testato) dalla persistenza segue il \"divide et impera\" già usato in regole/. Saltare un tenant quando auth non risponde è preferibile a generare avvisi con un ufficio vuoto, che andrebbero persi. Gli update di massa sulle consegne usano validate: false (L054), perché il validatore di riga destinatario non vale su righe parziali. Verificato dal vivo: 6 avvisi e 18 consegne sul tenant EDG, nessun duplicato al secondo giro, il cambio di ciclo risolve le consegne vecchie, una modifica rigenera dopo l'attesa, campanella 15/15 su entrambi i gateway.",
       "status": "accepted"
     }
   ]

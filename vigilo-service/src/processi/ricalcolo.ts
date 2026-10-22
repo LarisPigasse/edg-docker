@@ -13,6 +13,7 @@ import { runJob } from '../core/services/jobRunner';
 import { oggiInItalia } from '../core/utils/oggi';
 import { rinnoviTaciti } from '../domini/registrazioni/registrazione.service';
 import { ricalcolaScadenze } from '../domini/scadenze/ricalcolo.service';
+import { generaAvvisiTutti } from '../domini/avvisi/generazione.service';
 
 export const ID_RICALCOLO = 'vigilo.ricalcolo';
 
@@ -20,7 +21,10 @@ export async function ricalcoloNotturno(): Promise<string> {
   const oggi = oggiInItalia();
   const taciti = await rinnoviTaciti(oggi);
   const cambiate = await ricalcolaScadenze({}, oggi);
-  return `${cambiate} stati cambiati, ${taciti} rinnovi taciti`;
+  // ADR090: gli avvisi del giorno, dopo gli stati aggiornati
+  const avvisi = await generaAvvisiTutti(oggi);
+  const saltati = avvisi.saltati ? `, ${avvisi.saltati} tenant da riprovare` : '';
+  return `${cambiate} stati cambiati, ${taciti} rinnovi taciti, ${avvisi.avvisi} avvisi (${avvisi.consegne} consegne, ${avvisi.risolte} risolte)${saltati}`;
 }
 
 const ricalcolo = () => runJob(ID_RICALCOLO, 'Ricalcolo notturno delle scadenze', ricalcoloNotturno);

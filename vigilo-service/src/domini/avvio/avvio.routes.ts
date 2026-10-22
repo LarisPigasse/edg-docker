@@ -18,7 +18,10 @@ export const avvioRoutes = Router();
 
 avvioRoutes.get('/avvio', richiedi('config'), async (req: Request, res: Response) => {
   const { riquadri, ...stato } = await servizio.statoAvvio(contestoDi(req));
-  successResponse(res, { ...stato, modelli: riquadri.map(presentaRiquadro) });
+  // ADR088: spuntati all'apertura i sempre proposti e i settori suggeriti da EDG
+  const suggeriti = new Set(stato.modelliSuggeriti);
+  const modelli = riquadri.map(r => ({ ...presentaRiquadro(r), preselezionato: r.modello.sempreProposto || suggeriti.has(r.modello.chiave) }));
+  successResponse(res, { ...stato, modelli });
 });
 
 avvioRoutes.get('/avvio/proposta', richiedi('config'), validateQuery(schemi.proposta), async (req: Request, res: Response) => {

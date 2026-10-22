@@ -71,6 +71,8 @@ export class TemplateService {
       'alerts/system-error',
       'alerts/vehicle-notification',
       'reports/daily-digest',
+      'vigilo/pronto-cliente',
+      'vigilo/pronto-edg',
     ];
 
     templates.forEach(template => {

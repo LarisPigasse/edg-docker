@@ -17,6 +17,7 @@ import { errorHandler, notFoundHandler } from './middleware/errorHandler';
 import { installCrashHandlers, logger } from './services/logger';
 import { BUILD_INFO } from './services/buildInfo';
 import apiRoutes from './routes';
+import internalRoutes from './routes/internalRoutes';
 
 // Prima di tutto: un errore non gestito va segnalato a log-service prima di uscire (ADR043)
 installCrashHandlers();
@@ -95,6 +96,8 @@ app.get('/readiness', (_req: Request, res: Response) => res.status(200).json({ s
 // =============================================================================
 
 app.use('/api', apiRoutes);
+// Rotte interne per gli altri servizi, fuori dal gateway (ADR089)
+app.use('/internal', internalRoutes);
 
 // =============================================================================
 // 404 + ERROR HANDLER (sempre ultimi)

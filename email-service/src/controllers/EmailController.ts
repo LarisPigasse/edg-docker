@@ -12,7 +12,7 @@ export class EmailController {
    */
   async send(req: Request, res: Response): Promise<void> {
     try {
-      const { to, subject, template, data, from }: SendEmailRequest = req.body;
+      const { to, subject, template, data, from, replyTo }: SendEmailRequest = req.body;
 
       // Validazione
       if (!to || !subject || !template || !data) {
@@ -33,6 +33,7 @@ export class EmailController {
         html,
         text,
         from,
+        replyTo,
       });
 
       if (result.success) {

@@ -105,6 +105,8 @@ export class SmtpService {
     html: string;
     text: string;
     from?: string;
+    /** ADR089: le risposte vanno qui invece che al mittente */
+    replyTo?: string;
   }): Promise<{ success: boolean; messageId?: string; previewUrl?: string; error?: string }> {
     const from = options.from || this.noreplyFrom;
     const to = Array.isArray(options.to) ? options.to.join(', ') : options.to;
@@ -129,6 +131,7 @@ export class SmtpService {
         subject: options.subject,
         text: options.text,
         html: options.html,
+        ...(options.replyTo ? { replyTo: options.replyTo } : {}),
       });
 
       if (this.mode === 'ethereal') {
