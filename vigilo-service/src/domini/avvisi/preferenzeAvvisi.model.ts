@@ -8,6 +8,7 @@ import { CreationOptional, InferAttributes, InferCreationAttributes, Model } fro
 import { sequelize } from '../../config/database';
 import { booleano, elenco, intero, istante, json } from '../../core/db/colonne';
 import { FREQUENZE_AVVISI, type Canale, type FrequenzaAvvisi } from '../valori';
+import type { FiltriAvvisi } from './preferenze';
 
 export class PreferenzeAvvisi extends Model<InferAttributes<PreferenzeAvvisi>, InferCreationAttributes<PreferenzeAvvisi>> {
   declare idTenant: number;
@@ -15,8 +16,8 @@ export class PreferenzeAvvisi extends Model<InferAttributes<PreferenzeAvvisi>, I
   declare frequenza: CreationOptional<FrequenzaAvvisi>;
   declare urgentiSubito: CreationOptional<boolean>;
   declare canali: CreationOptional<Canale[]>;
-  /** Es. solo alcuni tipi di soggetto o nature di controllo */
-  declare filtri: CreationOptional<Record<string, unknown>>;
+  /** Tipi di soggetto e sedi (B8d-1); leggerli sempre con preferenzeEffettive (preferenze.ts) */
+  declare filtri: CreationOptional<Partial<FiltriAvvisi>>;
   declare createdAt: CreationOptional<Date>;
   declare updatedAt: CreationOptional<Date>;
 }

@@ -1,5 +1,5 @@
 {
-  "lastUpdated": "2026-10-20",
+  "lastUpdated": "2026-10-26",
   "modules": {
     "auth-service": {
       "status": "stable",
@@ -108,8 +108,8 @@
     },
     "vigilo (modulo app-frontend)": {
       "status": "in-progress",
-      "notes": "Calendario fatto (ADR083): pagina /vigilo/calendario con MonthCalendar, etichette/pallini, elenco del giorno, ?mese. Prossimo: permessi vigilo.* e chi prepara Vigilo, poi B8.",
-      "lastUpdated": "2026-10-20"
+      "notes": "B8d-1 (ADR094): pagina I miei avvisi (Avvisi + Preferenze) dal fondo della campanella; vista a 1440/1024/470. Prossimo: B8d-2 regole del tenant in Configurazione.",
+      "lastUpdated": "2026-10-26"
     },
     "revisione UI @edg/ui": {
       "status": "in-progress",
@@ -148,8 +148,8 @@
     },
     "vigilo-service": {
       "status": "in-progress",
-      "notes": "GET /calendario (ADR083) verificato dal vivo 13/13; 105 test Jest. Prossimi: rotta interna auth per vigilo.* e nome di chi decide, B8 avvisi.",
-      "lastUpdated": "2026-10-20"
+      "notes": "B8d-1 (ADR094): GET/PUT/DELETE /avvisi/preferenze, filtri per tipo e sede sull'ufficio, GET /avvisi con offset/stato/tipo. Jest 162/162, dal vivo 46/46. Prossimo: B8d-2.",
+      "lastUpdated": "2026-10-26"
     }
   }
 }

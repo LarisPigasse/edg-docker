@@ -10,6 +10,8 @@
 // Una persona riceve sul suo account se è collegata, altrimenti alla sua
 // email (persone senza account, decisione 4 di 04-avvisi). Soggetto fermo:
 // solo l'ufficio, salvo i controlli "avvisa anche se fermo".
+// I filtri delle preferenze (B8d-1) tolgono solo chi riceve come ufficio:
+// chi è anche referente, assegnatario o interessato riceve comunque.
 // =============================================================================
 import type { Destinatario } from '../../regole';
 
@@ -29,6 +31,8 @@ export interface ContestoDestinatari {
   assegnatari: PersonaAvvisabile[];
   /** La persona stessa, se il soggetto è una persona */
   interessato: PersonaAvvisabile | null;
+  /** Facoltativo: l'account dell'ufficio vuole questo avviso? (filtri delle preferenze) */
+  filtroUfficio?: (idAccount: number) => boolean;
 }
 
 export interface Recapiti {
@@ -57,7 +61,7 @@ export function risolviDestinatari(c: ContestoDestinatari): Recapiti {
 
   const soloUfficio = c.soggettoFermo && !c.avvisaAncheSeFermo;
   for (const d of c.destinatari) {
-    if (d.tipo === 'ufficio') c.ufficio.forEach(id => account.add(id));
+    if (d.tipo === 'ufficio') for (const id of c.ufficio) if (!c.filtroUfficio || c.filtroUfficio(id)) account.add(id);
     if (soloUfficio) continue;
     if (d.tipo === 'referente') persona(c.referente);
     if (d.tipo === 'assegnatario') c.assegnatari.forEach(persona);

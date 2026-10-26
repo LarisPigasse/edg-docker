@@ -40,6 +40,15 @@ describe('destinatari degli avvisi', () => {
     expect(risolviDestinatari(base({ destinatari: [{ tipo: 'referente' }], referente: { idAccount: null, email: null } }))).toEqual({ account: [], email: [] });
   });
 
+  test('filtri delle preferenze: tolgono solo chi riceve come ufficio', () => {
+    expect(risolviDestinatari(base({ filtroUfficio: id => id !== 2 })).account).toEqual([4, 7]);
+  });
+
+  test('filtri delle preferenze: chi è anche referente riceve comunque', () => {
+    const r = risolviDestinatari(base({ referente: { idAccount: 4, email: null }, filtroUfficio: () => false }));
+    expect(r).toEqual({ account: [4], email: ['autista@cliente.it'] });
+  });
+
   test('ufficio = lettura o scrittura', () => {
     expect(
       ufficioDa([

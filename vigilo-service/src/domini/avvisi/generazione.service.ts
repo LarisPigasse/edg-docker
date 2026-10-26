@@ -7,6 +7,7 @@
 // risolvono i destinatari (destinatari.ts) e si creano le consegne:
 //   - in app per gli account (subito "inviato": le legge la campanella);
 //   - per email, in coda: agli account secondo le loro preferenze (ADR092),
+//     con i filtri per tipo di soggetto e sede per chi riceve come ufficio (B8d-1),
 //     alle persone senza account e agli indirizzi aggiuntivi sempre; le
 //     invia invio.service (subito) o il riepilogo.
 // Poi gli avvisi di cicli superati (scadenza registrata, rinviata, chiusa)
@@ -26,23 +27,19 @@ import { logger } from '../../core/services/logger';
 import { oggiInItalia } from '../../core/utils/oggi';
 import { eventiDovuti, riferimentoCiclo, testoStato, type Giorno } from '../../regole';
 import { avvisiEffettivi } from '../impostazioni/limiti';
-import { Assegnazione, Avviso, Consegna, Contatore, Controllo, ImpostazioniTenant, PreferenzeAvvisi, Scadenza, Soggetto } from '../modelli';
+import { Assegnazione, Avviso, Consegna, Contatore, Controllo, ImpostazioniTenant, Scadenza, Soggetto } from '../modelli';
 import { predefinitiDi, situazioneDi } from '../scadenze/ricalcolo.service';
 import { risolviDestinatari, ufficioDa, type PersonaAvvisabile } from './destinatari';
-import { PREFERENZE_INIZIALI, invioEmail, type PreferenzeEmail } from './invio';
+import { invioEmail } from './invio';
 import { segnalaInvio } from './invio.service';
+import { PREFERENZE_PREDEFINITE, passaFiltri } from './preferenze';
+import { preferenzeDelTenant } from './preferenze.service';
 import { testoAvviso } from './testo';
 
 export interface EsitoGenerazione {
   avvisi: number;
   consegne: number;
   risolte: number;
-}
-
-/** Le preferenze salvate degli account del tenant (chi non ne ha usa i predefiniti) */
-async function preferenzeDi(idTenant: number): Promise<Map<number, PreferenzeEmail>> {
-  const righe = await PreferenzeAvvisi.findAll({ where: { idTenant } });
-  return new Map(righe.map(r => [r.idAccount, { frequenza: r.frequenza, urgentiSubito: r.urgentiSubito, canali: r.canali }]));
 }
 
 const personaDi = (s: Soggetto | null | undefined): PersonaAvvisabile | null =>
@@ -58,7 +55,8 @@ export async function generaAvvisiTenant(idTenant: number, oggi: Giorno = oggiIn
   const { intervalloRichiami } = avvisiEffettivi(imp.avvisi);
   const ufficio = ufficioDa(account.map(a => ({ id: a.id, capacita: capacitaDi(a.permissions) })));
   const predefiniti = (await predefinitiDi([idTenant])).get(idTenant)!;
-  const preferenze = await preferenzeDi(idTenant);
+  const preferenze = await preferenzeDelTenant(idTenant);
+  const di = (id: number) => preferenze.get(id) ?? PREFERENZE_PREDEFINITE;
   let email = 0;
 
   let ultimo = 0;
@@ -92,6 +90,7 @@ export async function generaAvvisiTenant(idTenant: number, oggi: Giorno = oggiIn
       );
       if (!eventi.length) continue;
 
+      const filtrabile = sog ? { idSoggetto: sog.idSoggetto, tipo: sog.tipo, idSede: sog.idSede ?? null } : null;
       const testo = testoAvviso({
         titolo: s.titolo || s.controllo?.nome || 'Scadenza',
         soggetto: sog ? { nome: sog.nome, identificativo: sog.identificativo ?? null } : null,
@@ -116,10 +115,11 @@ export async function generaAvvisiTenant(idTenant: number, oggi: Giorno = oggiIn
           referente: personaDi(sog?.referente),
           assegnatari: (sog?.assegnazioni ?? []).filter(a => inCorso(a, oggi)).map(a => personaDi(a.persona)).filter((p): p is PersonaAvvisabile => !!p),
           interessato: sog?.tipo === 'persona' ? personaDi(sog) : null,
+          filtroUfficio: id => passaFiltri(di(id).filtri, filtrabile),
         });
         const adesso = new Date();
         // email agli account solo se le loro preferenze la vogliono, per questo avviso
-        const conEmail = recapiti.account.filter(id => invioEmail(preferenze.get(id) ?? PREFERENZE_INIZIALI, ev.urgente) !== 'mai');
+        const conEmail = recapiti.account.filter(id => invioEmail(di(id), ev.urgente) !== 'mai');
         const righe = [
           ...recapiti.account.map(idAccount => ({ idTenant, idAvviso: avviso.idAvviso, idAccount, canale: 'app' as const, stato: 'inviato' as const, inviatoIl: adesso })),
           ...conEmail.map(idAccount => ({ idTenant, idAvviso: avviso.idAvviso, idAccount, canale: 'email' as const, stato: 'in-coda' as const })),
