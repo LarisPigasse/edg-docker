@@ -93,6 +93,22 @@ export function avvisiEffettivi(salvate: Partial<RegoleAvvisi> | null | undefine
   };
 }
 
+/**
+ * Le regole dopo una modifica parziale già validata con erroriAvvisi: si parte
+ * da quelle in vigore e si rilegge tutto con avvisiEffettivi (giorni ordinati
+ * e senza doppioni, nulla fuori limite).
+ */
+export const uniscilRegole = (salvate: Partial<RegoleAvvisi> | null | undefined, modifica: Partial<RegoleAvvisi>): RegoleAvvisi =>
+  avvisiEffettivi({ ...avvisiEffettivi(salvate), ...modifica });
+
+/** Due insiemi di regole uguali? (giorni già ordinati da avvisiEffettivi) */
+export const stesseRegole = (a: RegoleAvvisi, b: RegoleAvvisi): boolean =>
+  a.orarioRiepilogo === b.orarioRiepilogo &&
+  a.intervalloRichiami === b.intervalloRichiami &&
+  a.giorniLavorativi.join() === b.giorniLavorativi.join() &&
+  a.silenzio.dalle === b.silenzio.dalle &&
+  a.silenzio.alle === b.silenzio.alle;
+
 /** Il momento (minuti dalla mezzanotte) è nel silenzio? */
 export const inSilenzio = (minuti: number, s: Silenzio): boolean => {
   const durata = durataSilenzio(s);

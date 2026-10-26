@@ -22,6 +22,7 @@ import { dashboardRoutes } from './dashboard/dashboard.routes';
 import { calendarioRoutes } from './calendario/calendario.routes';
 import { libreriaRoutes } from './libreria/libreria.routes';
 import { avvisiRoutes } from './avvisi/avviso.routes';
+import { impostazioniRoutes } from './impostazioni/impostazioni.routes';
 
 const router = Router();
 
@@ -40,5 +41,6 @@ router.use(dashboardRoutes);
 router.use(calendarioRoutes);
 router.use(libreriaRoutes);
 router.use(avvisiRoutes);
+router.use(impostazioniRoutes);
 
 export default router;

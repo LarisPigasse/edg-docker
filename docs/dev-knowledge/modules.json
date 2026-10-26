@@ -108,7 +108,7 @@
     },
     "vigilo (modulo app-frontend)": {
       "status": "in-progress",
-      "notes": "B8d-1 (ADR094): pagina I miei avvisi (Avvisi + Preferenze) dal fondo della campanella; vista a 1440/1024/470. Prossimo: B8d-2 regole del tenant in Configurazione.",
+      "notes": "B8d-2 (ADR095): riga Avvisi e pannello Regole degli avvisi in Configurazione. Prossimo: B8d-1 bis (pagina avvisi della piattaforma, voce Avvisi nel menu di Vigilo).",
       "lastUpdated": "2026-10-26"
     },
     "revisione UI @edg/ui": {
@@ -148,7 +148,7 @@
     },
     "vigilo-service": {
       "status": "in-progress",
-      "notes": "B8d-1 (ADR094): GET/PUT/DELETE /avvisi/preferenze, filtri per tipo e sede sull'ufficio, GET /avvisi con offset/stato/tipo. Jest 162/162, dal vivo 46/46. Prossimo: B8d-2.",
+      "notes": "B8d-2 (ADR095): GET/PATCH/DELETE /impostazioni/avvisi con i limiti di ADR093. Jest 165/165, dal vivo sui due gateway. Prossimo: B8d-1 bis (frontend), poi B8d-3.",
       "lastUpdated": "2026-10-26"
     }
   }
