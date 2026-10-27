@@ -16,6 +16,7 @@ const { jwtValidatorMiddleware } = require('./middleware/jwtValidator');
 const { injectGatewayHeaders } = require('./middleware/gatewayHeaders');
 const { createSessionGuard } = require('./middleware/sessionGuard');
 const { mountServiceRoutes, runChain } = require('./middleware/serviceProxy');
+const { LIMITE_PUBBLICO, createPublicLimiter } = require('./middleware/publicRoute'); // ADR098
 const { SERVICE_ROUTES, VEHICLE_SERVICE, SYSTEM_SERVICE, VIGILO_SERVICE, isStreamPath } = require('./config/serviceRoutes'); // ADR009, ADR060, ADR069
 
 // Identita' della build (ADR044): build-info.json e' scritto dal Dockerfile.
@@ -247,6 +248,8 @@ app.get('/health', (req, res) => {
       maxAttempts: parseInt(process.env.RATE_LIMIT_MAX_ATTEMPTS) || 128,
       appliedTo: ['/auth/*'],
       excludedPaths: ['/health', '/liveness', '/readiness'],
+      // rotte pubbliche dei servizi (ADR098): limite proprio per IP
+      public: { window: `${LIMITE_PUBBLICO.finestraMinuti} minutes`, maxAttempts: LIMITE_PUBBLICO.richieste, appliedTo: SERVICE_ROUTES.filter(r => r.pubblica).map(r => `${r.prefix}/*`) },
     },
   });
 });
@@ -365,7 +368,7 @@ app.use('/auth', async (req, res, next) => {
 // Il frontend legge `modules` dal JWT solo per menu e rotte: il controllo
 // vero e' qui (ADR009).
 // =============================================================================
-mountServiceRoutes(app, SERVICE_ROUTES, { cors: corsMiddleware, sessionGuard });
+mountServiceRoutes(app, SERVICE_ROUTES, { cors: corsMiddleware, sessionGuard, publicLimiter: createPublicLimiter(redisClient) });
 
 // =============================================================================
 // PROXY FRONTEND - istanza unica, creata una sola volta all'avvio
@@ -442,4 +445,5 @@ app.listen(PORT, () => {
   console.log(`  Rate limiting: Enabled for /auth/* only`);
   console.log(`  Window: ${parseInt(process.env.RATE_LIMIT_WINDOW) || 16} minutes`);
   console.log(`  Max attempts: ${parseInt(process.env.RATE_LIMIT_MAX_ATTEMPTS) || 128} requests`);
+  console.log(`  Public routes: ${LIMITE_PUBBLICO.richieste} requests per ${LIMITE_PUBBLICO.finestraMinuti} minutes per IP`);
 });

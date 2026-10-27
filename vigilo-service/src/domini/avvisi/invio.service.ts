@@ -9,12 +9,14 @@
 //     giro dopo senza contare tentativi;
 //   - invio non riuscito: si riprova ai giri successivi, al limite dei
 //     tentativi (parametro della piattaforma) la consegna passa a "fallito";
-//   - nel silenzio notturno del tenant non parte niente.
+//   - nel silenzio notturno del tenant non parte niente;
+//   - chi non ha account trova in fondo "Non ricevere più questi avvisi";
+//     se l'ha già chiesto, la consegna si risolve senza email (B8d-4).
 // Gira a ogni giro delle email e subito dopo una generazione con email nuove,
 // un giro alla volta (segnalaInvio).
 // =============================================================================
 import { Op } from 'sequelize';
-import { configModulo, type NomeAccount } from '../../core/clients/authClient';
+import type { NomeAccount } from '../../core/clients/authClient';
 import { inviaEmail } from '../../core/clients/emailClient';
 import { PARAMETRI } from '../../core/parametri';
 import { logger } from '../../core/services/logger';
@@ -22,23 +24,16 @@ import { minutiInItalia } from '../../core/utils/oggi';
 import { nomeProprio } from '../avvio/pronto';
 import { avvisiEffettivi, inSilenzio } from '../impostazioni/limiti';
 import { Consegna, ImpostazioniTenant } from '../modelli';
-import { INCLUDE_AVVISO, esitoInvio, indirizziDi, preferenzeDella, preferenzeDi, voceDi } from './email';
+import { INCLUDE_AVVISO, esitoInvio, indirizziDi, linkNonRicevere, nomiTenant, preferenzeDella, preferenzeDi, voceDi } from './email';
 import { invioEmail } from './invio';
+import { chiaveRecapito } from './recapiti';
+import { recapitiDi } from './recapiti.service';
 
 export interface EsitoInvio {
   inviate: number;
   fallite: number;
   /** Da riprovare al giro dopo */
   rimandate: number;
-}
-
-/** Il nome del tenant per le email (null se auth non risponde) */
-export function nomiTenant(): (idTenant: number) => Promise<string | null> {
-  const cache = new Map<number, string | null>();
-  return async idTenant => {
-    if (!cache.has(idTenant)) cache.set(idTenant, await configModulo(idTenant).then(a => a.tenant?.nome ?? null).catch(() => null));
-    return cache.get(idTenant) ?? null;
-  };
 }
 
 export async function inviaEmailSubito(adesso: Date = new Date()): Promise<EsitoInvio> {
@@ -80,6 +75,7 @@ export async function inviaEmailSubito(adesso: Date = new Date()): Promise<Esito
     } catch (err) {
       logger.warn('vigilo.avvisi_email', `Indirizzi degli account non letti, si riprova al giro dopo: ${String(err)}`);
     }
+    const recapiti = await recapitiDi(subito);
 
     for (const c of subito) {
       if (c.idAccount != null && !account) {
@@ -91,6 +87,11 @@ export async function inviaEmailSubito(adesso: Date = new Date()): Promise<Esito
       if (!to) {
         await c.update({ stato: 'fallito', errore: 'Account non trovato o senza email' });
         esito.fallite++;
+        continue;
+      }
+      const recapito = c.idAccount == null ? recapiti.get(chiaveRecapito(c.idTenant, to)) : undefined;
+      if (recapito?.esclusoIl) {
+        await c.update({ stato: 'risolto', errore: 'Ha chiesto di non ricevere più le email' });
         continue;
       }
       const a = c.avviso!;
@@ -106,6 +107,7 @@ export async function inviaEmailSubito(adesso: Date = new Date()): Promise<Esito
             nome: persona?.nome ? nomeProprio(persona.nome) : null,
             tenant: await nomeTenant(c.idTenant),
             ...v,
+            nonRicevere: recapito ? linkNonRicevere(recapito.codice) : null,
           },
         });
       } catch (err) {

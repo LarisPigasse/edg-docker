@@ -120,3 +120,30 @@ describe('anteprima dei destinatari (B8d-3)', () => {
     expect(p.voci).toEqual([{ ruolo: 'interessato', nome: 'Mario', email: 'mario@cliente.it', recapito: 'email' }]);
   });
 });
+
+describe('indirizzi che hanno chiesto di non ricevere più (B8d-4)', () => {
+  test('niente email per loro, gli account restano', () => {
+    const r = risolviDestinatari(
+      base({ destinatari: [{ tipo: 'ufficio' }, { tipo: 'assegnatario' }, { tipo: 'email', email: 'Studio@Rossi.it' }], escluse: new Set(['autista@cliente.it']) })
+    );
+    expect(r).toEqual({ account: [2, 4], email: ['studio@rossi.it'] });
+    expect(risolviDestinatari(base({ destinatari: [{ tipo: 'email', email: 'studio@rossi.it' }], escluse: new Set(['studio@rossi.it']) })).email).toEqual([]);
+  });
+
+  test('nell anteprima si vedono come esclusi', () => {
+    const a = anteprimaDestinatari({
+      destinatari: [{ tipo: 'assegnatario' }, { tipo: 'email', email: 'Officina@Rossi.it' }],
+      soggettoFermo: false,
+      avvisaAncheSeFermo: false,
+      referente: null,
+      assegnatari: [{ idAccount: null, email: 'autista@cliente.it', nome: 'Luca Bianchi' }],
+      interessato: null,
+      soggettoPersona: false,
+      escluse: new Set(['officina@rossi.it', 'autista@cliente.it']),
+    });
+    expect(a.voci).toEqual([
+      { ruolo: 'assegnatario', nome: 'Luca Bianchi', email: 'autista@cliente.it', recapito: 'escluso' },
+      { ruolo: 'email', nome: null, email: 'officina@rossi.it', recapito: 'escluso' },
+    ]);
+  });
+});

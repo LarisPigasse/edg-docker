@@ -24,6 +24,7 @@ import { Allegato } from './allegati/allegato.model';
 import { Avviso } from './avvisi/avviso.model';
 import { Consegna } from './avvisi/consegna.model';
 import { PreferenzeAvvisi } from './avvisi/preferenzeAvvisi.model';
+import { RecapitoEmail } from './avvisi/recapitoEmail.model';
 import { DecisioneLibreria } from './aggiornamenti/decisioneLibreria.model';
 
 const fk = (foreignKey: string) => ({ foreignKey, constraints: false });
@@ -110,5 +111,6 @@ export {
   Avviso,
   Consegna,
   PreferenzeAvvisi,
+  RecapitoEmail,
   DecisioneLibreria,
 };

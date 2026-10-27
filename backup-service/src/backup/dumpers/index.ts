@@ -5,6 +5,6 @@ import type { Dumper } from '../types';
 import { mysqlDumper } from './mysql';
 import { postgresDumper } from './postgres';
 import { mongoDumper } from './mongo';
-import { uploadsDumper } from './uploads';
+import { uploadsDumpers } from './uploads';
 
-export const DUMPERS: Dumper[] = [mysqlDumper, postgresDumper, mongoDumper, uploadsDumper];
+export const DUMPERS: Dumper[] = [mysqlDumper, postgresDumper, mongoDumper, ...uploadsDumpers];

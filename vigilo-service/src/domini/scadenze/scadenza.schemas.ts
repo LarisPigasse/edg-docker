@@ -3,6 +3,7 @@
 // =============================================================================
 import Joi from 'joi';
 import { schemaLista } from '../../core/utils/lista';
+import { LIMITI_ALLEGATI } from '../allegati/allegati';
 import { cadenza, destinatari, giorno, natura, preavvisi, tipoSoggetto, tolleranza, uuid } from '../schemi';
 
 const ridefinizioni = {
@@ -36,6 +37,8 @@ export const esecuzione = Joi.object({
   note: Joi.string().trim().max(4096).allow('', null),
   prossima: Joi.object({ scadeIl: giorno, sogliaUso: Joi.number().integer().min(0).max(1 << 30) }),
   dataNuova: giorno.allow(null),
+  /** Documenti già caricati sulla scadenza dal modulo Registra: passano alla registrazione (B9a) */
+  allegati: Joi.array().items(uuid).max(LIMITI_ALLEGATI.perEntita).unique(),
 });
 
 /** Lo storico di un soggetto: le più recenti per prime */

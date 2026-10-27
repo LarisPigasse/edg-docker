@@ -18,4 +18,5 @@ Apri Vigilo: {{urlVigilo}}
 {{/if}}
 
 Ricevi questo riepilogo da Vigilo, il servizio di Express Delivery Group che tiene d’occhio le scadenze per te. Parte solo quando c’è qualcosa di nuovo.
-© {{year}} Express Delivery Group
+{{#if nonRicevere}}Non vuoi più ricevere questi avvisi? {{nonRicevere}}
+{{/if}}© {{year}} Express Delivery Group

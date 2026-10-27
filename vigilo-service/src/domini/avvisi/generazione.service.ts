@@ -8,8 +8,9 @@
 //   - in app per gli account (subito "inviato": le legge la campanella);
 //   - per email, in coda: agli account secondo le loro preferenze (ADR092),
 //     con i filtri per tipo di soggetto e sede per chi riceve come ufficio (B8d-1),
-//     alle persone senza account e agli indirizzi aggiuntivi sempre; le
-//     invia invio.service (subito) o il riepilogo.
+//     alle persone senza account e agli indirizzi aggiuntivi sempre, salvo
+//     chi ha chiesto di non ricevere più (B8d-4); le invia invio.service
+//     (subito) o il riepilogo.
 // Poi gli avvisi di cicli superati (scadenza registrata, rinviata, chiusa)
 // passano a "risolto": niente campanelle accese per niente.
 //
@@ -35,6 +36,7 @@ import { inCorso, personaDi } from './persone';
 import { segnalaInvio } from './invio.service';
 import { PREFERENZE_PREDEFINITE, passaFiltri } from './preferenze';
 import { preferenzeDelTenant } from './preferenze.service';
+import { escluseDelTenant } from './recapiti.service';
 import { testoAvviso } from './testo';
 
 export interface EsitoGenerazione {
@@ -52,6 +54,7 @@ export async function generaAvvisiTenant(idTenant: number, oggi: Giorno = oggiIn
   const predefiniti = (await predefinitiDi([idTenant])).get(idTenant)!;
   const preferenze = await preferenzeDelTenant(idTenant);
   const di = (id: number) => preferenze.get(id) ?? PREFERENZE_PREDEFINITE;
+  const escluse = await escluseDelTenant(idTenant);
   let email = 0;
 
   let ultimo = 0;
@@ -111,6 +114,7 @@ export async function generaAvvisiTenant(idTenant: number, oggi: Giorno = oggiIn
           assegnatari: (sog?.assegnazioni ?? []).filter(a => inCorso(a, oggi)).map(a => personaDi(a.persona)).filter((p): p is PersonaAvvisabile => !!p),
           interessato: sog?.tipo === 'persona' ? personaDi(sog) : null,
           filtroUfficio: id => passaFiltri(di(id).filtri, filtrabile),
+          escluse,
         });
         const adesso = new Date();
         // email agli account solo se le loro preferenze la vogliono, per questo avviso

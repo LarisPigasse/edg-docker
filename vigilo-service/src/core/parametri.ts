@@ -43,6 +43,8 @@ export const LIMITI_PIATTAFORMA = {
   lotto: { predefinito: 512, min: 64, max: 2048 },
   /** Attesa dopo una modifica prima di generare gli avvisi del tenant (ms) */
   attesaModificaMs: { predefinito: 4096, min: 1024, max: 16384 },
+  /** Dimensione massima di un documento caricato (MB, B9a) */
+  allegatoMb: { predefinito: 16, min: 1, max: 64 },
 } as const satisfies Record<string, Limiti>;
 
 export const PARAMETRI = {
@@ -50,4 +52,5 @@ export const PARAMETRI = {
   tentativiEmail: parametro('VIGILO_TENTATIVI_EMAIL', LIMITI_PIATTAFORMA.tentativiEmail),
   lotto: parametro('VIGILO_LOTTO', LIMITI_PIATTAFORMA.lotto),
   attesaModificaMs: parametro('VIGILO_ATTESA_MODIFICA_MS', LIMITI_PIATTAFORMA.attesaModificaMs),
+  allegatoMb: parametro('VIGILO_ALLEGATO_MB', LIMITI_PIATTAFORMA.allegatoMb),
 } as const;

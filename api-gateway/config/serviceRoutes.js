@@ -16,6 +16,10 @@
 //             e lo passa al servizio cosi' com'e', e la risposta torna cosi'
 //             com'e' (caricamento e scaricamento di file); stessi controlli
 //             (JWT, blacklist, modulo, header). Assente = JSON come sempre.
+//   pubblica  true = senza JWT ne' modulo: limite di richieste per IP e solo
+//             il segreto del gateway, nessun dato utente (ADR098). La
+//             credenziale e' nella richiesta (es. un codice) e la verifica
+//             il servizio. Solo per pagine aperte da un'email.
 //
 // L'ORDINE CONTA: Express prova le voci nell'ordine di registrazione, quindi
 // un prefisso piu' specifico va PRIMA di quello generico che lo contiene
@@ -31,6 +35,9 @@ const LOG_SERVICE = process.env.LOG_SERVICE_URL || 'http://log-service:4000';
 const VIGILO_SERVICE = process.env.VIGILO_SERVICE_URL || 'http://vigilo-service:3006';
 
 const SERVICE_ROUTES = Object.freeze([
+  // Pubbliche (ADR098): prima del prefisso del loro servizio
+  { prefix: '/api/vigilo/pubblico', target: VIGILO_SERVICE, upstream: '/api/vigilo/pubblico', module: null, service: 'vigilo-service', stream: true, pubblica: true },
+
   // Moduli attivabili per tenant
   { prefix: '/api/vigilo', target: VIGILO_SERVICE, upstream: '/api/vigilo', module: 'vigilo', service: 'vigilo-service', stream: true },
   // vecchio Vigilo, da eliminare quando Vigilo sara' pronto (ADR060)

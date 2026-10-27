@@ -4,12 +4,13 @@
 // Ogni area (dominio) porta le sue rotte; qui solo l'ordine e i controlli
 // comuni: richiesta dal gateway con utente valido e tenant (ADR068). Il
 // modulo 'vigilo' in vigore lo verifica gia' il gateway (ADR060).
+// Unica eccezione: /pubblico (B8d-4), solo col segreto del gateway e senza
+// utente; il gateway la apre senza JWT con un limite di richieste per IP.
 // =============================================================================
 import { Router } from 'express';
 import './modelli'; // modelli e associazioni prima delle rotte
-import { requireAuth, requireTenant } from '../core/middleware/auth';
+import { requireAuth, requireGatewaySecret, requireTenant } from '../core/middleware/auth';
 import { ioRoutes } from './io/io.routes';
-import { diagnosticaRoutes } from './diagnostica/diagnostica.routes';
 import { categorieRoutes } from './categorie/categoria.routes';
 import { controlliRoutes } from './controlli/controllo.routes';
 import { soggettiRoutes } from './soggetti/soggetto.routes';
@@ -23,12 +24,14 @@ import { calendarioRoutes } from './calendario/calendario.routes';
 import { libreriaRoutes } from './libreria/libreria.routes';
 import { avvisiRoutes } from './avvisi/avviso.routes';
 import { impostazioniRoutes } from './impostazioni/impostazioni.routes';
+import { recapitiRoutes } from './avvisi/recapiti.routes';
+import { allegatiRoutes } from './allegati/allegato.routes';
 
 const router = Router();
 
+router.use('/pubblico', requireGatewaySecret, recapitiRoutes);
 router.use(requireAuth, requireTenant);
 router.use(ioRoutes);
-router.use(diagnosticaRoutes);
 router.use(categorieRoutes);
 router.use(controlliRoutes);
 router.use(soggettiRoutes);
@@ -42,5 +45,6 @@ router.use(calendarioRoutes);
 router.use(libreriaRoutes);
 router.use(avvisiRoutes);
 router.use(impostazioniRoutes);
+router.use(allegatiRoutes);
 
 export default router;

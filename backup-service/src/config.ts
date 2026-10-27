@@ -49,8 +49,16 @@ export const config = {
     user: env('MONGO_USER'),
     password: env('MONGO_PASSWORD'),
   },
-  /** Volume dei file caricati dai veicoli, montato in sola lettura */
-  uploadsDir: env('UPLOADS_DIR', '/data/vehicle-uploads'),
+  /**
+   * Volumi dei file caricati, montati in sola lettura: un archivio per volume.
+   * L'id del primo resta 'uploads' per i manifest gia' scritti (ADR099).
+   */
+  uploads: [
+    { id: 'uploads', label: 'File caricati (veicoli)', dir: env('UPLOADS_DIR', '/data/vehicle-uploads'), file: 'vehicle-uploads.tar.gz', escludi: [], facoltativo: false },
+    // documenti di Vigilo; .in-arrivo = caricamenti non ancora finiti; facoltativo:
+    // dove Vigilo non e' installato il volume non e' montato e si salta
+    { id: 'vigilo-uploads', label: 'Documenti di Vigilo', dir: env('VIGILO_UPLOADS_DIR', '/data/vigilo-uploads'), file: 'vigilo-uploads.tar.gz', escludi: ['./.in-arrivo'], facoltativo: true },
+  ],
 } as const;
 
 export type Config = typeof config;

@@ -18,6 +18,7 @@ import { traccia } from '../../core/services/traccia';
 import { ConflictError, ValidationError } from '../../core/utils/errors';
 import { comeTesto, type Pagina } from '../../core/utils/lista';
 import { parti, primaScadenza, type Giorno } from '../../regole';
+import { eliminaAllegatiDi } from '../allegati/allegati.service';
 import { Assegnazione, Categoria, Contatore, Controllo, Lettura, Registrazione, Scadenza, Soggetto } from '../modelli';
 import { chiudiScadenze, controlliAutomaticiPer, generaScadenze, riapriScadenzeArchiviate } from '../scadenze/ciclo.service';
 import { ricalcolaScadenze } from '../scadenze/ricalcolo.service';
@@ -281,6 +282,16 @@ export async function eliminaSoggetto(ctx: Contesto, uuid: string): Promise<void
     });
     if (registrazioni || letture) throw new ConflictError('Il soggetto ha uno storico (registrazioni o letture): si può solo dismettere');
     const prima = snapshot(s);
+    // i documenti del soggetto e delle sue scadenze (che se ne vanno con lui)
+    const scadenze = await Scadenza.findAll({ where: { idTenant: ctx.idTenant, idSoggetto: s.idSoggetto }, attributes: ['idScadenza'], transaction });
+    await eliminaAllegatiDi(
+      ctx.idTenant,
+      [
+        { entita: 'soggetto', idEntita: [s.idSoggetto] },
+        { entita: 'scadenza', idEntita: scadenze.map(x => x.idScadenza) },
+      ],
+      transaction
+    );
     await s.destroy({ transaction });
     traccia(ctx, 'vigilo.soggetto.eliminato', `Soggetto eliminato: ${s.nome}`, prima, null);
   });

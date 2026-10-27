@@ -13,6 +13,7 @@
 // I filtri delle preferenze (B8d-1) tolgono solo chi riceve come ufficio:
 // chi è anche referente, assegnatario o interessato riceve comunque.
 // Limiti, errori e anteprima con i nomi per l'editor dei destinatari (B8d-3).
+// Gli indirizzi che hanno chiesto di non ricevere più (B8d-4) non ricevono.
 // =============================================================================
 import type { Destinatario } from '../../regole';
 
@@ -34,6 +35,8 @@ export interface ContestoDestinatari {
   interessato: PersonaAvvisabile | null;
   /** Facoltativo: l'account dell'ufficio vuole questo avviso? (filtri delle preferenze) */
   filtroUfficio?: (idAccount: number) => boolean;
+  /** Facoltativo: indirizzi (in minuscolo) che hanno chiesto di non ricevere più (B8d-4) */
+  escluse?: ReadonlySet<string>;
 }
 
 export interface Recapiti {
@@ -51,13 +54,14 @@ const pulita = (e: string | null | undefined): string | null => {
 export function risolviDestinatari(c: ContestoDestinatari): Recapiti {
   const account = new Set<number>();
   const email = new Set<string>();
+  const indirizzo = (valore: string | null | undefined) => {
+    const e = pulita(valore);
+    if (e && !c.escluse?.has(e)) email.add(e);
+  };
   const persona = (p: PersonaAvvisabile | null) => {
     if (!p) return;
     if (p.idAccount) account.add(p.idAccount);
-    else {
-      const e = pulita(p.email);
-      if (e) email.add(e);
-    }
+    else indirizzo(p.email);
   };
 
   const soloUfficio = c.soggettoFermo && !c.avvisaAncheSeFermo;
@@ -67,10 +71,7 @@ export function risolviDestinatari(c: ContestoDestinatari): Recapiti {
     if (d.tipo === 'referente') persona(c.referente);
     if (d.tipo === 'assegnatario') c.assegnatari.forEach(persona);
     if (d.tipo === 'interessato') persona(c.interessato);
-    if (d.tipo === 'email') {
-      const e = pulita(d.email);
-      if (e) email.add(e);
-    }
+    if (d.tipo === 'email') indirizzo(d.email);
   }
   return { account: [...account].sort((a, b) => a - b), email: [...email].sort() };
 }
@@ -111,8 +112,12 @@ export interface PersonaNominata extends PersonaAvvisabile {
 
 export type RuoloPersona = 'referente' | 'assegnatario' | 'interessato';
 
-/** Come arriva l'avviso: sul suo account (in app, ed email secondo le preferenze), per email, o per niente */
-export type Recapito = 'app' | 'email' | 'nessuno';
+/**
+ * Come arriva l'avviso: sul suo account (in app, ed email secondo le preferenze),
+ * per email, per niente (né account né email) o per niente perché l'indirizzo
+ * ha chiesto di non ricevere più (escluso, B8d-4)
+ */
+export type Recapito = 'app' | 'email' | 'nessuno' | 'escluso';
 
 export interface VoceAnteprima {
   ruolo: RuoloPersona | 'email';
@@ -140,22 +145,30 @@ export interface ContestoAnteprima {
   interessato: PersonaNominata | null;
   /** Il soggetto è una persona (altrimenti "interessato" non vale) */
   soggettoPersona: boolean;
+  /** Facoltativo: indirizzi (in minuscolo) che hanno chiesto di non ricevere più (B8d-4) */
+  escluse?: ReadonlySet<string>;
 }
-
-const recapitoDi = (p: PersonaAvvisabile): Recapito => (p.idAccount ? 'app' : pulita(p.email) ? 'email' : 'nessuno');
-const voceDi = (ruolo: RuoloPersona, p: PersonaNominata | null): VoceAnteprima =>
-  p ? { ruolo, nome: p.nome, email: p.idAccount ? null : pulita(p.email), recapito: recapitoDi(p) } : { ruolo, nome: null, email: null, recapito: 'nessuno' };
 
 /** Chi riceve gli avvisi di una scadenza, con le stesse regole di risolviDestinatari */
 export function anteprimaDestinatari(c: ContestoAnteprima): Anteprima {
   const soloUfficio = c.soggettoFermo && !c.avvisaAncheSeFermo;
+  const perEmail = (e: string | null): Recapito => (!e ? 'nessuno' : c.escluse?.has(e) ? 'escluso' : 'email');
+  const voceDi = (ruolo: RuoloPersona, p: PersonaNominata | null): VoceAnteprima => {
+    if (!p) return { ruolo, nome: null, email: null, recapito: 'nessuno' };
+    if (p.idAccount) return { ruolo, nome: p.nome, email: null, recapito: 'app' };
+    const e = pulita(p.email);
+    return { ruolo, nome: p.nome, email: e, recapito: perEmail(e) };
+  };
   const voci: VoceAnteprima[] = [];
   if (!soloUfficio)
     for (const d of c.destinatari) {
       if (d.tipo === 'referente') voci.push(voceDi('referente', c.referente));
       if (d.tipo === 'assegnatario') voci.push(...(c.assegnatari.length ? c.assegnatari.map(p => voceDi('assegnatario', p)) : [voceDi('assegnatario', null)]));
       if (d.tipo === 'interessato' && c.soggettoPersona) voci.push(voceDi('interessato', c.interessato));
-      if (d.tipo === 'email') voci.push({ ruolo: 'email', nome: null, email: pulita(d.email), recapito: 'email' });
+      if (d.tipo === 'email') {
+        const e = pulita(d.email);
+        voci.push({ ruolo: 'email', nome: null, email: e, recapito: perEmail(e) });
+      }
     }
   return { ufficio: c.destinatari.some(d => d.tipo === 'ufficio'), soloUfficio, voci };
 }

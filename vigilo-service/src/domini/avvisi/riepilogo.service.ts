@@ -9,7 +9,9 @@
 //   - consegne di chi nel frattempo ha scelto "mai" → "risolto";
 //   - il tenant è "fatto" per oggi (ultimoRiepilogoIl) solo se non resta
 //     niente da riprovare: i destinatari falliti si riprovano ai giri dopo;
-//   - se auth non risponde, il tenant si riprova al giro dopo.
+//   - se auth non risponde, il tenant si riprova al giro dopo;
+//   - chi non ha account trova in fondo "Non ricevere più questi avvisi";
+//     se l'ha già chiesto, le sue consegne si risolvono senza email (B8d-4).
 // =============================================================================
 import { Op } from 'sequelize';
 import type { NomeAccount } from '../../core/clients/authClient';
@@ -20,9 +22,10 @@ import { nomeProprio } from '../avvio/pronto';
 import { conteggi } from '../dashboard/dashboard.service';
 import { avvisiEffettivi } from '../impostazioni/limiti';
 import { Consegna, ImpostazioniTenant } from '../modelli';
-import { APP_FRONTEND_URL, INCLUDE_AVVISO, esitoInvio, indirizziDi, preferenzeDella, preferenzeDi, voceDi } from './email';
+import { APP_FRONTEND_URL, INCLUDE_AVVISO, esitoInvio, indirizziDi, linkNonRicevere, nomiTenant, preferenzeDella, preferenzeDi, voceDi } from './email';
 import { invioEmail } from './invio';
-import { nomiTenant } from './invio.service';
+import { chiaveRecapito } from './recapiti';
+import { recapitiDi } from './recapiti.service';
 import { GRUPPI, gruppoDi, riepilogoDovuto, settimanaleDovuto } from './riepilogo';
 
 export interface EsitoRiepiloghi {
@@ -105,6 +108,7 @@ async function riepilogoTenant(t: ImpostazioniTenant, oggi: string, nomeTenant: 
       esito.rimandate += daMandare.length;
       return; // auth non risponde: il tenant si riprova al giro dopo
     }
+    const recapiti = await recapitiDi(daMandare);
     const numeri = numeriDi(await conteggi({ oggi }, { where: { idTenant }, include: [] }));
     const tenant = await nomeTenant(idTenant);
 
@@ -115,6 +119,12 @@ async function riepilogoTenant(t: ImpostazioniTenant, oggi: string, nomeTenant: 
       if (!to) {
         await Consegna.update({ stato: 'fallito', errore: 'Account non trovato o senza email' }, { where: { idConsegna: consegne.map(c => c.idConsegna) }, validate: false });
         esito.fallite += consegne.length;
+        continue;
+      }
+      const recapito = c0.idAccount == null ? recapiti.get(chiaveRecapito(idTenant, to)) : undefined;
+      if (recapito?.esclusoIl) {
+        const ids = consegne.map(c => c.idConsegna);
+        await Consegna.update({ stato: 'risolto', errore: 'Ha chiesto di non ricevere più le email' }, { where: { idConsegna: ids }, validate: false }); // L054
         continue;
       }
       const conLink = c0.idAccount != null;
@@ -134,6 +144,7 @@ async function riepilogoTenant(t: ImpostazioniTenant, oggi: string, nomeTenant: 
             gruppi,
             voci: voci.length,
             urlVigilo: conLink ? `${APP_FRONTEND_URL}/vigilo` : null,
+            nonRicevere: recapito ? linkNonRicevere(recapito.codice) : null,
           },
         });
       } catch (err) {

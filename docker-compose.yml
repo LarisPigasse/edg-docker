@@ -476,6 +476,7 @@ services:
       # non e' utilizzabile: WSL non la monta e i file finirebbero nel disco interno di Docker.
       - ${BACKUP_HOST_DIR:-../edg-backups}:/backups
       - vehicle-uploads:/data/vehicle-uploads:ro
+      - vigilo-uploads:/data/vigilo-uploads:ro # documenti di Vigilo (ADR099)
     expose:
       - '3005'
     labels:
@@ -637,6 +638,7 @@ services:
       VIGILO_TENTATIVI_EMAIL: ${VIGILO_TENTATIVI_EMAIL:-4} # tentativi di invio prima di "fallito", da 1 a 8
       VIGILO_LOTTO: ${VIGILO_LOTTO:-512} # righe per blocco nei giri, da 64 a 2048
       VIGILO_ATTESA_MODIFICA_MS: ${VIGILO_ATTESA_MODIFICA_MS:-4096} # attesa prima di generare gli avvisi dopo una modifica, da 1024 a 16384
+      VIGILO_ALLEGATO_MB: ${VIGILO_ALLEGATO_MB:-16} # dimensione massima di un documento caricato, da 1 a 64 MB (ADR099)
     volumes:
       - vigilo-uploads:/app/uploads
     expose:
@@ -718,6 +720,9 @@ services:
       # Rate Limiting
       RATE_LIMIT_WINDOW: 16
       RATE_LIMIT_MAX_ATTEMPTS: 1024
+      # rotte pubbliche dei servizi (ADR098): richieste per IP; limiti 4-64 minuti, 8-128 richieste
+      PUBLIC_RATE_LIMIT_WINDOW: 16
+      PUBLIC_RATE_LIMIT_MAX: 32
 
       # Instance Identifier
       INSTANCE_ID: gateway-1
@@ -812,6 +817,9 @@ services:
       # Rate Limiting
       RATE_LIMIT_WINDOW: 16
       RATE_LIMIT_MAX_ATTEMPTS: 1024
+      # rotte pubbliche dei servizi (ADR098): richieste per IP; limiti 4-64 minuti, 8-128 richieste
+      PUBLIC_RATE_LIMIT_WINDOW: 16
+      PUBLIC_RATE_LIMIT_MAX: 32
 
       # Instance Identifier
       INSTANCE_ID: gateway-2

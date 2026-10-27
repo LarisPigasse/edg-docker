@@ -3,6 +3,8 @@
 // =============================================================================
 // Per ogni voce di config/serviceRoutes.js:
 //   CORS -> JWT -> blacklist -> modulo (se dichiarato) -> header gateway -> inoltro
+// Voci pubbliche (`pubblica: true`, ADR098):
+//   CORS -> limite per IP -> solo segreto del gateway -> inoltro
 //
 // Prima esistevano cinque blocchi quasi identici in gateway.js: una modifica
 // alla catena andava ripetuta cinque volte. Ora la catena e' qui e la mappa
@@ -19,6 +21,7 @@ const { createProxyMiddleware, debugProxyErrorsPlugin, proxyEventsPlugin } = req
 const { jwtValidatorMiddleware } = require('./jwtValidator');
 const { injectGatewayHeaders } = require('./gatewayHeaders');
 const { requireModule } = require('./moduleGuard');
+const { injectGatewaySecretOnly } = require('./publicRoute');
 
 /**
  * Esegue in sequenza middleware Express (req, res, next); si ferma al primo
@@ -110,13 +113,13 @@ function streamTo(route) {
  *
  * @param {import('express').Express} app
  * @param {ReadonlyArray<object>} routes   SERVICE_ROUTES
- * @param {{ cors: Function, sessionGuard: Function }} deps
+ * @param {{ cors: Function, sessionGuard: Function, publicLimiter: Function }} deps
  */
-function mountServiceRoutes(app, routes, { cors, sessionGuard }) {
+function mountServiceRoutes(app, routes, { cors, sessionGuard, publicLimiter }) {
   for (const route of routes) {
-    const steps = [jwtValidatorMiddleware, sessionGuard];
-    if (route.module) steps.push(requireModule(route.module));
-    steps.push(injectGatewayHeaders);
+    const steps = route.pubblica ? [publicLimiter, injectGatewaySecretOnly] : [jwtValidatorMiddleware, sessionGuard];
+    if (!route.pubblica && route.module) steps.push(requireModule(route.module));
+    if (!route.pubblica) steps.push(injectGatewayHeaders);
     const forward = route.stream ? streamTo(route) : forwardTo(route);
 
     app.options(`${route.prefix}/*`, cors); // preflight

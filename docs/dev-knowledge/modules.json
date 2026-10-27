@@ -133,8 +133,8 @@
     },
     "backup-service": {
       "status": "stable",
-      "notes": "ADR045: backup giornaliero 12:00 su D:\\Sviluppo\\edg-backups (E: non montabile, L044), 2/1/1, verificato. Produzione: conservazione, copia fuori sede cifrata, prova ripristino.",
-      "lastUpdated": "2026-10-01"
+      "notes": "ADR099: volumi dei file caricati come lista (vehicle-uploads, vigilo-uploads facoltativo, .in-arrivo escluso). Backup di prova con vigilo-uploads riuscito.",
+      "lastUpdated": "2026-10-27"
     },
     "gestione moduli (catalogo, assegnazioni, prove, demo)": {
       "status": "in-progress",
@@ -148,12 +148,17 @@
     },
     "vigilo-service": {
       "status": "in-progress",
-      "notes": "B8d-3 fatto (ADR097): erroriDestinatari, anteprima GET /scadenze/:id/destinatari; Jest 170/170, dal vivo 32/32. Prossimo B8d-4 (non ricevere più, link firmato).",
+      "notes": "B9a fatto (ADR099): allegati con busboy, rotte /allegati, documento nella registrazione, tolta /diagnostica/flusso; Jest 181/181, dal vivo 39/39. Prossimo B9b addetto.",
       "lastUpdated": "2026-10-27"
     },
     "app-frontend (vigilo)": {
       "status": "in-progress",
       "notes": "B8d-3 fatto: EditorDestinatari, \"Avvisi a\" nel pannello scadenza con Come il controllo, Destinatari degli avvisi nel menu del controllo. Visto a 1440/1024/470.",
+      "lastUpdated": "2026-10-27"
+    },
+    "api-gateway": {
+      "status": "stable",
+      "notes": "ADR098: voci pubblica: true in serviceRoutes (senza JWT, limite per IP su Redis PUBLIC_RATE_LIMIT_*, solo segreto). Verificato sui due gateway.",
       "lastUpdated": "2026-10-27"
     }
   }

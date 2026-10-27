@@ -10,6 +10,7 @@ import { traccia } from '../../core/services/traccia';
 import { ConflictError, ValidationError } from '../../core/utils/errors';
 import { comeTesto, type Pagina } from '../../core/utils/lista';
 import { aggiungiGiorni, parti, primaScadenza, prossimaScadenza, STATI, type Cadenza, type Giorno, type UnitaUso } from '../../regole';
+import { eliminaAllegatiDi } from '../allegati/allegati.service';
 import { controllaCadenza } from '../coerenza';
 import { Categoria, Contatore, Controllo, Registrazione, Scadenza, Soggetto } from '../modelli';
 import { siApplica } from './ciclo.service';
@@ -201,6 +202,7 @@ export async function eliminaScadenza(ctx: Contesto, uuid: string): Promise<void
     if (await Registrazione.count({ where: { idScadenza: s.idScadenza }, transaction }))
       throw new ConflictError('La scadenza ha delle registrazioni: non si elimina');
     const prima = snapshot(s);
+    await eliminaAllegatiDi(ctx.idTenant, [{ entita: 'scadenza', idEntita: [s.idScadenza] }], transaction);
     await s.destroy({ transaction });
     traccia(ctx, 'vigilo.scadenza.eliminata', 'Scadenza eliminata', prima, null);
   });

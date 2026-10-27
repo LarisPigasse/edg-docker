@@ -8,11 +8,14 @@
 //   rinnovo tacito       il processo notturno rinnova da solo (controlli con
 //                        rinnovo tacito, es. abbonamenti, rate domiciliate)
 // La lettura del contatore registrata insieme diventa una lettura vera.
+// I documenti caricati sulla scadenza dal modulo Registra passano alla
+// registrazione; se il controllo li vuole obbligatori, senza non si registra (B9a).
 // =============================================================================
 import { Op, type Transaction } from 'sequelize';
 import { sequelize } from '../../config/database';
 import { contestoDiProcesso, type Contesto } from '../../core/contesto';
 import { trovaNelTenant } from '../../core/db/tenant';
+import { collegaAllaRegistrazione } from '../allegati/allegati.service';
 import { snapshot } from '../../core/services/logger';
 import { traccia } from '../../core/services/traccia';
 import { ConflictError, ValidationError } from '../../core/utils/errors';
@@ -116,6 +119,8 @@ export interface DatiEsecuzione {
   prossima?: { scadeIl?: Giorno; sogliaUso?: number };
   /** Nuova data della stessa scadenza (esito negativo) */
   dataNuova?: Giorno | null;
+  /** uuid dei documenti già caricati sulla scadenza (B9a) */
+  allegati?: string[];
 }
 
 export async function registraEsecuzione(ctx: Contesto, uuid: string, d: DatiEsecuzione) {
@@ -126,7 +131,13 @@ export async function registraEsecuzione(ctx: Contesto, uuid: string, d: DatiEse
     const richieste = richiesteDi(s, eff);
 
     // solo i dati che il controllo prevede; gli obbligatori devono esserci
-    const valori: Partial<Record<DatoRegistrazione, unknown>> = { importo: d.importo, fornitore: d.fornitore, riferimento: d.riferimento, lettura: d.lettura };
+    const valori: Partial<Record<DatoRegistrazione, unknown>> = {
+      importo: d.importo,
+      fornitore: d.fornitore,
+      riferimento: d.riferimento,
+      lettura: d.lettura,
+      allegato: d.allegati?.length ? d.allegati : null,
+    };
     const mancanti = (Object.keys(valori) as DatoRegistrazione[]).filter(k => richieste[k] === 'obbligatorio' && (valori[k] === undefined || valori[k] === null || valori[k] === ''));
     if (d.esito === 'positivo' && mancanti.length) throw new ValidationError(`Mancano: ${mancanti.join(', ')}`);
     const visibile = (k: DatoRegistrazione) => richieste[k] !== 'nascosto';
@@ -152,6 +163,7 @@ export async function registraEsecuzione(ctx: Contesto, uuid: string, d: DatiEse
       },
       { transaction }
     );
+    if (visibile('allegato') && d.allegati?.length) await collegaAllaRegistrazione(ctx.idTenant, d.allegati, s.idScadenza, reg.idRegistrazione, transaction);
     if (lettura !== null) await registraLettura(ctx, s.contatore!, { valore: lettura, lettoIl: d.eseguitaIl, fonte: 'registrazione', idRegistrazione: reg.idRegistrazione }, transaction);
 
     let successiva: Scadenza | null = null;

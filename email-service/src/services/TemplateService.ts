@@ -113,7 +113,8 @@ export class TemplateService {
 
     // Compila template con Handlebars
     const htmlTemplate = Handlebars.compile(htmlSource);
-    const textTemplate = Handlebars.compile(textSource);
+    // Il testo semplice non si converte in entità HTML: "?a=b" e "Rossi & Figli" restano come sono (ADR098)
+    const textTemplate = Handlebars.compile(textSource, { noEscape: true });
 
     // Salva in cache
     this.templateCache.set(template, {

@@ -49,6 +49,9 @@
             <tr>
               <td style="padding:16px 24px 24px 24px;border-top:1px solid #e4e7ec;font-size:12px;line-height:1.5;color:#667085;">
                 <div>Ricevi questo avviso da Vigilo, il servizio di Express Delivery Group che tiene d’occhio le scadenze per te.</div>
+                {{#if nonRicevere}}
+                <div style="margin-top:4px;">Non vuoi più ricevere questi avvisi? <a href="{{nonRicevere}}" style="color:#667085;text-decoration:underline;">Non riceverli più</a></div>
+                {{/if}}
                 <div style="margin-top:4px;">© {{year}} Express Delivery Group</div>
               </td>
             </tr>

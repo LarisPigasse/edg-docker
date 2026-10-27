@@ -5,7 +5,8 @@
 // regole della generazione (anteprimaDestinatari, puro) sulle stesse persone
 // (persone.ts). L'ufficio si dice come numero di persone, chiesto ad
 // auth-service; se non risponde, il numero manca e il resto c'è. I filtri e
-// le preferenze personali non c'entrano: decidono come, non a chi.
+// le preferenze personali non c'entrano: decidono come, non a chi. Chi ha
+// chiesto di non ricevere più le email si vede come "escluso" (B8d-4).
 // =============================================================================
 import type { Contesto } from '../../core/contesto';
 import { accountTenant } from '../../core/clients/authClient';
@@ -17,6 +18,7 @@ import { Assegnazione, Controllo, Scadenza, Soggetto } from '../modelli';
 import { effettiveDi, predefinitiDi } from '../scadenze/ricalcolo.service';
 import { anteprimaDestinatari, ufficioDa, type Anteprima, type PersonaNominata } from './destinatari';
 import { inCorso, personaNominata } from './persone';
+import { escluseDelTenant } from './recapiti.service';
 
 export interface AnteprimaScadenza extends Anteprima {
   destinatari: Destinatario[];
@@ -65,6 +67,7 @@ export async function anteprimaScadenza(ctx: Contesto, uuid: string): Promise<An
       .filter((p): p is PersonaNominata => !!p),
     interessato: sog?.tipo === 'persona' ? personaNominata(sog) : null,
     soggettoPersona: sog?.tipo === 'persona',
+    escluse: await escluseDelTenant(ctx.idTenant),
   });
   return {
     ...anteprima,

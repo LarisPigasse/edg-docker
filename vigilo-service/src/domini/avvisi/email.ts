@@ -7,15 +7,29 @@
 //   indirizziDi      nome ed email degli account, letti da auth all'invio
 //   voceDi           titolo, soggetto, stato, tono e link di un avviso
 //   esitoInvio       aggiorna le consegne dopo un invio riuscito o no
+//   nomiTenant       il nome del tenant, con una cache per giro
+//   linkNonRicevere  "Non ricevere più questi avvisi" per chi non ha account (B8d-4)
 // =============================================================================
 import type { Includeable } from 'sequelize';
-import { nomiAccount, type NomeAccount } from '../../core/clients/authClient';
+import { configModulo, nomiAccount, type NomeAccount } from '../../core/clients/authClient';
 import { PARAMETRI } from '../../core/parametri';
 import { Avviso, Consegna, Controllo, PreferenzeAvvisi, Scadenza, Soggetto } from '../modelli';
 import { PREFERENZE_INIZIALI, nomeSoggetto, percorsoScadenza, type PreferenzeEmail } from './invio';
 import { statoDelTesto, tonoAvviso, type TonoAvviso } from './testo';
 
 export const APP_FRONTEND_URL = (process.env.APP_FRONTEND_URL || 'http://localhost:5174').replace(/\/$/, '');
+/** La pagina pubblica di app-frontend per non ricevere più gli avvisi (B8d-4) */
+export const linkNonRicevere = (codice: string): string => `${APP_FRONTEND_URL}/vigilo/non-ricevere?codice=${codice}`;
+
+/** Il nome del tenant per le email (null se auth non risponde); una funzione per giro, con la sua cache */
+export function nomiTenant(): (idTenant: number) => Promise<string | null> {
+  const cache = new Map<number, string | null>();
+  return async idTenant => {
+    if (!cache.has(idTenant)) cache.set(idTenant, await configModulo(idTenant).then(a => a.tenant?.nome ?? null).catch(() => null));
+    return cache.get(idTenant) ?? null;
+  };
+}
+
 /** nomiAccount ne legge al massimo 64 per volta (limite fisso della rotta) */
 const PER_CHIAMATA = 64;
 
