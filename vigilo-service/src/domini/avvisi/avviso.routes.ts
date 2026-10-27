@@ -8,6 +8,8 @@
 //   GET    /avvisi/preferenze   le mie preferenze, con le regole del tenant e le sedi
 //   PUT    /avvisi/preferenze   le salva
 //   DELETE /avvisi/preferenze   torna ai predefiniti
+//   GET    /scadenze/:id/destinatari  chi riceve gli avvisi della scadenza, con
+//                               i nomi (vigilo.read, B8d-3)
 // Sempre e solo le consegne in app e le preferenze dell'account del token
 // (ADR090, B8d-1).
 // =============================================================================
@@ -17,7 +19,9 @@ import { contestoDi } from '../../core/contesto';
 import { CAPACITA, richiedi } from '../../core/middleware/permessi';
 import { validateBody, validateParams, validateQuery } from '../../core/middleware/validate';
 import { successResponse } from '../../core/utils/response';
+import { paramUuid } from '../schemi';
 import { FREQUENZE_AVVISI, TIPI_SOGGETTO } from '../valori';
+import { anteprimaScadenza } from './anteprima.service';
 import * as servizio from './avviso.service';
 import * as preferenze from './preferenze.service';
 import { LIMITI_PREFERENZE } from './preferenze';
@@ -70,4 +74,8 @@ avvisiRoutes.put('/avvisi/preferenze', tutti, validateBody(schedaPreferenze), as
 
 avvisiRoutes.delete('/avvisi/preferenze', tutti, async (req: Request, res: Response) => {
   successResponse(res, await preferenze.ripristinaPreferenze(contestoDi(req)));
+});
+
+avvisiRoutes.get('/scadenze/:id/destinatari', richiedi('read'), validateParams(paramUuid), async (req: Request, res: Response) => {
+  successResponse(res, await anteprimaScadenza(contestoDi(req), String(req.params.id)));
 });

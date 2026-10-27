@@ -8,6 +8,7 @@
 import Joi from 'joi';
 import { ANCORAGGI, UNITA_TEMPO, UNITA_USO } from '../regole';
 import { CANALI, NATURE, RINNOVI, TIPI_SOGGETTO } from './valori';
+import { LIMITI_DESTINATARI, erroriDestinatari } from './avvisi/destinatari';
 
 const intero = (min = 1, max = 4096) => Joi.number().integer().min(min).max(max);
 
@@ -44,15 +45,18 @@ export const preavvisi = Joi.object({
 
 export const tolleranza = Joi.object({ giorni: intero(0, 1024).required(), uso: intero(0, 1 << 24).required() });
 
+// la forma con Joi; numero, doppioni e lunghezze con erroriDestinatari (una sola fonte, B8d-3)
 export const destinatari = Joi.array()
   .items(
     Joi.alternatives().try(
       Joi.object({ tipo: Joi.string().valid('ufficio', 'referente', 'assegnatario', 'interessato').required() }),
-      Joi.object({ tipo: Joi.string().valid('email').required(), email: Joi.string().email().max(256).required() })
+      Joi.object({ tipo: Joi.string().valid('email').required(), email: Joi.string().email().max(LIMITI_DESTINATARI.lunghezzaEmail).required() })
     )
   )
-  .min(1)
-  .max(16);
+  .custom((lista, helpers) => {
+    const errori = erroriDestinatari(lista);
+    return errori.length ? helpers.message({ custom: errori.join('. ') }) : lista;
+  });
 
 const richiesta = Joi.string().valid('obbligatorio', 'facoltativo', 'nascosto');
 export const registrazione = Joi.object({

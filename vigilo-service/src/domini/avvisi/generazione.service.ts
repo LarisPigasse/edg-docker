@@ -31,6 +31,7 @@ import { Assegnazione, Avviso, Consegna, Contatore, Controllo, ImpostazioniTenan
 import { predefinitiDi, situazioneDi } from '../scadenze/ricalcolo.service';
 import { risolviDestinatari, ufficioDa, type PersonaAvvisabile } from './destinatari';
 import { invioEmail } from './invio';
+import { inCorso, personaDi } from './persone';
 import { segnalaInvio } from './invio.service';
 import { PREFERENZE_PREDEFINITE, passaFiltri } from './preferenze';
 import { preferenzeDelTenant } from './preferenze.service';
@@ -41,12 +42,6 @@ export interface EsitoGenerazione {
   consegne: number;
   risolte: number;
 }
-
-const personaDi = (s: Soggetto | null | undefined): PersonaAvvisabile | null =>
-  s ? { idAccount: s.idAccount ?? null, email: typeof s.dati?.email === 'string' ? (s.dati.email as string) : null } : null;
-
-/** Le assegnazioni in corso oggi */
-const inCorso = (a: Assegnazione, oggi: Giorno) => a.dal <= oggi && (!a.al || a.al >= oggi);
 
 export async function generaAvvisiTenant(idTenant: number, oggi: Giorno = oggiInItalia()): Promise<EsitoGenerazione> {
   const esito: EsitoGenerazione = { avvisi: 0, consegne: 0, risolte: 0 };

@@ -1,5 +1,5 @@
 {
-  "lastUpdated": "2026-10-26",
+  "lastUpdated": "2026-10-27",
   "modules": {
     "auth-service": {
       "status": "stable",
@@ -88,8 +88,8 @@
     },
     "app-frontend (edg-system)": {
       "status": "in-progress",
-      "notes": "ADR063: core/modules (manifest, menu, rotte, MyModulesProvider), home a riquadri con scheda, Vigilo segnaposto, titolo modulo nell'header. Contatti commerciali veri in APP_CONFIG.CONTACT.",
-      "lastUpdated": "2026-10-07"
+      "notes": "ADR096: pagina della piattaforma /avvisi (avvisi di tutti i moduli + preferenze per modulo), core/notifications a struttura standard, \"Tutti gli avvisi\" in fondo alla campanella.",
+      "lastUpdated": "2026-10-26"
     },
     "pro-frontend (edg-system)": {
       "status": "stable",
@@ -108,7 +108,7 @@
     },
     "vigilo (modulo app-frontend)": {
       "status": "in-progress",
-      "notes": "B8d-2 (ADR095): riga Avvisi e pannello Regole degli avvisi in Configurazione. Prossimo: B8d-1 bis (pagina avvisi della piattaforma, voce Avvisi nel menu di Vigilo).",
+      "notes": "B8d-1 bis (ADR096): voce di menu Avvisi (solo Vigilo), preferenze anche nella pagina /avvisi della piattaforma. Prossimo: B8d-3 editor dei destinatari.",
       "lastUpdated": "2026-10-26"
     },
     "revisione UI @edg/ui": {
@@ -148,8 +148,13 @@
     },
     "vigilo-service": {
       "status": "in-progress",
-      "notes": "B8d-2 (ADR095): GET/PATCH/DELETE /impostazioni/avvisi con i limiti di ADR093. Jest 165/165, dal vivo sui due gateway. Prossimo: B8d-1 bis (frontend), poi B8d-3.",
-      "lastUpdated": "2026-10-26"
+      "notes": "B8d-3 fatto (ADR097): erroriDestinatari, anteprima GET /scadenze/:id/destinatari; Jest 170/170, dal vivo 32/32. Prossimo B8d-4 (non ricevere più, link firmato).",
+      "lastUpdated": "2026-10-27"
+    },
+    "app-frontend (vigilo)": {
+      "status": "in-progress",
+      "notes": "B8d-3 fatto: EditorDestinatari, \"Avvisi a\" nel pannello scadenza con Come il controllo, Destinatari degli avvisi nel menu del controllo. Visto a 1440/1024/470.",
+      "lastUpdated": "2026-10-27"
     }
   }
 }
