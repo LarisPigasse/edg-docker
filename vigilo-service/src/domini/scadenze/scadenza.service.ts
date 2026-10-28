@@ -10,8 +10,11 @@ import { traccia } from '../../core/services/traccia';
 import { ConflictError, ValidationError } from '../../core/utils/errors';
 import { comeTesto, type Pagina } from '../../core/utils/lista';
 import { aggiungiGiorni, parti, primaScadenza, prossimaScadenza, STATI, type Cadenza, type Giorno, type UnitaUso } from '../../regole';
-import { eliminaAllegatiDi } from '../allegati/allegati.service';
+import { allegatiDi, eliminaAllegatiDi } from '../allegati/allegati.service';
+import { ambitoDi, verificaAmbito } from '../ambito/ambito.service';
 import { controllaCadenza } from '../coerenza';
+import { conSegnalazione, scadenzeSegnalate } from '../registrazioni/registrazione.service';
+import { nomeDellAccount } from '../soggetti/account.service';
 import { Categoria, Contatore, Controllo, Registrazione, Scadenza, Soggetto } from '../modelli';
 import { siApplica } from './ciclo.service';
 import { effettiveDi, predefinitiDi, ricalcolaScadenze, situazioneDi } from './ricalcolo.service';
@@ -27,12 +30,17 @@ const ORDINI: Record<string, (v: 'ASC' | 'DESC') => Order> = {
   chiusaIl: v => [['chiusaIl', v]],
 };
 
-/** Filtri comuni a lista e dashboard: condizioni sulla scadenza e sul soggetto */
+/** Filtri comuni a lista e dashboard: condizioni sulla scadenza e sul soggetto, dentro l'ambito dell'utente (B9b) */
 export async function filtri(ctx: Contesto, q: Record<string, unknown>) {
   const where: Record<string | symbol, unknown> = { idTenant: ctx.idTenant };
   const suSoggetto: Record<string | symbol, unknown> = {};
   const suControllo: Record<string | symbol, unknown> = {};
-  if (q.soggetto) where.idSoggetto = (await trovaNelTenant(Soggetto, 'uuidSoggetto', String(q.soggetto), ctx.idTenant, 'Soggetto')).idSoggetto;
+  const ambito = await ambitoDi(ctx);
+  if (q.soggetto) {
+    const idSoggetto = (await trovaNelTenant(Soggetto, 'uuidSoggetto', String(q.soggetto), ctx.idTenant, 'Soggetto')).idSoggetto;
+    await verificaAmbito(ctx, idSoggetto, 'Soggetto');
+    where.idSoggetto = idSoggetto;
+  } else if (!ambito.tutto) where.idSoggetto = ambito.idSoggetti; // nessuno = nessuna scadenza
   if (q.controllo) {
     const uuids = String(q.controllo).split(',');
     const trovati = await Controllo.findAll({ where: { idTenant: ctx.idTenant, uuidControllo: uuids }, attributes: ['idControllo'] });
@@ -68,6 +76,7 @@ export async function elencaScadenze(ctx: Contesto, q: Record<string, unknown>, 
     where.stato = stati;
   }
   if (q.entro !== undefined) where.urgenzaIl = { [Op.lte]: aggiungiGiorni(ctx.oggi, Number(q.entro)) };
+  if (q.segnalate === true || q.segnalate === 'true') where.idScadenza = scadenzeSegnalate(ctx.idTenant);
   const { rows, count } = await Scadenza.findAndCountAll({
     where: where as WhereOptions<Scadenza>,
     include,
@@ -76,10 +85,14 @@ export async function elencaScadenze(ctx: Contesto, q: Record<string, unknown>, 
     offset: p.offset,
   });
   const predefiniti = (await predefinitiDi([ctx.idTenant])).get(ctx.idTenant)!;
-  return { righe: rows.map(s => ({ s, sit: situazioneDi(s, s.controllo, s.contatore, predefiniti, ctx.oggi).sit })), totale: count };
+  const segnalate = await conSegnalazione(rows.map(s => s.idScadenza));
+  return {
+    righe: rows.map(s => ({ s, sit: situazioneDi(s, s.controllo, s.contatore, predefiniti, ctx.oggi).sit, segnalata: segnalate.has(s.idScadenza) })),
+    totale: count,
+  };
 }
 
-/** Il dettaglio: impostazioni effettive con origine, registrazioni, prossima se registrata oggi */
+/** Il dettaglio: impostazioni effettive con origine, registrazioni, prossima se registrata oggi, segnalazione in attesa (B9c) */
 export async function leggiScadenza(ctx: Contesto, uuid: string, transaction?: Transaction) {
   const s = await trovaNelTenant(Scadenza, 'uuidScadenza', uuid, ctx.idTenant, 'Scadenza', {
     include: [
@@ -89,6 +102,7 @@ export async function leggiScadenza(ctx: Contesto, uuid: string, transaction?: T
     ],
     transaction,
   });
+  await verificaAmbito(ctx, s.idSoggetto, 'Scadenza');
   const predefiniti = (await predefinitiDi([ctx.idTenant], transaction)).get(ctx.idTenant)!;
   const { eff, sit } = situazioneDi(s, s.controllo, s.contatore, predefiniti, ctx.oggi);
   const registrazioni = await Registrazione.findAll({
@@ -98,6 +112,11 @@ export async function leggiScadenza(ctx: Contesto, uuid: string, transaction?: T
     limit: 64,
     transaction,
   });
+  // la segnalazione in attesa è fra le più recenti: finché aspetta non si registra altro
+  const inAttesa = registrazioni.find(r => r.stato === 'da-confermare') ?? null;
+  const segnalazione = inAttesa
+    ? { r: inAttesa, da: await nomeDellAccount(ctx.idTenant, inAttesa.creatoDa), documenti: await allegatiDi(ctx.idTenant, inAttesa.idRegistrazione, transaction) }
+    : null;
   const prossima = s.chiusaIl
     ? null
     : prossimaScadenza(
@@ -108,7 +127,7 @@ export async function leggiScadenza(ctx: Contesto, uuid: string, transaction?: T
         s.giornoAncora ?? null,
         (s.soggetto?.dati ?? {}) as Record<string, unknown>
       );
-  return { s, eff, sit, registrazioni, prossima };
+  return { s, eff, sit, registrazioni, prossima, segnalazione };
 }
 
 /** Controlli di significato sulle ridefinizioni (cadenza: date del tipo, contatori del soggetto) */

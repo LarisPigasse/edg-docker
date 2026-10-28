@@ -7,6 +7,7 @@
 //   perMese      quante scadenze cadono nei prossimi 12 mesi, piu' l'arretrato
 //   soggetti     quanti soggetti per tipo e il loro stato peggiore
 //   fatteInTempo esecuzioni degli ultimi 12 mesi registrate entro la scadenza
+//   daConfermare scadenze aperte con una segnalazione dell'addetto da confermare (B9c)
 // Le query sono in sequenza: sono letture semplici, il pool resta libero.
 // =============================================================================
 import { col, fn, literal, Op, QueryTypes, type Includeable, type WhereOptions } from 'sequelize';
@@ -14,6 +15,7 @@ import { sequelize } from '../../config/database';
 import type { Contesto } from '../../core/contesto';
 import { aggiungiGiorni, aggiungiMesi, STATI } from '../../regole';
 import { Controllo, Scadenza } from '../modelli';
+import { scadenzeSegnalate } from '../registrazioni/registrazione.service';
 import { filtri, GRAVITA } from '../scadenze/scadenza.service';
 
 /** 4 scaduta, 3 in tolleranza, 2 in scadenza, 1 da completare, 0 in regola */
@@ -119,7 +121,7 @@ async function fatteInTempo(ctx: Contesto) {
     `SELECT to_char(eseguita_il, 'YYYY-MM') AS mese, count(*) AS totale,
             count(*) FILTER (WHERE eseguita_il <= data_precedente) AS in_tempo
        FROM registrazioni
-      WHERE id_tenant = :t AND tipo = 'esecuzione' AND stato <> 'respinta'
+      WHERE id_tenant = :t AND tipo = 'esecuzione' AND stato = 'confermata'
         AND data_precedente IS NOT NULL AND eseguita_il >= :inizio
       GROUP BY 1`,
     { replacements: { t: ctx.idTenant, inizio }, type: QueryTypes.SELECT }
@@ -141,5 +143,9 @@ export async function dashboard(ctx: Contesto, q: Record<string, unknown>) {
     perMese: await perMese(ctx, f),
     soggetti: await soggetti(ctx),
     fatteInTempo: await fatteInTempo(ctx),
+    daConfermare: await Scadenza.count({
+      where: { ...f.where, chiusaIl: null, idScadenza: scadenzeSegnalate(ctx.idTenant) } as WhereOptions<Scadenza>,
+      include: f.include,
+    }),
   };
 }

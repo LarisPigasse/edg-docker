@@ -5,6 +5,8 @@
 // si aggiornano valore e uso medio del contatore (solo letture non anomale) e
 // si ricalcolano le scadenze a uso del mezzo. Le letture si possono
 // eliminare (errori di battitura): il contatore si ricalcola dalle rimaste.
+// L'addetto (own, B9b) inserisce letture dei mezzi del suo ambito e corregge
+// (elimina) solo quelle che ha inserito lui a mano.
 // =============================================================================
 import type { Transaction } from 'sequelize';
 import { sequelize } from '../../config/database';
@@ -15,6 +17,7 @@ import { traccia } from '../../core/services/traccia';
 import { ConflictError, ValidationError } from '../../core/utils/errors';
 import type { Pagina } from '../../core/utils/lista';
 import { confronta, letturaAnomala, usoGiornaliero, type Giorno } from '../../regole';
+import { verificaAmbito } from '../ambito/ambito.service';
 import { Contatore, Lettura, Soggetto } from '../modelli';
 import { ricalcolaScadenze } from '../scadenze/ricalcolo.service';
 import type { FonteLettura } from '../valori';
@@ -76,6 +79,7 @@ export async function aggiungiContatore(ctx: Contesto, uuidSoggetto: string, bod
 export async function nuovaLettura(ctx: Contesto, uuidContatore: string, body: { valore: number; lettoIl?: Giorno; note?: string | null }) {
   return sequelize.transaction(async transaction => {
     const c = await trovaNelTenant(Contatore, 'uuidContatore', uuidContatore, ctx.idTenant, 'Contatore', { transaction });
+    await verificaAmbito(ctx, c.idSoggetto, 'Contatore');
     const l = await registraLettura(ctx, c, { valore: body.valore, lettoIl: body.lettoIl ?? ctx.oggi, note: body.note }, transaction);
     traccia(ctx, 'vigilo.lettura.registrata', `Lettura ${l.valore} ${c.unita}${l.anomala ? ' (anomala)' : ''}`, null, l);
     await c.reload({ transaction });
@@ -85,6 +89,7 @@ export async function nuovaLettura(ctx: Contesto, uuidContatore: string, body: {
 
 export async function elencaLetture(ctx: Contesto, uuidContatore: string, p: Pagina) {
   const c = await trovaNelTenant(Contatore, 'uuidContatore', uuidContatore, ctx.idTenant, 'Contatore');
+  await verificaAmbito(ctx, c.idSoggetto, 'Contatore');
   const { rows, count } = await Lettura.findAndCountAll({
     where: { idContatore: c.idContatore },
     order: [['lettoIl', p.verso], ['idLettura', p.verso]],
@@ -100,6 +105,11 @@ export async function eliminaLettura(ctx: Contesto, uuidLettura: string): Promis
     const l = await trovaNelTenant(Lettura, 'uuidLettura', uuidLettura, ctx.idTenant, 'Lettura', { transaction });
     if (l.idRegistrazione) throw new ConflictError('La lettura fa parte di una registrazione: si corregge la registrazione');
     const c = await Contatore.findByPk(l.idContatore, { transaction });
+    if (!ctx.capacita.write) {
+      // l'addetto: solo dentro il suo ambito e solo le letture che ha inserito lui
+      await verificaAmbito(ctx, c?.idSoggetto, 'Lettura');
+      if (l.creatoDa !== ctx.utente.id || l.fonte !== 'manuale') throw new ConflictError('Puoi correggere solo le letture che hai inserito tu');
+    }
     const prima = snapshot(l);
     await l.destroy({ transaction });
     await aggiornaContatore(c!, ctx.oggi, transaction);

@@ -13,6 +13,8 @@
 //                        scadenza senza storico): i file dopo il commit
 //   collegaAllaRegistrazione  i documenti caricati sulla scadenza dal modulo
 //                        Registra passano alla registrazione
+// L'addetto (own, B9b) vede e carica i documenti delle cose del suo ambito ed
+// elimina solo quelli caricati da lui; `tuo` lo dice all'interfaccia.
 // Sul disco: <cartella>/<idTenant>/<uuid>, senza nome né estensione; i file in
 // arrivo stanno in <cartella>/.in-arrivo (stesso volume: lo spostamento è
 // atomico). La cartella è VIGILO_ALLEGATI_DIR (nel container /app/uploads,
@@ -32,6 +34,7 @@ import { PARAMETRI } from '../../core/parametri';
 import { logger, snapshot } from '../../core/services/logger';
 import { traccia } from '../../core/services/traccia';
 import { ConflictError, ValidationError } from '../../core/utils/errors';
+import { verificaAmbito } from '../ambito/ambito.service';
 import { indirizziDi } from '../avvisi/email';
 import { Allegato, Controllo, Registrazione, Scadenza, Soggetto } from '../modelli';
 import { ENTITA_ALLEGATO, type EntitaAllegato } from '../valori';
@@ -55,11 +58,36 @@ function rimuoviFile(percorsi: string[]): void {
     rm(assoluto(p), { force: true }).catch(err => logger.warn('vigilo.allegati', `File non rimosso (${p}): ${String(err)}`));
 }
 
-/** L'id nel tenant della cosa a cui appartiene un documento (404 se non è del tenant) */
+const ETICHETTA_RISORSA: Record<EntitaAllegato, string> = { soggetto: 'Soggetto', scadenza: 'Scadenza', registrazione: 'Registrazione' };
+
+/** L'id nel tenant della cosa a cui appartiene un documento, dentro l'ambito dell'utente (404 altrimenti) */
 async function idEntitaDi(ctx: Contesto, entita: EntitaAllegato, uuid: string, transaction?: Transaction): Promise<number> {
-  if (entita === 'soggetto') return (await trovaNelTenant(Soggetto, 'uuidSoggetto', uuid, ctx.idTenant, 'Soggetto', { transaction })).idSoggetto;
-  if (entita === 'scadenza') return (await trovaNelTenant(Scadenza, 'uuidScadenza', uuid, ctx.idTenant, 'Scadenza', { transaction })).idScadenza;
-  return (await trovaNelTenant(Registrazione, 'uuidRegistrazione', uuid, ctx.idTenant, 'Registrazione', { transaction })).idRegistrazione;
+  let id: number;
+  let idSoggetto: number | null;
+  if (entita === 'soggetto') {
+    id = idSoggetto = (await trovaNelTenant(Soggetto, 'uuidSoggetto', uuid, ctx.idTenant, 'Soggetto', { transaction })).idSoggetto;
+  } else if (entita === 'scadenza') {
+    const s = await trovaNelTenant(Scadenza, 'uuidScadenza', uuid, ctx.idTenant, 'Scadenza', { transaction });
+    id = s.idScadenza;
+    idSoggetto = s.idSoggetto ?? null;
+  } else {
+    const r = await trovaNelTenant(Registrazione, 'uuidRegistrazione', uuid, ctx.idTenant, 'Registrazione', {
+      include: [{ model: Scadenza, as: 'scadenza', attributes: ['idSoggetto'] }],
+      transaction,
+    });
+    id = r.idRegistrazione;
+    idSoggetto = r.scadenza?.idSoggetto ?? null;
+  }
+  await verificaAmbito(ctx, idSoggetto, ETICHETTA_RISORSA[entita]);
+  return id;
+}
+
+/** Il soggetto a cui appartiene un documento (per l'ambito dell'addetto) */
+async function soggettoDellAllegato(a: Allegato): Promise<number | null> {
+  if (a.entita === 'soggetto') return a.idEntita;
+  if (a.entita === 'scadenza') return (await Scadenza.findByPk(a.idEntita, { attributes: ['idSoggetto'] }))?.idSoggetto ?? null;
+  const r = await Registrazione.findByPk(a.idEntita, { attributes: ['idScadenza'], include: [{ model: Scadenza, as: 'scadenza', attributes: ['idSoggetto'] }] });
+  return r?.scadenza?.idSoggetto ?? null;
 }
 
 // --- presentazione ---
@@ -85,10 +113,12 @@ export interface VoceAllegato {
   caricatoIl: Date;
   /** Nome di chi l'ha caricato; null se non si è potuto leggere */
   caricatoDa: string | null;
+  /** L'ha caricato chi chiede (l'addetto elimina solo i suoi) */
+  tuo: boolean;
   di: AppartenenzaAllegato;
 }
 
-async function presenta(righe: Allegato[], di: (a: Allegato) => AppartenenzaAllegato): Promise<VoceAllegato[]> {
+async function presenta(ctx: Contesto, righe: Allegato[], di: (a: Allegato) => AppartenenzaAllegato): Promise<VoceAllegato[]> {
   let nomi = new Map<number, { nome: string }>();
   const ids = righe.map(a => a.creatoDa).filter((id): id is number => id != null);
   try {
@@ -105,6 +135,7 @@ async function presenta(righe: Allegato[], di: (a: Allegato) => AppartenenzaAlle
     apribile: TIPI_ALLEGATO[a.tipoMime]?.apribile ?? false,
     caricatoIl: a.createdAt,
     caricatoDa: a.creatoDa != null ? (nomi.get(a.creatoDa)?.nome ?? null) : null,
+    tuo: a.creatoDa === ctx.utente.id,
     di: di(a),
   }));
 }
@@ -134,17 +165,21 @@ export async function elencaAllegati(ctx: Contesto, entita: EntitaAllegato, uuid
 
   if (entita === 'soggetto') {
     const s = await trovaNelTenant(Soggetto, 'uuidSoggetto', uuid, ctx.idTenant, 'Soggetto');
+    await verificaAmbito(ctx, s.idSoggetto, 'Soggetto');
     gruppi.push({ entita: 'soggetto', idEntita: [s.idSoggetto] });
     segna('soggetto', s.idSoggetto, { entita: 'soggetto', uuid: s.uuidSoggetto, titolo: null, eseguitaIl: null });
     await scadenzeE(await Scadenza.findAll({ where: { idTenant: ctx.idTenant, idSoggetto: s.idSoggetto }, ...conControllo }));
   } else if (entita === 'scadenza') {
-    await scadenzeE([await trovaNelTenant(Scadenza, 'uuidScadenza', uuid, ctx.idTenant, 'Scadenza', conControllo)]);
+    const s = await trovaNelTenant(Scadenza, 'uuidScadenza', uuid, ctx.idTenant, 'Scadenza', { ...conControllo, attributes: [...conControllo.attributes, 'idSoggetto'] });
+    await verificaAmbito(ctx, s.idSoggetto, 'Scadenza');
+    await scadenzeE([s]);
   } else {
     const r = await trovaNelTenant(Registrazione, 'uuidRegistrazione', uuid, ctx.idTenant, 'Registrazione', {
-      include: [{ model: Scadenza, as: 'scadenza', ...conControllo }],
+      include: [{ model: Scadenza, as: 'scadenza', ...conControllo, attributes: [...conControllo.attributes, 'idSoggetto'] }],
     });
     gruppi.push({ entita: 'registrazione', idEntita: [r.idRegistrazione] });
     const s = r.scadenza;
+    await verificaAmbito(ctx, s?.idSoggetto, 'Registrazione');
     segna('registrazione', r.idRegistrazione, { entita: 'registrazione', uuid: r.uuidRegistrazione, titolo: s ? s.titolo || s.controllo?.nome || null : null, eseguitaIl: r.eseguitaIl });
   }
 
@@ -152,7 +187,7 @@ export async function elencaAllegati(ctx: Contesto, entita: EntitaAllegato, uuid
     where: { idTenant: ctx.idTenant, [Op.or]: gruppi.map(g => ({ entita: g.entita, idEntita: g.idEntita })) },
     order: [['createdAt', 'DESC']],
   });
-  return presenta(righe, a => appartenenza.get(`${a.entita}:${a.idEntita}`)!);
+  return presenta(ctx, righe, a => appartenenza.get(`${a.entita}:${a.idEntita}`)!);
 }
 
 // --- caricamento ---
@@ -256,7 +291,7 @@ export async function caricaAllegato(ctx: Contesto, req: Request): Promise<VoceA
     spostato = null;
     traccia(ctx, 'vigilo.allegato.caricato', `Documento caricato: ${a.nomeFile}`, null, a, { entita, id });
     const di: AppartenenzaAllegato = { entita, uuid: id, titolo: null, eseguitaIl: null };
-    return (await presenta([a], () => di))[0];
+    return (await presenta(ctx, [a], () => di))[0];
   } catch (err) {
     if (spostato) rimuoviFile([spostato]);
     throw err;
@@ -269,11 +304,17 @@ export async function caricaAllegato(ctx: Contesto, req: Request): Promise<VoceA
 
 export async function leggiFile(ctx: Contesto, uuid: string): Promise<{ allegato: Allegato; percorso: string; tipo: TipoAllegato | null }> {
   const allegato = await trovaNelTenant(Allegato, 'uuidAllegato', uuid, ctx.idTenant, 'Documento');
+  await verificaAmbito(ctx, await soggettoDellAllegato(allegato), 'Documento');
   return { allegato, percorso: assoluto(allegato.percorso), tipo: TIPI_ALLEGATO[allegato.tipoMime] ?? null };
 }
 
 export async function eliminaAllegato(ctx: Contesto, uuid: string): Promise<void> {
   const a = await trovaNelTenant(Allegato, 'uuidAllegato', uuid, ctx.idTenant, 'Documento');
+  if (!ctx.capacita.write) {
+    // l'addetto: dentro il suo ambito e solo i documenti che ha caricato lui
+    await verificaAmbito(ctx, await soggettoDellAllegato(a), 'Documento');
+    if (a.creatoDa !== ctx.utente.id) throw new ConflictError('Puoi eliminare solo i documenti che hai caricato tu');
+  }
   const prima = snapshot(a);
   await a.destroy();
   rimuoviFile([a.percorso]);
@@ -291,6 +332,19 @@ export async function eliminaAllegatiDi(idTenant: number, gruppi: { entita: Enti
   transaction.afterCommit(() => rimuoviFile(percorsi));
   return righe.length;
 }
+
+/** I documenti di una segnalazione ritirata tornano sulla scadenza: chi riprova li ritrova (B9c) */
+export async function riportaSullaScadenza(idTenant: number, idRegistrazione: number, idScadenza: number, transaction: Transaction): Promise<number> {
+  const [n] = await Allegato.update(
+    { entita: 'scadenza', idEntita: idScadenza },
+    { where: { idTenant, entita: 'registrazione', idEntita: idRegistrazione }, transaction, validate: false } // L054
+  );
+  return n;
+}
+
+/** Quanti documenti ha già una registrazione (conferma di una segnalazione, B9c) */
+export const allegatiDi = (idTenant: number, idRegistrazione: number, transaction?: Transaction): Promise<number> =>
+  Allegato.count({ where: { idTenant, entita: 'registrazione', idEntita: idRegistrazione }, transaction });
 
 /** I documenti caricati sulla scadenza dal modulo Registra passano alla registrazione */
 export async function collegaAllaRegistrazione(idTenant: number, uuids: string[], idScadenza: number, idRegistrazione: number, transaction: Transaction): Promise<number> {

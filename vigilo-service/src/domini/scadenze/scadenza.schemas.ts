@@ -4,6 +4,7 @@
 import Joi from 'joi';
 import { schemaLista } from '../../core/utils/lista';
 import { LIMITI_ALLEGATI } from '../allegati/allegati';
+import { LIMITI_SEGNALAZIONI } from '../segnalazioni/segnalazioni';
 import { cadenza, destinatari, giorno, natura, preavvisi, tipoSoggetto, tolleranza, uuid } from '../schemi';
 
 const ridefinizioni = {
@@ -27,19 +28,38 @@ export const creaScadenza = Joi.object({ soggetto: uuid.allow(null), controllo: 
 export const modificaScadenza = Joi.object(posizione).min(1);
 
 const importo = Joi.number().min(0).max(1e9).precision(2).allow(null);
-export const esecuzione = Joi.object({
-  eseguitaIl: giorno.required(),
-  esito: Joi.string().valid('positivo', 'negativo').default('positivo'),
-  lettura: Joi.number().integer().min(0).max(1 << 30).allow(null),
+const lettura = Joi.number().integer().min(0).max(1 << 30).allow(null);
+/** Documenti già caricati sulla scadenza: passano alla registrazione (B9a) */
+const allegati = Joi.array().items(uuid).max(LIMITI_ALLEGATI.perEntita).unique();
+
+/** I campi del modulo Registra: anche per la conferma di una segnalazione (B9c), lì tutti facoltativi */
+export const campiRegistra = {
+  eseguitaIl: giorno,
+  lettura,
   importo,
   fornitore: uuid.allow(null),
   riferimento: Joi.string().trim().max(128).allow('', null),
   note: Joi.string().trim().max(4096).allow('', null),
   prossima: Joi.object({ scadeIl: giorno, sogliaUso: Joi.number().integer().min(0).max(1 << 30) }),
+  allegati,
+};
+
+export const esecuzione = Joi.object({
+  ...campiRegistra,
+  eseguitaIl: giorno.required(),
+  esito: Joi.string().valid('positivo', 'negativo').default('positivo'),
   dataNuova: giorno.allow(null),
-  /** Documenti già caricati sulla scadenza dal modulo Registra: passano alla registrazione (B9a) */
-  allegati: Joi.array().items(uuid).max(LIMITI_ALLEGATI.perEntita).unique(),
 });
+
+/** La segnalazione dell'addetto: solo ciò che può dare (B9c) */
+export const segnalazione = Joi.object({
+  eseguitaIl: giorno.required(),
+  lettura,
+  note: Joi.string().trim().max(LIMITI_SEGNALAZIONI.note).allow('', null),
+  allegati,
+});
+export const conferma = Joi.object(campiRegistra);
+export const rifiuto = Joi.object({ motivo: Joi.string().trim().min(1).max(LIMITI_SEGNALAZIONI.motivo).required() });
 
 /** Lo storico di un soggetto: le più recenti per prime */
 export const listaRegistrazioni = schemaLista(['eseguitaIl'], 'eseguitaIl').keys({
@@ -64,6 +84,8 @@ const filtri = {
   tipo: tipoSoggetto,
   natura,
   aperte: Joi.boolean().default(true),
+  /** Solo quelle con una segnalazione dell'addetto da confermare (B9c) */
+  segnalate: Joi.boolean(),
   entro: Joi.number().integer().min(0).max(4096),
 };
 

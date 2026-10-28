@@ -10,7 +10,8 @@ import { NotFoundError } from '../utils/errors';
 export async function trovaNelTenant<M extends Model>(
   Modello: ModelStatic<M>,
   campoUuid: string,
-  uuid: string,
+  /** uuid, o l'id interno quando campoUuid è la chiave */
+  uuid: string | number,
   idTenant: number,
   risorsa: string,
   opzioni: Omit<FindOptions, 'where'> & { transaction?: Transaction } = {}

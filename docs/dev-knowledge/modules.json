@@ -1,5 +1,5 @@
 {
-  "lastUpdated": "2026-10-27",
+  "lastUpdated": "2026-10-28",
   "modules": {
     "auth-service": {
       "status": "stable",
@@ -148,13 +148,13 @@
     },
     "vigilo-service": {
       "status": "in-progress",
-      "notes": "B9a fatto (ADR099): allegati con busboy, rotte /allegati, documento nella registrazione, tolta /diagnostica/flusso; Jest 181/181, dal vivo 39/39. Prossimo B9b addetto.",
-      "lastUpdated": "2026-10-27"
+      "notes": "B9c fatto (ADR101): segnalazioni dell'addetto (segnala, ritira, conferma, respingi), avvisi, indice unico. Jest 192/192, dal vivo 72/74 → bug corretto. Prossimo B10.",
+      "lastUpdated": "2026-10-28"
     },
     "app-frontend (vigilo)": {
       "status": "in-progress",
-      "notes": "B8d-3 fatto: EditorDestinatari, \"Avvisi a\" nel pannello scadenza con Come il controllo, Destinatari degli avvisi nel menu del controllo. Visto a 1440/1024/470.",
-      "lastUpdated": "2026-10-27"
+      "notes": "B9c: Segnala fatto e ritiro (addetto), Conferma col modulo Registra e Respingi (ufficio), schede In attesa/Segnalata, filtro e badge Da confermare, avviso in dashboard.",
+      "lastUpdated": "2026-10-28"
     },
     "api-gateway": {
       "status": "stable",

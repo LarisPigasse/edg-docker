@@ -13,6 +13,9 @@
 //     (subito) o il riepilogo.
 // Poi gli avvisi di cicli superati (scadenza registrata, rinviata, chiusa)
 // passano a "risolto": niente campanelle accese per niente.
+// Una scadenza con una segnalazione dell'addetto in attesa non manda altri
+// avvisi: la cosa da fare è confermarla, e l'ufficio ne ha già l'avviso (B9c).
+// Gli avvisi delle segnalazioni hanno il loro ciclo (segnalazioni.service).
 //
 // Quando: ogni notte dopo il ricalcolo e, per un tenant, poco dopo ogni
 // modifica che ricalcola le sue scadenze (segnalaModifica: attesa e lotto
@@ -28,7 +31,8 @@ import { logger } from '../../core/services/logger';
 import { oggiInItalia } from '../../core/utils/oggi';
 import { eventiDovuti, riferimentoCiclo, testoStato, type Giorno } from '../../regole';
 import { avvisiEffettivi } from '../impostazioni/limiti';
-import { Assegnazione, Avviso, Consegna, Contatore, Controllo, ImpostazioniTenant, Scadenza, Soggetto } from '../modelli';
+import { Assegnazione, Avviso, Consegna, Contatore, Controllo, ImpostazioniTenant, Registrazione, Scadenza, Soggetto } from '../modelli';
+import { genereEvento } from '../segnalazioni/segnalazioni';
 import { predefinitiDi, situazioneDi } from '../scadenze/ricalcolo.service';
 import { risolviDestinatari, ufficioDa, type PersonaAvvisabile } from './destinatari';
 import { invioEmail } from './invio';
@@ -55,6 +59,9 @@ export async function generaAvvisiTenant(idTenant: number, oggi: Giorno = oggiIn
   const preferenze = await preferenzeDelTenant(idTenant);
   const di = (id: number) => preferenze.get(id) ?? PREFERENZE_PREDEFINITE;
   const escluse = await escluseDelTenant(idTenant);
+  const segnalate = new Set(
+    (await Registrazione.findAll({ where: { idTenant, stato: 'da-confermare' }, attributes: ['idScadenza'] })).map(r => r.idScadenza)
+  );
   let email = 0;
 
   let ultimo = 0;
@@ -80,7 +87,7 @@ export async function generaAvvisiTenant(idTenant: number, oggi: Giorno = oggiIn
 
     for (const s of lotto) {
       const sog = s.soggetto ?? null;
-      if (sog?.stato === 'dismesso') continue;
+      if (sog?.stato === 'dismesso' || segnalate.has(s.idScadenza)) continue;
       const { eff, sit } = situazioneDi(s, s.controllo, s.contatore, predefiniti, oggi);
       const eventi = eventiDovuti(
         { scadeIl: s.scadeIl ?? null, sogliaUso: s.sogliaUso ?? null, situazione: sit, preavvisi: eff.preavvisi, intervalloRichiami },
@@ -151,7 +158,10 @@ async function risolviSuperati(idTenant: number): Promise<number> {
   const ids: number[] = [];
   for (const a of aperti) {
     const s = a.scadenza;
-    const superato = !s || !!s.chiusaIl || a.riferimento !== riferimentoCiclo(s.scadeIl ?? null, s.sogliaUso ?? null);
+    const genere = genereEvento(a.evento);
+    if (genere === 'esito') continue; // l'esito di una segnalazione resta da leggere anche a scadenza chiusa
+    const cicloCambiato = genere === null && a.riferimento !== riferimentoCiclo(s?.scadeIl ?? null, s?.sogliaUso ?? null);
+    const superato = !s || !!s.chiusaIl || cicloCambiato;
     if (!superato) continue;
     // le email già inviate restano "inviato": si risolve ciò che è ancora visibile o in coda
     for (const c of a.consegne ?? []) if (c.canale === 'app' || c.stato === 'in-coda') ids.push(c.idConsegna);

@@ -7,6 +7,7 @@
 // email; la campanella lo mostra su due righe (titolo, poi soggetto e stato:
 // statoDelTesto) e colora il pallino col tono (ADR091).
 // =============================================================================
+import { INIZI_STATO } from '../segnalazioni/segnalazioni';
 
 export interface PartiTesto {
   titolo: string;
@@ -26,6 +27,11 @@ const SEPARATORE = ': ';
 
 /** Lo stato com'era alla nascita dell'avviso ("scade tra 2 giorni · 24 ott") */
 export function statoDelTesto(testo: string): string {
+  // gli stati delle segnalazioni (B9c) si riconoscono dall'inizio: il motivo di un rifiuto può contenere il separatore
+  for (const inizio of INIZI_STATO) {
+    const j = testo.indexOf(`${SEPARATORE}${inizio}`);
+    if (j >= 0) return testo.slice(j + SEPARATORE.length);
+  }
   const i = testo.lastIndexOf(SEPARATORE);
   return i < 0 ? testo : testo.slice(i + SEPARATORE.length);
 }
@@ -36,10 +42,10 @@ export type TonoAvviso = 'pericolo' | 'attenzione' | 'normale';
 /** Preavvisi a giorni entro questa soglia valgono "attenzione", come "Entro 8 giorni" della dashboard */
 export const GIORNI_ATTENZIONE = 8;
 
-/** Il tono dall'evento: urgente → pericolo; tolleranza o preavviso a giorni entro 8 → attenzione */
+/** Il tono dall'evento: urgente → pericolo; tolleranza, preavviso a giorni entro 8 o segnalazione respinta (B9c) → attenzione */
 export function tonoAvviso(evento: string, urgente: boolean): TonoAvviso {
   if (urgente) return 'pericolo';
-  if (evento.startsWith('tolleranza')) return 'attenzione';
+  if (evento.startsWith('tolleranza') || evento.startsWith('respinta:')) return 'attenzione';
   const m = /^preavviso(?:-stima)?:(\d+)$/.exec(evento);
   return m && Number(m[1]) <= GIORNI_ATTENZIONE ? 'attenzione' : 'normale';
 }

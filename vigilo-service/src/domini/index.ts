@@ -26,6 +26,7 @@ import { avvisiRoutes } from './avvisi/avviso.routes';
 import { impostazioniRoutes } from './impostazioni/impostazioni.routes';
 import { recapitiRoutes } from './avvisi/recapiti.routes';
 import { allegatiRoutes } from './allegati/allegato.routes';
+import { segnalazioniRoutes } from './segnalazioni/segnalazione.routes';
 
 const router = Router();
 
@@ -46,5 +47,6 @@ router.use(libreriaRoutes);
 router.use(avvisiRoutes);
 router.use(impostazioniRoutes);
 router.use(allegatiRoutes);
+router.use(segnalazioniRoutes);
 
 export default router;

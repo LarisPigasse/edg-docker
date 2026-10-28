@@ -10,12 +10,15 @@
 // La lettura del contatore registrata insieme diventa una lettura vera.
 // I documenti caricati sulla scadenza dal modulo Registra passano alla
 // registrazione; se il controllo li vuole obbligatori, senza non si registra (B9a).
+// La segnalazione dell'addetto ("da-confermare", B9c) usa le stesse regole
+// (datiEsecuzione, concludiEsecuzione): segnalazione.service.
 // =============================================================================
-import { Op, type Transaction } from 'sequelize';
+import { literal, Op, type Transaction } from 'sequelize';
 import { sequelize } from '../../config/database';
 import { contestoDiProcesso, type Contesto } from '../../core/contesto';
 import { trovaNelTenant } from '../../core/db/tenant';
 import { collegaAllaRegistrazione } from '../allegati/allegati.service';
+import { verificaAmbito } from '../ambito/ambito.service';
 import { snapshot } from '../../core/services/logger';
 import { traccia } from '../../core/services/traccia';
 import { ConflictError, ValidationError } from '../../core/utils/errors';
@@ -32,13 +35,17 @@ const CON = [
   { model: Soggetto, as: 'soggetto' },
 ];
 
-async function scadenzaAperta(ctx: Contesto, uuid: string, transaction: Transaction): Promise<Scadenza> {
-  const s = await trovaNelTenant(Scadenza, 'uuidScadenza', uuid, ctx.idTenant, 'Scadenza', { include: CON, transaction });
+/** La scadenza aperta, per uuid o per id (404 fuori dal tenant, 409 se chiusa) */
+export async function scadenzaAperta(ctx: Contesto, uuid: string | { id: number }, transaction: Transaction): Promise<Scadenza> {
+  const s =
+    typeof uuid === 'string'
+      ? await trovaNelTenant(Scadenza, 'uuidScadenza', uuid, ctx.idTenant, 'Scadenza', { include: CON, transaction })
+      : await trovaNelTenant(Scadenza, 'idScadenza', uuid.id, ctx.idTenant, 'Scadenza', { include: CON, transaction });
   if (s.chiusaIl) throw new ConflictError('La scadenza è già chiusa');
   return s;
 }
 
-async function effettive(s: Scadenza, transaction: Transaction): Promise<ImpostazioniEffettive> {
+export async function effettive(s: Scadenza, transaction: Transaction): Promise<ImpostazioniEffettive> {
   const predefiniti = await predefinitiDi([s.idTenant], transaction);
   return effettiveDi(s, s.controllo, predefiniti.get(s.idTenant)!);
 }
@@ -123,57 +130,124 @@ export interface DatiEsecuzione {
   allegati?: string[];
 }
 
+/** I dati di un'esecuzione pronti per la registrazione, con la lettura e i documenti da collegare */
+export interface DatiPronti {
+  attributi: {
+    eseguitaIl: Giorno;
+    esito: 'positivo' | 'negativo';
+    dataPrecedente: Giorno | null;
+    idContatore: number | null;
+    lettura: number | null;
+    importo: number | null;
+    idFornitore: number | null;
+    riferimento: string | null;
+    note: string | null;
+  };
+  lettura: number | null;
+  allegati: string[];
+}
+
+/**
+ * Solo i dati che il controllo prevede; quelli obbligatori devono esserci
+ * (per l'esito positivo). `obbligatori` restringe i dati da controllare
+ * (l'addetto dà solo lettura e documento, B9c); `allegatiGia` conta i
+ * documenti già sulla registrazione (conferma di una segnalazione).
+ */
+export async function datiEsecuzione(
+  ctx: Contesto,
+  s: Scadenza,
+  eff: ImpostazioniEffettive,
+  d: DatiEsecuzione,
+  transaction: Transaction,
+  opz: { obbligatori?: readonly DatoRegistrazione[]; allegatiGia?: number } = {}
+): Promise<DatiPronti> {
+  if (confronta(d.eseguitaIl, ctx.oggi) > 0) throw new ValidationError('La data di esecuzione non può essere nel futuro');
+  const richieste = richiesteDi(s, eff);
+  const valori: Partial<Record<DatoRegistrazione, unknown>> = {
+    importo: d.importo,
+    fornitore: d.fornitore,
+    riferimento: d.riferimento,
+    lettura: d.lettura,
+    allegato: (d.allegati?.length ?? 0) + (opz.allegatiGia ?? 0) > 0 ? true : null,
+  };
+  const daControllare = opz.obbligatori ?? (Object.keys(valori) as DatoRegistrazione[]);
+  const mancanti = daControllare.filter(k => richieste[k] === 'obbligatorio' && (valori[k] === undefined || valori[k] === null || valori[k] === ''));
+  if (d.esito === 'positivo' && mancanti.length) throw new ValidationError(`Mancano: ${mancanti.join(', ')}`);
+  const visibile = (k: DatoRegistrazione) => richieste[k] !== 'nascosto';
+  const lettura = visibile('lettura') ? (d.lettura ?? null) : null;
+  if (lettura !== null && !s.contatore) throw new ValidationError('La scadenza non ha un contatore a cui riferire la lettura');
+  const fornitore =
+    visibile('fornitore') && d.fornitore ? await trovaNelTenant(Fornitore, 'uuidFornitore', d.fornitore, ctx.idTenant, 'Fornitore', { transaction }) : null;
+  return {
+    attributi: {
+      eseguitaIl: d.eseguitaIl,
+      esito: d.esito,
+      dataPrecedente: s.scadeIl ?? null,
+      idContatore: lettura !== null ? s.idContatore : null,
+      lettura,
+      importo: visibile('importo') ? (d.importo ?? null) : null,
+      idFornitore: fornitore?.idFornitore ?? null,
+      riferimento: visibile('riferimento') ? d.riferimento || null : null,
+      note: d.note || null,
+    },
+    lettura,
+    allegati: visibile('allegato') ? (d.allegati ?? []) : [],
+  };
+}
+
+/**
+ * Gli effetti di un'esecuzione già scritta in `reg`: i documenti passano alla
+ * registrazione, la lettura diventa vera; esito positivo chiude e rinnova,
+ * negativo sposta la data se serve. Restituisce la successiva.
+ */
+export async function concludiEsecuzione(
+  ctx: Contesto,
+  s: Scadenza,
+  eff: ImpostazioniEffettive,
+  reg: Registrazione,
+  dati: DatiPronti,
+  d: Pick<DatiEsecuzione, 'esito' | 'eseguitaIl' | 'prossima' | 'dataNuova'>,
+  transaction: Transaction
+): Promise<Scadenza | null> {
+  if (dati.allegati.length) await collegaAllaRegistrazione(ctx.idTenant, dati.allegati, s.idScadenza, reg.idRegistrazione, transaction);
+  if (dati.lettura !== null)
+    await registraLettura(ctx, s.contatore!, { valore: dati.lettura, lettoIl: d.eseguitaIl, fonte: 'registrazione', idRegistrazione: reg.idRegistrazione }, transaction);
+  if (d.esito === 'positivo') return chiudiERinnova(s, eff, { eseguitaIl: d.eseguitaIl, lettura: dati.lettura }, d.prossima, reg, ctx.oggi, transaction);
+  if (d.dataNuova) {
+    await s.update({ scadeIl: d.dataNuova }, { transaction });
+    await reg.update({ dataNuova: d.dataNuova }, { transaction });
+    await ricalcolaScadenze({ idScadenza: s.idScadenza }, ctx.oggi, transaction);
+  }
+  return null;
+}
+
+// --- segnalazioni in attesa (B9c) ---
+
+/** La segnalazione dell'addetto che aspetta conferma, se c'è (al massimo una per scadenza) */
+export const inAttesaDi = (idScadenza: number, transaction?: Transaction): Promise<Registrazione | null> =>
+  Registrazione.findOne({ where: { idScadenza, stato: 'da-confermare' }, transaction });
+
+/** Fra queste scadenze, quelle con una segnalazione in attesa */
+export async function conSegnalazione(idScadenze: number[]): Promise<Set<number>> {
+  if (!idScadenze.length) return new Set();
+  const righe = await Registrazione.findAll({ where: { idScadenza: idScadenze, stato: 'da-confermare' }, attributes: ['idScadenza'] });
+  return new Set(righe.map(r => r.idScadenza));
+}
+
+/** Condizione su id_scadenza: le scadenze del tenant con una segnalazione in attesa */
+export const scadenzeSegnalate = (idTenant: number) => ({
+  [Op.in]: literal(`(SELECT id_scadenza FROM registrazioni WHERE id_tenant = ${Number(idTenant)} AND stato = 'da-confermare')`),
+});
+
 export async function registraEsecuzione(ctx: Contesto, uuid: string, d: DatiEsecuzione) {
   return sequelize.transaction(async transaction => {
     const s = await scadenzaAperta(ctx, uuid, transaction);
-    if (confronta(d.eseguitaIl, ctx.oggi) > 0) throw new ValidationError('La data di esecuzione non può essere nel futuro');
+    // con una segnalazione in attesa si decide su quella: niente doppioni
+    if (await inAttesaDi(s.idScadenza, transaction)) throw new ConflictError('C’è una segnalazione da confermare: confermala o respingila');
     const eff = await effettive(s, transaction);
-    const richieste = richiesteDi(s, eff);
-
-    // solo i dati che il controllo prevede; gli obbligatori devono esserci
-    const valori: Partial<Record<DatoRegistrazione, unknown>> = {
-      importo: d.importo,
-      fornitore: d.fornitore,
-      riferimento: d.riferimento,
-      lettura: d.lettura,
-      allegato: d.allegati?.length ? d.allegati : null,
-    };
-    const mancanti = (Object.keys(valori) as DatoRegistrazione[]).filter(k => richieste[k] === 'obbligatorio' && (valori[k] === undefined || valori[k] === null || valori[k] === ''));
-    if (d.esito === 'positivo' && mancanti.length) throw new ValidationError(`Mancano: ${mancanti.join(', ')}`);
-    const visibile = (k: DatoRegistrazione) => richieste[k] !== 'nascosto';
-    const lettura = visibile('lettura') ? (d.lettura ?? null) : null;
-    if (lettura !== null && !s.contatore) throw new ValidationError('La scadenza non ha un contatore a cui riferire la lettura');
-    const fornitore =
-      visibile('fornitore') && d.fornitore ? await trovaNelTenant(Fornitore, 'uuidFornitore', d.fornitore, ctx.idTenant, 'Fornitore', { transaction }) : null;
-
-    const reg = await Registrazione.create(
-      {
-        idTenant: ctx.idTenant,
-        idScadenza: s.idScadenza,
-        tipo: 'esecuzione',
-        eseguitaIl: d.eseguitaIl,
-        esito: d.esito,
-        dataPrecedente: s.scadeIl ?? null,
-        idContatore: lettura !== null ? s.idContatore : null,
-        lettura,
-        importo: visibile('importo') ? (d.importo ?? null) : null,
-        idFornitore: fornitore?.idFornitore ?? null,
-        riferimento: visibile('riferimento') ? d.riferimento || null : null,
-        note: d.note || null,
-      },
-      { transaction }
-    );
-    if (visibile('allegato') && d.allegati?.length) await collegaAllaRegistrazione(ctx.idTenant, d.allegati, s.idScadenza, reg.idRegistrazione, transaction);
-    if (lettura !== null) await registraLettura(ctx, s.contatore!, { valore: lettura, lettoIl: d.eseguitaIl, fonte: 'registrazione', idRegistrazione: reg.idRegistrazione }, transaction);
-
-    let successiva: Scadenza | null = null;
-    if (d.esito === 'positivo') {
-      successiva = await chiudiERinnova(s, eff, { eseguitaIl: d.eseguitaIl, lettura }, d.prossima, reg, ctx.oggi, transaction);
-    } else if (d.dataNuova) {
-      await s.update({ scadeIl: d.dataNuova }, { transaction });
-      await reg.update({ dataNuova: d.dataNuova }, { transaction });
-      await ricalcolaScadenze({ idScadenza: s.idScadenza }, ctx.oggi, transaction);
-    }
+    const dati = await datiEsecuzione(ctx, s, eff, d, transaction);
+    const reg = await Registrazione.create({ idTenant: ctx.idTenant, idScadenza: s.idScadenza, tipo: 'esecuzione', ...dati.attributi }, { transaction });
+    const successiva = await concludiEsecuzione(ctx, s, eff, reg, dati, d, transaction);
     traccia(ctx, 'vigilo.registrazione.esecuzione', `Esecuzione ${d.esito} registrata`, null, reg, { scadenza: s.uuidScadenza });
     return { registrazione: await reg.reload({ transaction }), scadenza: await s.reload({ transaction }), successiva };
   });
@@ -215,6 +289,7 @@ export async function registraRinvio(ctx: Contesto, uuid: string, d: { dataNuova
  */
 export async function elencaRegistrazioni(ctx: Contesto, query: Record<string, unknown>, p: Pagina) {
   const soggetto = await trovaNelTenant(Soggetto, 'uuidSoggetto', String(query.soggetto), ctx.idTenant, 'Soggetto');
+  await verificaAmbito(ctx, soggetto.idSoggetto, 'Soggetto');
   const { rows, count } = await Registrazione.findAndCountAll({
     where: { idTenant: ctx.idTenant },
     include: [

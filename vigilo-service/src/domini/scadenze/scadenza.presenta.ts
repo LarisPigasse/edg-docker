@@ -5,6 +5,7 @@
 // dettaglio, le impostazioni effettive con la loro ORIGINE (dal controllo o
 // personalizzate): e' l'ereditarieta' visibile del passo 7.
 // Gli importi escono solo a chi ha vigilo.costi (06-servizio-api 6.3).
+// `segnalata`: c'è una segnalazione dell'addetto da confermare (B9c).
 // =============================================================================
 import type { Contesto } from '../../core/contesto';
 import { descriviCadenza, descriviPreavvisi, descriviTolleranza, testoStato, type ImpostazioniEffettive, type Situazione } from '../../regole';
@@ -13,7 +14,7 @@ import { presentaContatore, riferimentoSoggetto } from '../soggetti/soggetto.pre
 import { etichetteDate } from '../valori';
 import type { Scadenza } from './scadenza.model';
 
-export function presentaScadenza(s: Scadenza, sit: Situazione, ctx: Contesto) {
+export function presentaScadenza(s: Scadenza, sit: Situazione, ctx: Contesto, segnalata = false) {
   const unita = s.contatore?.unita ?? null;
   return {
     uuid: s.uuidScadenza,
@@ -32,6 +33,7 @@ export function presentaScadenza(s: Scadenza, sit: Situazione, ctx: Contesto) {
     ripetizioniRimaste: s.ripetizioniRimaste ?? null,
     chiusa: s.chiusaIl ? { il: s.chiusaIl, motivo: s.motivoChiusura } : null,
     note: s.note ?? null,
+    segnalata,
   };
 }
 
@@ -67,5 +69,19 @@ export function presentaRegistrazione(r: Registrazione, ctx: Contesto) {
     motivo: r.motivo ?? null,
     note: r.note ?? null,
     registrataIl: r.createdAt,
+    /** Respinta: perché (B9c) */
+    motivoRifiuto: r.motivoRifiuto ?? null,
+    /** L'ha inserita l'utente (l'addetto ritira solo le sue segnalazioni) */
+    tua: r.creatoDa === ctx.utente.id,
+  };
+}
+
+/** La risposta di una registrazione che chiude o sposta la scadenza (Registra, conferma di una segnalazione) */
+export function presentaEsecuzione(ctx: Contesto, e: { registrazione: Registrazione; scadenza: Scadenza; successiva: Scadenza | null }) {
+  const { registrazione, scadenza, successiva } = e;
+  return {
+    registrazione: presentaRegistrazione(registrazione, ctx),
+    scadenza: { uuid: scadenza.uuidScadenza, chiusa: scadenza.chiusaIl ? { il: scadenza.chiusaIl, motivo: scadenza.motivoChiusura } : null, scadeIl: scadenza.scadeIl ?? null },
+    successiva: successiva ? { uuid: successiva.uuidScadenza, scadeIl: successiva.scadeIl ?? null, sogliaUso: successiva.sogliaUso ?? null, stato: successiva.stato } : null,
   };
 }

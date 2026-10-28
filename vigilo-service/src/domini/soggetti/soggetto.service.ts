@@ -19,6 +19,7 @@ import { ConflictError, ValidationError } from '../../core/utils/errors';
 import { comeTesto, type Pagina } from '../../core/utils/lista';
 import { parti, primaScadenza, type Giorno } from '../../regole';
 import { eliminaAllegatiDi } from '../allegati/allegati.service';
+import { ambitoDi, verificaAmbito } from '../ambito/ambito.service';
 import { Assegnazione, Categoria, Contatore, Controllo, Lettura, Registrazione, Scadenza, Soggetto } from '../modelli';
 import { chiudiScadenze, controlliAutomaticiPer, generaScadenze, riapriScadenzeArchiviate } from '../scadenze/ciclo.service';
 import { ricalcolaScadenze } from '../scadenze/ricalcolo.service';
@@ -54,6 +55,8 @@ const ORDINI: Record<string, (verso: 'ASC' | 'DESC') => Order> = {
 
 export async function elencaSoggetti(ctx: Contesto, query: Record<string, unknown>, p: Pagina) {
   const where: WhereOptions<Soggetto> = { idTenant: ctx.idTenant };
+  const ambito = await ambitoDi(ctx);
+  if (!ambito.tutto) Object.assign(where, { idSoggetto: ambito.idSoggetti }); // l'addetto: la sua persona e i mezzi che usa (B9b)
   if (query.tipo) Object.assign(where, { tipo: query.tipo });
   if (!query.stato || query.stato === 'attivi') Object.assign(where, { stato: { [Op.ne]: 'dismesso' } });
   else Object.assign(where, { stato: query.stato });
@@ -85,6 +88,7 @@ export async function elencaSoggetti(ctx: Contesto, query: Record<string, unknow
 /** Il soggetto con riferimenti, contatori e assegnazioni in corso */
 export async function leggiSoggetto(ctx: Contesto, uuid: string, transaction?: Transaction): Promise<Soggetto> {
   const s = await trovaNelTenant(Soggetto, 'uuidSoggetto', uuid, ctx.idTenant, 'Soggetto', { attributes: RIASSUNTO, include: RIFERIMENTI, transaction });
+  await verificaAmbito(ctx, s.idSoggetto, 'Soggetto');
   const contatori = await Contatore.findAll({ where: { idSoggetto: s.idSoggetto }, order: [['unita', 'ASC'], ['nome', 'ASC']], transaction });
   const assegnazioni = await Assegnazione.findAll({
     where: { [Op.or]: [{ idSoggetto: s.idSoggetto }, { idPersona: s.idSoggetto }], al: { [Op.or]: [null, { [Op.gte]: ctx.oggi }] } } as never,

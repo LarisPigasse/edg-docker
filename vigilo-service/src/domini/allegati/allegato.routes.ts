@@ -10,6 +10,7 @@
 //                                  immagine mostrabile, ?scarica=1 per
 //                                  scaricarlo (read)
 //   DELETE /allegati/:id           (write)
+// L'addetto (own) legge e carica nel suo ambito ed elimina i suoi (B9b).
 // Il gateway inoltra /api/vigilo a flusso (ADR069): file in su e in giù
 // senza passare dalla sua memoria.
 // =============================================================================
@@ -36,16 +37,16 @@ const elenco = Joi.object({
   id: uuid.required(),
 });
 
-allegatiRoutes.get('/allegati', richiedi('read'), validateQuery(elenco), async (req: Request, res: Response) => {
+allegatiRoutes.get('/allegati', richiedi('read', 'own'), validateQuery(elenco), async (req: Request, res: Response) => {
   const voci = await servizio.elencaAllegati(contestoDi(req), req.query.entita as EntitaAllegato, String(req.query.id));
   successResponse(res, { voci, limiti: { mb: PARAMETRI.allegatoMb, perEntita: LIMITI_ALLEGATI.perEntita } });
 });
 
-allegatiRoutes.post('/allegati', richiedi('write'), async (req: Request, res: Response) => {
+allegatiRoutes.post('/allegati', richiedi('write', 'own'), async (req: Request, res: Response) => {
   createdResponse(res, await servizio.caricaAllegato(contestoDi(req), req), 'Documento caricato');
 });
 
-allegatiRoutes.get('/allegati/:id', richiedi('read'), validateParams(paramUuid), async (req: Request, res: Response) => {
+allegatiRoutes.get('/allegati/:id', richiedi('read', 'own'), validateParams(paramUuid), async (req: Request, res: Response) => {
   const { allegato: a, percorso, tipo } = await servizio.leggiFile(contestoDi(req), req.params.id);
   const inLinea = req.query.scarica !== '1' && !!tipo?.apribile;
   const flusso = fs.createReadStream(percorso);
@@ -64,7 +65,7 @@ allegatiRoutes.get('/allegati/:id', richiedi('read'), validateParams(paramUuid),
   });
 });
 
-allegatiRoutes.delete('/allegati/:id', richiedi('write'), validateParams(paramUuid), async (req: Request, res: Response) => {
+allegatiRoutes.delete('/allegati/:id', richiedi('write', 'own'), validateParams(paramUuid), async (req: Request, res: Response) => {
   await servizio.eliminaAllegato(contestoDi(req), req.params.id);
   noContentResponse(res);
 });
