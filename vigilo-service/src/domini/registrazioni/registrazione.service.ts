@@ -19,15 +19,19 @@ import { contestoDiProcesso, type Contesto } from '../../core/contesto';
 import { trovaNelTenant } from '../../core/db/tenant';
 import { collegaAllaRegistrazione } from '../allegati/allegati.service';
 import { verificaAmbito } from '../ambito/ambito.service';
+import { rimettiSeUltimo } from '../interventi/guasto.service';
+import { costoOrarioDi, deduciEsecuzione, erroriManodopera, manodoperaPredefinita, naturaEffettiva } from '../interventi/interventi';
+import { interventiEffettivi } from '../impostazioni/limiti';
 import { snapshot } from '../../core/services/logger';
 import { traccia } from '../../core/services/traccia';
 import { ConflictError, ValidationError } from '../../core/utils/errors';
 import type { Pagina } from '../../core/utils/lista';
 import { confronta, parti, prossimaScadenza, type Giorno, type ImpostazioniEffettive } from '../../regole';
 import { registraLettura } from '../contatori/contatore.service';
-import { Contatore, Controllo, Fornitore, Registrazione, Scadenza, Soggetto } from '../modelli';
+import { Contatore, Controllo, Fornitore, ImpostazioniTenant, Registrazione, Scadenza, Soggetto } from '../modelli';
 import { effettiveDi, predefinitiDi, ricalcolaScadenze } from '../scadenze/ricalcolo.service';
-import type { DatoRegistrazione, Richiesta } from '../valori';
+import { segnalaModifica } from '../avvisi/generazione.service';
+import type { DatoRegistrazione, Esecuzione, Richiesta, RigaManodopera } from '../valori';
 
 const CON = [
   { model: Controllo, as: 'controllo' },
@@ -50,7 +54,10 @@ export async function effettive(s: Scadenza, transaction: Transaction): Promise<
   return effettiveDi(s, s.controllo, predefiniti.get(s.idTenant)!);
 }
 
-/** Che cosa chiede la registrazione: dal controllo, con la lettura obbligatoria se la cadenza e' a uso */
+/**
+ * Che cosa chiede la registrazione: dal controllo, con la lettura obbligatoria
+ * se la cadenza e' a uso e la manodopera secondo la natura (passo 8)
+ */
 export function richiesteDi(s: Scadenza, eff: ImpostazioniEffettive): Record<DatoRegistrazione, Richiesta> {
   return {
     importo: 'facoltativo',
@@ -58,6 +65,7 @@ export function richiesteDi(s: Scadenza, eff: ImpostazioniEffettive): Record<Dat
     riferimento: 'facoltativo',
     allegato: 'facoltativo',
     lettura: eff.cadenza.uso ? 'obbligatorio' : 'facoltativo',
+    manodopera: manodoperaPredefinita(naturaEffettiva(s, s.controllo)),
     ...(s.controllo?.registrazione ?? {}),
   };
 }
@@ -85,7 +93,11 @@ async function chiudiERinnova(
   );
   const haCadenza = !!(eff.cadenza.tempo || eff.cadenza.uso);
   await s.update({ chiusaIl: new Date(), motivoChiusura: p.finita ? (haCadenza ? 'fine-ricorrenza' : 'completata') : 'rinnovata' }, { transaction });
-  if (p.finita) return null;
+  // una serie finita non ricalcola niente: gli avvisi della scadenza chiusa si risolvono comunque poco dopo
+  if (p.finita) {
+    segnalaModifica(s.idTenant);
+    return null;
+  }
 
   const scadeIl = correzione?.scadeIl ?? p.scadeIl;
   const nuova = await Scadenza.create(
@@ -128,6 +140,12 @@ export interface DatiEsecuzione {
   dataNuova?: Giorno | null;
   /** uuid dei documenti già caricati sulla scadenza (B9a) */
   allegati?: string[];
+  /** Guasto che bloccava il mezzo: se è l'ultimo, il mezzo sospeso torna in servizio (B10a) */
+  rimettiInServizio?: boolean;
+  /** Chi ha fatto il lavoro; senza, si deduce da manodopera e fornitore (passo 8) */
+  esecuzione?: Esecuzione | null;
+  /** Manodopera interna: persona (uuid, null = "dipendente") e ore (passo 8) */
+  manodopera?: { persona: string | null; ore: number }[] | null;
 }
 
 /** I dati di un'esecuzione pronti per la registrazione, con la lettura e i documenti da collegare */
@@ -142,9 +160,30 @@ export interface DatiPronti {
     idFornitore: number | null;
     riferimento: string | null;
     note: string | null;
+    esecuzione: Esecuzione | null;
+    manodopera: RigaManodopera[] | null;
   };
   lettura: number | null;
   allegati: string[];
+}
+
+/** Le righe di manodopera con nome e costo orario copiati (della persona, altrimenti il predefinito del tenant) */
+async function righeManodopera(ctx: Contesto, righe: { persona: string | null; ore: number }[], transaction: Transaction): Promise<RigaManodopera[]> {
+  if (!righe.length) return [];
+  const uuids = [...new Set(righe.map(r => r.persona).filter((x): x is string => !!x))];
+  const persone = uuids.length
+    ? await Soggetto.findAll({ where: { idTenant: ctx.idTenant, tipo: 'persona', uuidSoggetto: uuids }, attributes: ['idSoggetto', 'uuidSoggetto', 'nome', 'costoOrario'], transaction })
+    : [];
+  if (persone.length !== uuids.length) throw new ValidationError('Una delle persone della manodopera non è fra quelle dell’azienda');
+  const perUuid = new Map(persone.map(p => [p.uuidSoggetto, p]));
+  const predefinito = interventiEffettivi((await ImpostazioniTenant.findByPk(ctx.idTenant, { attributes: ['idTenant', 'interventi'], transaction }))?.interventi).costoOrario;
+  const pronte = righe.map(r => {
+    const p = r.persona ? perUuid.get(r.persona)! : null;
+    return { idPersona: p?.idSoggetto ?? null, nome: p?.nome ?? null, ore: r.ore, costoOrario: costoOrarioDi(p, predefinito) };
+  });
+  const errori = erroriManodopera(pronte);
+  if (errori.length) throw new ValidationError(errori.join('. '));
+  return pronte;
 }
 
 /**
@@ -169,6 +208,7 @@ export async function datiEsecuzione(
     riferimento: d.riferimento,
     lettura: d.lettura,
     allegato: (d.allegati?.length ?? 0) + (opz.allegatiGia ?? 0) > 0 ? true : null,
+    manodopera: d.manodopera?.length ? true : null,
   };
   const daControllare = opz.obbligatori ?? (Object.keys(valori) as DatoRegistrazione[]);
   const mancanti = daControllare.filter(k => richieste[k] === 'obbligatorio' && (valori[k] === undefined || valori[k] === null || valori[k] === ''));
@@ -178,6 +218,7 @@ export async function datiEsecuzione(
   if (lettura !== null && !s.contatore) throw new ValidationError('La scadenza non ha un contatore a cui riferire la lettura');
   const fornitore =
     visibile('fornitore') && d.fornitore ? await trovaNelTenant(Fornitore, 'uuidFornitore', d.fornitore, ctx.idTenant, 'Fornitore', { transaction }) : null;
+  const manodopera = visibile('manodopera') ? await righeManodopera(ctx, d.manodopera ?? [], transaction) : [];
   return {
     attributi: {
       eseguitaIl: d.eseguitaIl,
@@ -189,16 +230,25 @@ export async function datiEsecuzione(
       idFornitore: fornitore?.idFornitore ?? null,
       riferimento: visibile('riferimento') ? d.riferimento || null : null,
       note: d.note || null,
+      esecuzione: deduciEsecuzione(d.esecuzione, manodopera.length, !!fornitore),
+      manodopera: manodopera.length ? manodopera : null,
     },
     lettura,
     allegati: visibile('allegato') ? (d.allegati ?? []) : [],
   };
 }
 
+/** Che cosa ha prodotto un'esecuzione: la scadenza successiva e se il mezzo è tornato in servizio */
+export interface EsitoConclusione {
+  successiva: Scadenza | null;
+  rimessoInServizio: boolean;
+}
+
 /**
  * Gli effetti di un'esecuzione già scritta in `reg`: i documenti passano alla
- * registrazione, la lettura diventa vera; esito positivo chiude e rinnova,
- * negativo sposta la data se serve. Restituisce la successiva.
+ * registrazione, la lettura diventa vera; esito positivo chiude e rinnova (e,
+ * per l'ultimo guasto che bloccava il mezzo, lo rimette in servizio se
+ * richiesto), negativo sposta la data se serve.
  */
 export async function concludiEsecuzione(
   ctx: Contesto,
@@ -206,19 +256,23 @@ export async function concludiEsecuzione(
   eff: ImpostazioniEffettive,
   reg: Registrazione,
   dati: DatiPronti,
-  d: Pick<DatiEsecuzione, 'esito' | 'eseguitaIl' | 'prossima' | 'dataNuova'>,
+  d: Pick<DatiEsecuzione, 'esito' | 'eseguitaIl' | 'prossima' | 'dataNuova' | 'rimettiInServizio'>,
   transaction: Transaction
-): Promise<Scadenza | null> {
+): Promise<EsitoConclusione> {
   if (dati.allegati.length) await collegaAllaRegistrazione(ctx.idTenant, dati.allegati, s.idScadenza, reg.idRegistrazione, transaction);
   if (dati.lettura !== null)
     await registraLettura(ctx, s.contatore!, { valore: dati.lettura, lettoIl: d.eseguitaIl, fonte: 'registrazione', idRegistrazione: reg.idRegistrazione }, transaction);
-  if (d.esito === 'positivo') return chiudiERinnova(s, eff, { eseguitaIl: d.eseguitaIl, lettura: dati.lettura }, d.prossima, reg, ctx.oggi, transaction);
+  if (d.esito === 'positivo') {
+    const successiva = await chiudiERinnova(s, eff, { eseguitaIl: d.eseguitaIl, lettura: dati.lettura }, d.prossima, reg, ctx.oggi, transaction);
+    const rimessoInServizio = d.rimettiInServizio ? await rimettiSeUltimo(ctx, s, transaction) : false;
+    return { successiva, rimessoInServizio };
+  }
   if (d.dataNuova) {
     await s.update({ scadeIl: d.dataNuova }, { transaction });
     await reg.update({ dataNuova: d.dataNuova }, { transaction });
     await ricalcolaScadenze({ idScadenza: s.idScadenza }, ctx.oggi, transaction);
   }
-  return null;
+  return { successiva: null, rimessoInServizio: false };
 }
 
 // --- segnalazioni in attesa (B9c) ---
@@ -247,9 +301,9 @@ export async function registraEsecuzione(ctx: Contesto, uuid: string, d: DatiEse
     const eff = await effettive(s, transaction);
     const dati = await datiEsecuzione(ctx, s, eff, d, transaction);
     const reg = await Registrazione.create({ idTenant: ctx.idTenant, idScadenza: s.idScadenza, tipo: 'esecuzione', ...dati.attributi }, { transaction });
-    const successiva = await concludiEsecuzione(ctx, s, eff, reg, dati, d, transaction);
+    const conclusa = await concludiEsecuzione(ctx, s, eff, reg, dati, d, transaction);
     traccia(ctx, 'vigilo.registrazione.esecuzione', `Esecuzione ${d.esito} registrata`, null, reg, { scadenza: s.uuidScadenza });
-    return { registrazione: await reg.reload({ transaction }), scadenza: await s.reload({ transaction }), successiva };
+    return { registrazione: await reg.reload({ transaction }), scadenza: await s.reload({ transaction }), ...conclusa };
   });
 }
 

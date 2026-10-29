@@ -2,7 +2,7 @@
 // Dashboard — filtri (gli stessi dell'elenco delle scadenze)
 // =============================================================================
 import Joi from 'joi';
-import { natura, tipoSoggetto, uuid } from '../schemi';
+import { naturaFiltro as natura, tipoSoggetto, uuid } from '../schemi';
 
 export const filtriDashboard = Joi.object({
   categoria: uuid,

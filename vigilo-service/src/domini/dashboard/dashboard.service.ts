@@ -52,12 +52,13 @@ async function perControllo(f: Filtri) {
     include: soloFiltro(f),
     attributes: [
       'idControllo',
+      'natura',
       [fn('count', col('Scadenza.id_scadenza')), 'n'],
       [literal(`max(${GRAVITA})`), 'gravita'],
     ],
-    group: ['Scadenza.id_controllo'],
+    group: ['Scadenza.id_controllo', 'Scadenza.natura'],
     raw: true,
-  })) as unknown as { idControllo: number | null; n: string; gravita: number }[];
+  })) as unknown as { idControllo: number | null; natura: 'riparazione' | null; n: string; gravita: number }[];
   const controlli = await Controllo.findAll({
     where: { idControllo: righe.map(r => r.idControllo).filter((x): x is number => x != null) },
     attributes: ['idControllo', 'uuidControllo', 'nome'],
@@ -65,18 +66,20 @@ async function perControllo(f: Filtri) {
   const perId = new Map(controlli.map(c => [c.idControllo, c]));
   // Per nome, non per controllo: i controlli omonimi (es. tre "Tagliando", uno
   // per categoria, con cadenze diverse) per chi guarda sono una cosa sola
-  const perNome = new Map<string, { uuids: string[]; nome: string; n: number; gravita: number }>();
+  // Senza controllo: i guasti in "Riparazioni" (natura, passo 8), gli altri in "Promemoria"
+  const perNome = new Map<string, { uuids: string[]; nome: string; natura: 'riparazione' | null; n: number; gravita: number }>();
   for (const r of righe) {
     const c = r.idControllo != null ? perId.get(r.idControllo) : undefined;
-    const nome = c?.nome ?? 'Promemoria';
-    const g = perNome.get(nome.toLowerCase()) ?? { uuids: [], nome, n: 0, gravita: 0 };
+    const natura = !c && r.natura === 'riparazione' ? 'riparazione' : null;
+    const nome = c?.nome ?? (natura ? 'Riparazioni' : 'Promemoria');
+    const g = perNome.get(nome.toLowerCase()) ?? { uuids: [], nome, natura, n: 0, gravita: 0 };
     if (c) g.uuids.push(c.uuidControllo);
     g.n += Number(r.n);
     g.gravita = Math.max(g.gravita, Number(r.gravita) || 0);
     perNome.set(nome.toLowerCase(), g);
   }
   return [...perNome.values()]
-    .map(g => ({ uuids: g.uuids, nome: g.nome, n: g.n, peggiore: statoDi(g.gravita) }))
+    .map(g => ({ uuids: g.uuids, nome: g.nome, natura: g.natura, n: g.n, peggiore: statoDi(g.gravita) }))
     .sort((a, b) => STATO_DI_GRAVITA.indexOf(b.peggiore) - STATO_DI_GRAVITA.indexOf(a.peggiore) || b.n - a.n || a.nome.localeCompare(b.nome));
 }
 

@@ -1,6 +1,7 @@
 // =============================================================================
 // Soggetti — come escono dalle API
 // =============================================================================
+import type { Contesto } from '../../core/contesto';
 import { riferimentoCategoria } from '../categorie/categoria.presenta';
 import type { Contatore } from '../contatori/contatore.model';
 import { IDENTIFICATIVO } from './datiTipo';
@@ -23,7 +24,8 @@ export const presentaContatore = (c: Contatore) => ({
   usoGiornaliero: c.usoGiornaliero ?? null,
 });
 
-export function presentaSoggetto(s: Soggetto) {
+/** Con `ctx`, a chi ha vigilo.costi anche il costo orario della persona (passo 8) */
+export function presentaSoggetto(s: Soggetto, ctx?: Contesto) {
   const extra = s.get() as { nAperte?: string | number; peggiore?: string | null; urgenza?: string | null };
   return {
     uuid: s.uuidSoggetto,
@@ -47,6 +49,7 @@ export function presentaSoggetto(s: Soggetto) {
       al: a.al ?? null,
     })),
     note: s.note ?? null,
+    ...(ctx?.capacita.costi && s.tipo === 'persona' ? { costoOrario: s.costoOrario ?? null } : {}),
     ...(extra.nAperte !== undefined
       ? { scadenze: { aperte: Number(extra.nAperte), statoPeggiore: extra.peggiore ?? null, urgenzaIl: extra.urgenza ?? null } }
       : {}),

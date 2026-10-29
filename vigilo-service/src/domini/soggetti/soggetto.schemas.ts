@@ -16,6 +16,8 @@ const campi = {
   sede: uuid.allow(null),
   referente: uuid.allow(null),
   note: Joi.string().trim().max(4096).allow('', null),
+  /** Solo persone e solo con vigilo.costi; i limiti in impostazioni/limiti.ts (passo 8) */
+  costoOrario: Joi.number().allow(null),
 };
 
 export const creaSoggetto = Joi.object({ ...campi, tipo: tipoSoggetto.required(), nome: campi.nome.required() });

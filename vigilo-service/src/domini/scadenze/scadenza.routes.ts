@@ -25,6 +25,8 @@ export const presentaDettaglio = (d: Dettaglio, ctx: Contesto) => ({
   // per le azioni del pannello: che cosa chiede la registrazione e se si può rinviare
   richieste: registrazioni.richiesteDi(d.s, d.eff),
   rinviabile: d.s.controllo?.rinviabile ?? true,
+  // riparando questo guasto il mezzo può tornare in servizio (B10a)
+  rimettiInServizio: d.rimettiInServizio,
   // la segnalazione dell'addetto da confermare: chi l'ha mandata e quanti documenti ha (B9c)
   segnalazione: d.segnalazione ? { ...presentaRegistrazione(d.segnalazione.r, ctx), da: d.segnalazione.da, documenti: d.segnalazione.documenti } : null,
 });

@@ -1,5 +1,5 @@
 {
-  "lastUpdated": "2026-10-28",
+  "lastUpdated": "2026-10-29",
   "modules": {
     "auth-service": {
       "status": "stable",
@@ -148,13 +148,13 @@
     },
     "vigilo-service": {
       "status": "in-progress",
-      "notes": "B9c fatto (ADR101): segnalazioni dell'addetto (segnala, ritira, conferma, respingi), avvisi, indice unico. Jest 192/192, dal vivo 72/74 → bug corretto. Prossimo B10.",
-      "lastUpdated": "2026-10-28"
+      "notes": "B10a interventi fatto (ADR102): guasti come scadenze 'riparazione', esecuzione e manodopera, costo orario persona/tenant, avvisi immediati. Prossimo B10b aggiornamenti libreria.",
+      "lastUpdated": "2026-10-29"
     },
     "app-frontend (vigilo)": {
       "status": "in-progress",
-      "notes": "B9c: Segnala fatto e ritiro (addetto), Conferma col modulo Registra e Respingi (ufficio), schede In attesa/Segnalata, filtro e badge Da confermare, avviso in dashboard.",
-      "lastUpdated": "2026-10-28"
+      "notes": "B10a fatto: Segnala un guasto, Chi ha fatto il lavoro/manodopera in Registra, storico con ore e costi, costo orario persona, pannello Interventi. Manca pagina Fornitori.",
+      "lastUpdated": "2026-10-29"
     },
     "api-gateway": {
       "status": "stable",

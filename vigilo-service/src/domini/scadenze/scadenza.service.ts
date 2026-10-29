@@ -13,6 +13,7 @@ import { aggiungiGiorni, parti, primaScadenza, prossimaScadenza, STATI, type Cad
 import { allegatiDi, eliminaAllegatiDi } from '../allegati/allegati.service';
 import { ambitoDi, verificaAmbito } from '../ambito/ambito.service';
 import { controllaCadenza } from '../coerenza';
+import { propostaRimessa } from '../interventi/guasto.service';
 import { conSegnalazione, scadenzeSegnalate } from '../registrazioni/registrazione.service';
 import { nomeDellAccount } from '../soggetti/account.service';
 import { Categoria, Contatore, Controllo, Registrazione, Scadenza, Soggetto } from '../modelli';
@@ -49,7 +50,9 @@ export async function filtri(ctx: Contesto, q: Record<string, unknown>) {
   if (q.categoria) suSoggetto.idCategoria = (await trovaNelTenant(Categoria, 'uuidCategoria', String(q.categoria), ctx.idTenant, 'Categoria')).idCategoria;
   if (q.sede) suSoggetto.idSede = (await trovaNelTenant(Soggetto, 'uuidSoggetto', String(q.sede), ctx.idTenant, 'Sede')).idSoggetto;
   if (q.tipo) suSoggetto.tipo = q.tipo;
-  if (q.natura) suControllo.natura = q.natura;
+  // la riparazione è della scadenza (guasti, passo 8); le altre nature sono del controllo
+  if (q.natura === 'riparazione') where.natura = 'riparazione';
+  else if (q.natura) suControllo.natura = q.natura;
   if (q.testo) {
     const t = comeTesto(String(q.testo));
     where[Op.or] = [
@@ -114,6 +117,8 @@ export async function leggiScadenza(ctx: Contesto, uuid: string, transaction?: T
   });
   // la segnalazione in attesa è fra le più recenti: finché aspetta non si registra altro
   const inAttesa = registrazioni.find(r => r.stato === 'da-confermare') ?? null;
+  // guasto che blocca il mezzo: proporre di rimetterlo in servizio alla riparazione (B10a)
+  const rimettiInServizio = await propostaRimessa(s, s.soggetto, transaction);
   const segnalazione = inAttesa
     ? { r: inAttesa, da: await nomeDellAccount(ctx.idTenant, inAttesa.creatoDa), documenti: await allegatiDi(ctx.idTenant, inAttesa.idRegistrazione, transaction) }
     : null;
@@ -127,7 +132,7 @@ export async function leggiScadenza(ctx: Contesto, uuid: string, transaction?: T
         s.giornoAncora ?? null,
         (s.soggetto?.dati ?? {}) as Record<string, unknown>
       );
-  return { s, eff, sit, registrazioni, prossima, segnalazione };
+  return { s, eff, sit, registrazioni, prossima, segnalazione, rimettiInServizio };
 }
 
 /** Controlli di significato sulle ridefinizioni (cadenza: date del tipo, contatori del soggetto) */

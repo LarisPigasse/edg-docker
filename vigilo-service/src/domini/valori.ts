@@ -16,6 +16,12 @@ export type StatoSoggetto = (typeof STATI_SOGGETTO)[number];
 export const NATURE = ['adempimento', 'manutenzione', 'abilitazione', 'documento', 'pagamento', 'promemoria'] as const;
 export type Natura = (typeof NATURE)[number];
 
+/** Natura propria delle scadenze senza controllo (passo 8): il guasto. I controlli non la usano */
+export const NATURE_SCADENZA = ['riparazione'] as const;
+export type NaturaScadenza = (typeof NATURE_SCADENZA)[number];
+/** La natura di una scadenza come si vede: quella propria, del controllo o promemoria */
+export type NaturaEffettiva = Natura | NaturaScadenza;
+
 export const RINNOVI = ['conferma', 'tacito'] as const;
 export type Rinnovo = (typeof RINNOVI)[number];
 
@@ -36,6 +42,10 @@ export type StatoRegistrazione = (typeof STATI_REGISTRAZIONE)[number];
 
 export const ESITI = ['positivo', 'negativo'] as const;
 export type Esito = (typeof ESITI)[number];
+
+/** Chi ha fatto il lavoro di una registrazione (passo 8) */
+export const ESECUZIONI = ['interna', 'esterna', 'entrambe'] as const;
+export type Esecuzione = (typeof ESECUZIONI)[number];
 
 export const FONTI_LETTURA = ['manuale', 'registrazione', 'telematica', 'importazione'] as const;
 export type FonteLettura = (typeof FONTI_LETTURA)[number];
@@ -136,8 +146,19 @@ export interface CampoAggiuntivo {
 
 /** Per ogni dato della registrazione: obbligatorio, facoltativo o nascosto */
 export type Richiesta = 'obbligatorio' | 'facoltativo' | 'nascosto';
-export type DatoRegistrazione = 'importo' | 'fornitore' | 'riferimento' | 'lettura' | 'allegato';
+export type DatoRegistrazione = 'importo' | 'fornitore' | 'riferimento' | 'lettura' | 'allegato' | 'manodopera';
 export type RegoleRegistrazione = Partial<Record<DatoRegistrazione, Richiesta>>;
+
+/** Una riga di manodopera interna (passo 8): costoOrario copiato al momento della registrazione */
+export interface RigaManodopera {
+  /** La persona (soggetto) che ha lavorato; null = "dipendente", con il costo predefinito */
+  idPersona: number | null;
+  /** Il nome della persona, copiato come il costo: lo storico resta leggibile */
+  nome: string | null;
+  ore: number;
+  /** €/h applicato, null se non c'era nessun costo (né della persona né predefinito) */
+  costoOrario: number | null;
+}
 
 /** Fotografia dei valori copiati dalla libreria (passo 3.6) */
 export type Origine = Record<string, unknown>;

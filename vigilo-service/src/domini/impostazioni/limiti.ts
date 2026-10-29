@@ -1,5 +1,6 @@
 // =============================================================================
-// Regole degli avvisi di un tenant: predefiniti e limiti (ADR093) — puro
+// Regole degli avvisi e degli interventi di un tenant: predefiniti e limiti
+// (ADR093, passo 8) — puro
 // =============================================================================
 // Il cliente le cambia dalla Configurazione (B8d); qui i limiti che nessuno
 // può superare, usati sia per rifiutare un valore sbagliato (erroriAvvisi)
@@ -115,3 +116,49 @@ export const inSilenzio = (minuti: number, s: Silenzio): boolean => {
   if (!durata) return false;
   return (minuti - minutiDi(s.dalle)! + 1440) % 1440 < durata;
 };
+
+// -----------------------------------------------------------------------------
+// Interventi (passo 8): costo orario predefinito e giorni proposti per riparare
+// -----------------------------------------------------------------------------
+
+export interface RegoleInterventi {
+  /** €/h per le persone senza costo e per le righe di manodopera senza persona; null = non impostato */
+  costoOrario: number | null;
+  /** Un guasto che non blocca l'uso si propone da riparare entro tanti giorni */
+  giorniRiparazione: number;
+}
+
+export const INTERVENTI_INIZIALI: RegoleInterventi = { costoOrario: null, giorniRiparazione: 8 };
+
+export const LIMITI_INTERVENTI = {
+  /** €/h, per il predefinito e per le persone */
+  costoOrario: { min: 0, max: 1024 },
+  giorniRiparazione: { min: 0, max: 64 },
+} as const;
+
+/** Un costo orario valido? (numero fra i limiti, al centesimo) */
+export const costoOrarioValido = (n: unknown): n is number =>
+  typeof n === 'number' &&
+  Number.isFinite(n) &&
+  n >= LIMITI_INTERVENTI.costoOrario.min &&
+  n <= LIMITI_INTERVENTI.costoOrario.max &&
+  Math.abs(Math.round(n * 100) - n * 100) < 1e-6;
+
+/** Gli errori delle regole degli interventi (vuoto = valide), con parole per l'utente */
+export function erroriInterventi(r: Partial<RegoleInterventi>): string[] {
+  const errori: string[] = [];
+  const { costoOrario: c, giorniRiparazione: g } = LIMITI_INTERVENTI;
+  if (r.costoOrario !== undefined && r.costoOrario !== null && !costoOrarioValido(r.costoOrario))
+    errori.push(`Il costo orario va da ${c.min} a ${c.max} €, al centesimo`);
+  if (r.giorniRiparazione !== undefined && (!Number.isInteger(r.giorniRiparazione) || r.giorniRiparazione < g.min || r.giorniRiparazione > g.max))
+    errori.push(`I giorni per riparare un guasto vanno da ${g.min} a ${g.max}`);
+  return errori;
+}
+
+/** Le regole da usare: salvate se valide, altrimenti il predefinito di ciascuna */
+export function interventiEffettivi(salvate: Partial<RegoleInterventi> | null | undefined): RegoleInterventi {
+  const s = salvate ?? {};
+  const valida = <K extends keyof RegoleInterventi>(k: K): RegoleInterventi[K] =>
+    s[k] !== undefined && erroriInterventi({ [k]: s[k] } as Partial<RegoleInterventi>).length === 0 ? (s[k] as RegoleInterventi[K]) : INTERVENTI_INIZIALI[k];
+  return { costoOrario: valida('costoOrario'), giorniRiparazione: valida('giorniRiparazione') };
+}

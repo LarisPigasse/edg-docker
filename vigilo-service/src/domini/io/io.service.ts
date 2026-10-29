@@ -7,6 +7,7 @@ import { capacitaDi, usaVigilo, type Capacitas } from '../../core/middleware/per
 import { ImpostazioniTenant, Soggetto } from '../modelli';
 import { puoAvviare, type ChiPrepara } from '../avvio/preparazione';
 import { preparazioneDelTenant } from '../avvio/preparazione.service';
+import { interventiEffettivi } from '../impostazioni/limiti';
 
 export interface ProfiloVigilo {
   accountId: number;
@@ -24,6 +25,8 @@ export interface ProfiloVigilo {
   puoAvviare: boolean;
   /** Accesso assistito in corso (ADR085) */
   inAssistenza: boolean;
+  /** Per proporre la data di un guasto nel modulo (B10a): i giorni per ripararlo */
+  giorniRiparazione: number;
 }
 
 /** Profilo per GET /me: capacita', avvio del tenant, persona collegata */
@@ -32,7 +35,7 @@ export async function profilo(user: GatewayUser): Promise<ProfiloVigilo> {
   const capacita = capacitaDi(user.permissions);
 
   const [impostazioni, persona, preparazione] = await Promise.all([
-    ImpostazioniTenant.findByPk(idTenant, { attributes: ['avviatoIl'] }),
+    ImpostazioniTenant.findByPk(idTenant, { attributes: ['idTenant', 'avviatoIl', 'interventi'] }),
     // La persona di cui l'utente e' l'addetto (passo 5.4); dismessa = nessuna
     Soggetto.findOne({
       where: { idTenant, idAccount: user.id, tipo: 'persona', stato: { [Op.ne]: 'dismesso' } },
@@ -52,5 +55,6 @@ export async function profilo(user: GatewayUser): Promise<ProfiloVigilo> {
     preparazione: preparazione.chi,
     puoAvviare: puoAvviare(preparazione, !!impostazioni?.avviatoIl, user.assistenza, idTenant),
     inAssistenza: !!user.assistenza,
+    giorniRiparazione: interventiEffettivi(impostazioni?.interventi).giorniRiparazione,
   };
 }

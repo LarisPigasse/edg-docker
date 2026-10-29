@@ -7,7 +7,7 @@
 // =============================================================================
 import Joi from 'joi';
 import { ANCORAGGI, UNITA_TEMPO, UNITA_USO } from '../regole';
-import { CANALI, NATURE, RINNOVI, TIPI_SOGGETTO } from './valori';
+import { CANALI, NATURE, NATURE_SCADENZA, RINNOVI, TIPI_SOGGETTO } from './valori';
 import { LIMITI_DESTINATARI, erroriDestinatari } from './avvisi/destinatari';
 
 const intero = (min = 1, max = 4096) => Joi.number().integer().min(min).max(max);
@@ -65,6 +65,8 @@ export const registrazione = Joi.object({
   riferimento: richiesta,
   lettura: richiesta,
   allegato: richiesta,
+  /** Manodopera interna (passo 8); senza, la regola per natura */
+  manodopera: richiesta,
 });
 
 export const campoAggiuntivo = Joi.object({
@@ -83,5 +85,7 @@ export const campoAggiuntivo = Joi.object({
 
 export const tipoSoggetto = Joi.string().valid(...TIPI_SOGGETTO);
 export const natura = Joi.string().valid(...NATURE);
+/** Nei filtri di elenco, dashboard e calendario vale anche la natura propria delle scadenze (riparazione, passo 8) */
+export const naturaFiltro = Joi.string().valid(...NATURE, ...NATURE_SCADENZA);
 export const rinnovo = Joi.string().valid(...RINNOVI);
 export const canale = Joi.string().valid(...CANALI);

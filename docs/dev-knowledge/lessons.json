@@ -1,5 +1,5 @@
 {
-  "lastUpdated": "2026-10-21",
+  "lastUpdated": "2026-10-28",
   "lessons": [
     {
       "id": "L001",
@@ -585,6 +585,15 @@
       "title": "Express 5: req.query non si riassegna; campi nuovi del JWT da copiare in auth-service",
       "problem": "1) In auth-service (Express 5) validateQuery faceva req.query = value: req.query è un getter e l'assegnazione lancia un TypeError, quindi 500 prima del controller. validateQuery non era mai stato usato, il difetto era nascosto. 2) In gateway mode auth-service non usa x-user-data così com'è: verifyGateway (req.user) e authMiddleware (req.account) ricopiano campo per campo, quindi un campo nuovo del JWT passato dal gateway (es. assistenza, ADR085) sparisce.",
       "solution": "1) In middleware/validate.ts per target 'query' si usa Object.defineProperty(req, 'query', { value, configurable, enumerable, writable }). 2) Un campo nuovo del token va aggiunto in quattro punti: jwtValidator.validateToken e gatewayHeaders (gateway), verifyGateway.extractUserData e authMiddleware.authenticateFromGateway (auth-service). Negli altri servizi va controllato il loro middleware auth."
+    },
+    {
+      "id": "L066",
+      "date": "2026-10-28",
+      "category": "postgres",
+      "severity": "medium",
+      "title": "CHECK con colonna NULL: il confronto \"sconosciuto\" passa il vincolo",
+      "problem": "CHECK (NOT blocca_uso OR natura = 'riparazione') lasciava passare blocca_uso = true con natura NULL: natura = 'x' vale NULL, NOT true OR NULL = NULL, e un CHECK rifiuta solo FALSE, non NULL. Trovato solo con la prova dal vivo dei vincoli (Vigilo B10a).",
+      "solution": "Nei CHECK su colonne che possono essere NULL usare confronti che non danno NULL: IS NOT DISTINCT FROM 'valore', COALESCE(col, '') = 'valore', o col IS NOT NULL AND col = 'valore'. Provare sempre ogni vincolo dal vivo con il caso NULL."
     }
   ]
 }

@@ -33,6 +33,7 @@ import { eventiDovuti, riferimentoCiclo, testoStato, type Giorno } from '../../r
 import { avvisiEffettivi } from '../impostazioni/limiti';
 import { Assegnazione, Avviso, Consegna, Contatore, Controllo, ImpostazioniTenant, Registrazione, Scadenza, Soggetto } from '../modelli';
 import { genereEvento } from '../segnalazioni/segnalazioni';
+import { senzaPreavvisi } from '../interventi/interventi';
 import { predefinitiDi, situazioneDi } from '../scadenze/ricalcolo.service';
 import { risolviDestinatari, ufficioDa, type PersonaAvvisabile } from './destinatari';
 import { invioEmail } from './invio';
@@ -89,10 +90,11 @@ export async function generaAvvisiTenant(idTenant: number, oggi: Giorno = oggiIn
       const sog = s.soggetto ?? null;
       if (sog?.stato === 'dismesso' || segnalate.has(s.idScadenza)) continue;
       const { eff, sit } = situazioneDi(s, s.controllo, s.contatore, predefiniti, oggi);
+      // un guasto non ha preavvisi: il suo avviso nasce con lui (B10a)
       const eventi = eventiDovuti(
         { scadeIl: s.scadeIl ?? null, sogliaUso: s.sogliaUso ?? null, situazione: sit, preavvisi: eff.preavvisi, intervalloRichiami },
         oggi
-      );
+      ).filter(ev => !senzaPreavvisi(s.natura, ev.tipo));
       if (!eventi.length) continue;
 
       const filtrabile = sog ? { idSoggetto: sog.idSoggetto, tipo: sog.tipo, idSede: sog.idSede ?? null } : null;

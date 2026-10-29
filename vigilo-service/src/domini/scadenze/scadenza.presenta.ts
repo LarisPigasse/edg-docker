@@ -9,6 +9,7 @@
 // =============================================================================
 import type { Contesto } from '../../core/contesto';
 import { descriviCadenza, descriviPreavvisi, descriviTolleranza, testoStato, type ImpostazioniEffettive, type Situazione } from '../../regole';
+import { costoManodopera, costoTotale, naturaEffettiva, oreManodopera } from '../interventi/interventi';
 import type { Registrazione } from '../registrazioni/registrazione.model';
 import { presentaContatore, riferimentoSoggetto } from '../soggetti/soggetto.presenta';
 import { etichetteDate } from '../valori';
@@ -19,6 +20,10 @@ export function presentaScadenza(s: Scadenza, sit: Situazione, ctx: Contesto, se
   return {
     uuid: s.uuidScadenza,
     titolo: s.titolo || s.controllo?.nome || '',
+    /** Della scadenza (riparazione), del controllo o promemoria (passo 8) */
+    natura: naturaEffettiva(s, s.controllo),
+    /** Guasto che sospende il mezzo */
+    bloccaUso: s.bloccaUso,
     soggetto: s.soggetto ? riferimentoSoggetto(s.soggetto) : null,
     controllo: s.controllo ? { uuid: s.controllo.uuidControllo, nome: s.controllo.nome, natura: s.controllo.natura } : null,
     scadeIl: s.scadeIl ?? null,
@@ -73,13 +78,24 @@ export function presentaRegistrazione(r: Registrazione, ctx: Contesto) {
     motivoRifiuto: r.motivoRifiuto ?? null,
     /** L'ha inserita l'utente (l'addetto ritira solo le sue segnalazioni) */
     tua: r.creatoDa === ctx.utente.id,
+    // passo 8: chi ha fatto il lavoro e la manodopera; le ore a tutti, gli euro solo a chi ha vigilo.costi
+    esecuzione: r.esecuzione ?? null,
+    manodopera: (r.manodopera ?? []).map(m => ({
+      nome: m.nome,
+      ore: m.ore,
+      ...(ctx.capacita.costi ? { costoOrario: m.costoOrario, costo: m.costoOrario != null ? Math.round(m.ore * m.costoOrario * 100) / 100 : null } : {}),
+    })),
+    oreManodopera: oreManodopera(r.manodopera),
+    ...(ctx.capacita.costi ? { costoManodopera: costoManodopera(r.manodopera), costoTotale: costoTotale(r.importo, r.manodopera) } : {}),
   };
 }
 
 /** La risposta di una registrazione che chiude o sposta la scadenza (Registra, conferma di una segnalazione) */
-export function presentaEsecuzione(ctx: Contesto, e: { registrazione: Registrazione; scadenza: Scadenza; successiva: Scadenza | null }) {
+export function presentaEsecuzione(ctx: Contesto, e: { registrazione: Registrazione; scadenza: Scadenza; successiva: Scadenza | null; rimessoInServizio?: boolean }) {
   const { registrazione, scadenza, successiva } = e;
   return {
+    /** Riparato l'ultimo guasto bloccante: il mezzo è tornato in servizio (B10a) */
+    rimessoInServizio: !!e.rimessoInServizio,
     registrazione: presentaRegistrazione(registrazione, ctx),
     scadenza: { uuid: scadenza.uuidScadenza, chiusa: scadenza.chiusaIl ? { il: scadenza.chiusaIl, motivo: scadenza.motivoChiusura } : null, scadeIl: scadenza.scadeIl ?? null },
     successiva: successiva ? { uuid: successiva.uuidScadenza, scadeIl: successiva.scadeIl ?? null, sogliaUso: successiva.sogliaUso ?? null, stato: successiva.stato } : null,

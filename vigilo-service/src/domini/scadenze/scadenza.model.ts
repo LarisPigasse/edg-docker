@@ -10,9 +10,9 @@
 // =============================================================================
 import { CreationOptional, NonAttribute } from 'sequelize';
 import { sequelize } from '../../config/database';
-import { AUDIT, chiave, ConAudit, elenco, giorno, intero, istante, json, tenant, testo, uuid } from '../../core/db/colonne';
+import { AUDIT, booleano, chiave, ConAudit, elenco, giorno, intero, istante, json, tenant, testo, uuid } from '../../core/db/colonne';
 import { STATI, type Cadenza, type Destinatario, type Giorno, type Preavvisi, type Stato, type Tolleranza } from '../../regole';
-import { MOTIVI_CHIUSURA, type MotivoChiusura } from '../valori';
+import { MOTIVI_CHIUSURA, NATURE_SCADENZA, type MotivoChiusura, type NaturaScadenza } from '../valori';
 import type { Soggetto } from '../soggetti/soggetto.model';
 import type { Controllo } from '../controlli/controllo.model';
 import type { Contatore } from '../contatori/contatore.model';
@@ -27,6 +27,10 @@ export class Scadenza extends ConAudit<Scadenza> {
   /** null = promemoria libero (serve il titolo) */
   declare idControllo: CreationOptional<number | null>;
   declare titolo: CreationOptional<string | null>;
+  /** Solo senza controllo: 'riparazione' = guasto (passo 8); null = promemoria */
+  declare natura: CreationOptional<NaturaScadenza | null>;
+  /** Il guasto sospende il soggetto */
+  declare bloccaUso: CreationOptional<boolean>;
 
   // Posizione attuale
   declare scadeIl: CreationOptional<Giorno | null>;
@@ -72,6 +76,8 @@ Scadenza.init(
     idSoggetto: intero(),
     idControllo: intero(),
     titolo: testo(160),
+    natura: elenco(NATURE_SCADENZA, true),
+    bloccaUso: booleano(false),
     scadeIl: giorno(),
     idContatore: intero(),
     sogliaUso: intero(),
@@ -102,6 +108,10 @@ Scadenza.init(
       // Stessi vincoli della tabella, con un messaggio comprensibile
       promemoriaConTitolo(this: Scadenza) {
         if (this.idControllo == null && !this.titolo) throw new Error('Un promemoria senza controllo ha bisogno di un titolo');
+      },
+      naturaSenzaControllo(this: Scadenza) {
+        if (this.natura != null && this.idControllo != null) throw new Error('La natura propria è solo delle scadenze senza controllo');
+        if (this.bloccaUso && this.natura !== 'riparazione') throw new Error('Solo un guasto blocca l’uso');
       },
       chiusuraCompleta(this: Scadenza) {
         if ((this.chiusaIl == null) !== (this.motivoChiusura == null)) throw new Error('Chiusura senza data o senza motivo');

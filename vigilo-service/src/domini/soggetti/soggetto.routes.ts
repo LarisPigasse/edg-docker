@@ -18,14 +18,15 @@ import * as servizio from './soggetto.service';
 export const soggettiRoutes = Router();
 
 soggettiRoutes.get('/soggetti', richiedi('read', 'own'), validateQuery(schemi.listaSoggetti), async (req: Request, res: Response) => {
+  const ctx = contestoDi(req);
   const p = paginaDa(req.query);
-  const { righe, totale } = await servizio.elencaSoggetti(contestoDi(req), req.query, p);
-  rispondiLista(res, righe.map(presentaSoggetto), totale, p);
+  const { righe, totale } = await servizio.elencaSoggetti(ctx, req.query, p);
+  rispondiLista(res, righe.map(s => presentaSoggetto(s, ctx)), totale, p);
 });
 
 soggettiRoutes.get('/soggetti/:id', richiedi('read', 'own'), validateParams(paramUuid), async (req: Request, res: Response) => {
   const s = await servizio.leggiSoggetto(contestoDi(req), req.params.id);
-  successResponse(res, { ...presentaSoggetto(s), account: await accountDi(s) });
+  successResponse(res, { ...presentaSoggetto(s, contestoDi(req)), account: await accountDi(s) });
 });
 
 // Account collegati alle persone (B9b): l'elenco per sceglierlo e il collegamento
@@ -42,13 +43,13 @@ soggettiRoutes.put(
     const ctx = contestoDi(req);
     await collegaAccount(ctx, req.params.id, req.body.account);
     const s = await servizio.leggiSoggetto(ctx, req.params.id);
-    successResponse(res, { ...presentaSoggetto(s), account: await accountDi(s) }, req.body.account ? 'Account collegato' : 'Account scollegato');
+    successResponse(res, { ...presentaSoggetto(s, contestoDi(req)), account: await accountDi(s) }, req.body.account ? 'Account collegato' : 'Account scollegato');
   }
 );
 
 soggettiRoutes.post('/soggetti', richiedi('write'), validateBody(schemi.creaSoggetto), async (req: Request, res: Response) => {
   const { soggetto, scadenzeCreate } = await servizio.creaSoggetto(contestoDi(req), req.body);
-  createdResponse(res, { ...presentaSoggetto(soggetto), scadenzeCreate }, 'Soggetto creato');
+  createdResponse(res, { ...presentaSoggetto(soggetto, contestoDi(req)), scadenzeCreate }, 'Soggetto creato');
 });
 
 soggettiRoutes.patch(
@@ -58,7 +59,7 @@ soggettiRoutes.patch(
   validateBody(schemi.modificaSoggetto),
   async (req: Request, res: Response) => {
     const { soggetto, ...esito } = await servizio.modificaSoggetto(contestoDi(req), req.params.id, req.body);
-    successResponse(res, { ...presentaSoggetto(soggetto), ...esito }, 'Soggetto modificato');
+    successResponse(res, { ...presentaSoggetto(soggetto, contestoDi(req)), ...esito }, 'Soggetto modificato');
   }
 );
 
@@ -69,7 +70,7 @@ soggettiRoutes.post(
   validateBody(schemi.statoSoggetto),
   async (req: Request, res: Response) => {
     const { soggetto, ...esito } = await servizio.cambiaStato(contestoDi(req), req.params.id, req.body.stato, req.body.dal);
-    successResponse(res, { ...presentaSoggetto(soggetto), ...esito }, 'Stato aggiornato');
+    successResponse(res, { ...presentaSoggetto(soggetto, contestoDi(req)), ...esito }, 'Stato aggiornato');
   }
 );
 

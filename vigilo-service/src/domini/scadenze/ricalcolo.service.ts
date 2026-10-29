@@ -91,6 +91,9 @@ export async function predefinitiDi(idTenants: number[], transaction?: Transacti
 export async function ricalcolaScadenze(where: WhereOptions<Scadenza>, oggi: Giorno, transaction?: Transaction): Promise<number> {
   let cambiate = 0;
   let ultimo = 0;
+  /** I tenant toccati da un ricalcolo mirato (una scadenza, un contatore, un soggetto...) */
+  const toccati = new Set<number>();
+  const mirato = Object.keys(where as object).length > 0;
   for (;;) {
     const lotto = await Scadenza.findAll({
       where: { ...(where as object), chiusaIl: null, idScadenza: { [Op.gt]: ultimo } } as WhereOptions<Scadenza>,
@@ -105,6 +108,7 @@ export async function ricalcolaScadenze(where: WhereOptions<Scadenza>, oggi: Gio
     if (!lotto.length) break;
     const predefiniti = await predefinitiDi([...new Set(lotto.map(s => s.idTenant))], transaction);
     for (const s of lotto) {
+      if (mirato) toccati.add(s.idTenant);
       const c = calcoliDi(s, s.controllo, s.contatore, predefiniti.get(s.idTenant)!, oggi);
       const diverso = c.stato !== s.stato || c.limiteIl !== s.limiteIl || c.stimataIl !== s.stimataIl || c.urgenzaIl !== s.urgenzaIl;
       if (diverso) {
@@ -116,8 +120,11 @@ export async function ricalcolaScadenze(where: WhereOptions<Scadenza>, oggi: Gio
     if (lotto.length < PARAMETRI.lotto) break;
   }
   // ADR090: dopo una modifica di un tenant, gli avvisi che ne derivano (poco dopo,
-  // a transazione chiusa); il processo notturno li genera da sé per tutti
+  // a transazione chiusa); il processo notturno ({} = tutti) li genera da sé.
+  // Vale anche per i ricalcoli mirati (una scadenza, un contatore): prima
+  // partivano solo con idTenant nel filtro, cioè quasi mai (B10a)
   const idTenant = (where as { idTenant?: unknown }).idTenant;
-  if (typeof idTenant === 'number') segnalaModifica(idTenant);
+  if (typeof idTenant === 'number') toccati.add(idTenant);
+  for (const t of toccati) segnalaModifica(t);
   return cambiate;
 }

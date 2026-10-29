@@ -10,7 +10,7 @@
 // =============================================================================
 import { CreationOptional, NonAttribute } from 'sequelize';
 import { sequelize } from '../../config/database';
-import { AUDIT, chiave, ConAudit, elenco, giorno, intero, istante, json, tenant, testo, uuid } from '../../core/db/colonne';
+import { AUDIT, chiave, ConAudit, decimale, elenco, giorno, intero, istante, json, tenant, testo, uuid } from '../../core/db/colonne';
 import type { Giorno } from '../../regole';
 import { STATI_SOGGETTO, TIPI_SOGGETTO, type StatoSoggetto, type TipoSoggetto } from '../valori';
 import type { Categoria } from '../categorie/categoria.model';
@@ -36,6 +36,8 @@ export class Soggetto extends ConAudit<Soggetto> {
   declare idSede: CreationOptional<number | null>;
   declare idReferente: CreationOptional<number | null>;
   declare idAccount: CreationOptional<number | null>;
+  /** Solo persone: €/h della manodopera (passo 8); lo vede solo chi ha vigilo.costi */
+  declare costoOrario: CreationOptional<number | null>;
   declare note: CreationOptional<string | null>;
 
   declare categoria?: NonAttribute<Categoria | null>;
@@ -63,6 +65,7 @@ Soggetto.init(
     idSede: intero(),
     idReferente: intero(),
     idAccount: intero(),
+    costoOrario: decimale('costoOrario'),
     note: testo(),
     createdAt: istante(false),
     updatedAt: istante(false),

@@ -15,11 +15,12 @@ import type { Contesto } from '../../core/contesto';
 import { trovaNelTenant } from '../../core/db/tenant';
 import { snapshot } from '../../core/services/logger';
 import { traccia } from '../../core/services/traccia';
-import { ConflictError, ValidationError } from '../../core/utils/errors';
+import { ConflictError, ForbiddenError, ValidationError } from '../../core/utils/errors';
 import { comeTesto, type Pagina } from '../../core/utils/lista';
 import { parti, primaScadenza, type Giorno } from '../../regole';
 import { eliminaAllegatiDi } from '../allegati/allegati.service';
 import { ambitoDi, verificaAmbito } from '../ambito/ambito.service';
+import { erroriInterventi } from '../impostazioni/limiti';
 import { Assegnazione, Categoria, Contatore, Controllo, Lettura, Registrazione, Scadenza, Soggetto } from '../modelli';
 import { chiudiScadenze, controlliAutomaticiPer, generaScadenze, riapriScadenzeArchiviate } from '../scadenze/ciclo.service';
 import { ricalcolaScadenze } from '../scadenze/ricalcolo.service';
@@ -161,6 +162,17 @@ function conflittoIdentificativo(tipo: TipoSoggetto): ConflictError {
   return new ConflictError(`Esiste già un soggetto di tipo ${tipo} in servizio con questo valore di ${IDENTIFICATIVO[tipo].toLowerCase()}`);
 }
 
+/** Il costo orario dal corpo della richiesta (passo 8): solo persone, solo con vigilo.costi, dentro i limiti. undefined = non cambia */
+function costoOrarioDa(ctx: Contesto, tipo: TipoSoggetto, valore: unknown): number | null | undefined {
+  if (valore === undefined) return undefined;
+  if (!ctx.capacita.costi) throw new ForbiddenError('Per il costo orario serve il permesso vigilo.costi');
+  if (valore === null) return null;
+  if (tipo !== 'persona') throw new ValidationError('Il costo orario è solo delle persone');
+  const errori = erroriInterventi({ costoOrario: valore as number });
+  if (errori.length) throw new ValidationError(errori.join('. '));
+  return valore as number;
+}
+
 export async function creaSoggetto(ctx: Contesto, body: Record<string, unknown>) {
   let uuid = '';
   let scadenzeCreate = 0;
@@ -183,6 +195,7 @@ export async function creaSoggetto(ctx: Contesto, body: Record<string, unknown>)
           idSede: await collegatoDa(ctx, body.sede as string | null, 'sede', 'Sede', transaction),
           idReferente: await collegatoDa(ctx, body.referente as string | null, 'persona', 'Referente', transaction),
           note: (body.note as string) || null,
+          costoOrario: costoOrarioDa(ctx, tipo, body.costoOrario) ?? null,
         },
         { transaction }
       );
@@ -219,6 +232,7 @@ export async function modificaSoggetto(ctx: Contesto, uuid: string, body: Record
     if ('identificativo' in body) s.identificativo = normalizzaIdentificativo(s.tipo, body.identificativo as string | null);
     if ('codice' in body) s.codice = (body.codice as string) || null;
     if ('note' in body) s.note = (body.note as string) || null;
+    if ('costoOrario' in body) s.costoOrario = costoOrarioDa(ctx, s.tipo, body.costoOrario) ?? null;
     if ('sede' in body) s.idSede = await collegatoDa(ctx, body.sede as string | null, 'sede', 'Sede', transaction);
     if ('referente' in body) s.idReferente = await collegatoDa(ctx, body.referente as string | null, 'persona', 'Referente', transaction);
     if (s.idSede === s.idSoggetto || s.idReferente === s.idSoggetto) throw new ValidationError('Un soggetto non può essere sede o referente di sé stesso');

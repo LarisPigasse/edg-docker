@@ -5,7 +5,9 @@ import Joi from 'joi';
 import { schemaLista } from '../../core/utils/lista';
 import { LIMITI_ALLEGATI } from '../allegati/allegati';
 import { LIMITI_SEGNALAZIONI } from '../segnalazioni/segnalazioni';
-import { cadenza, destinatari, giorno, natura, preavvisi, tipoSoggetto, tolleranza, uuid } from '../schemi';
+import { LIMITI_MANODOPERA } from '../interventi/interventi';
+import { ESECUZIONI } from '../valori';
+import { cadenza, destinatari, giorno, naturaFiltro as natura, preavvisi, tipoSoggetto, tolleranza, uuid } from '../schemi';
 
 const ridefinizioni = {
   cadenza: cadenza.allow(null),
@@ -42,6 +44,15 @@ export const campiRegistra = {
   note: Joi.string().trim().max(4096).allow('', null),
   prossima: Joi.object({ scadeIl: giorno, sogliaUso: Joi.number().integer().min(0).max(1 << 30) }),
   allegati,
+  /** Guasto che bloccava il mezzo: se è l'ultimo, il mezzo torna in servizio (B10a) */
+  rimettiInServizio: Joi.boolean(),
+  /** Chi ha fatto il lavoro; senza, si deduce (passo 8) */
+  esecuzione: Joi.string().valid(...ESECUZIONI).allow(null),
+  /** Manodopera interna: forma qui, limiti (righe, ore, quarti d'ora) con parole per l'utente in erroriManodopera; 64 righe solo come argine */
+  manodopera: Joi.array()
+    .items(Joi.object({ persona: uuid.allow(null), ore: Joi.number().required() }))
+    .max(LIMITI_MANODOPERA.righe * 8)
+    .allow(null),
 };
 
 export const esecuzione = Joi.object({

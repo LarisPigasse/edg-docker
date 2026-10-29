@@ -112,13 +112,17 @@ export async function conferma(ctx: Contesto, uuid: string, c: Correzioni) {
       note: ha('note') ? c.note : (r.note ?? null),
       prossima: c.prossima,
       allegati: c.allegati,
+      rimettiInServizio: c.rimettiInServizio,
+      // l'addetto non dà manodopera: la completa l'ufficio
+      esecuzione: c.esecuzione,
+      manodopera: c.manodopera,
     };
     const dati = await datiEsecuzione(ctx, s, eff, d, transaction, { allegatiGia: await allegatiDi(ctx.idTenant, r.idRegistrazione, transaction) });
     const prima = snapshot(r);
     await r.update({ ...dati.attributi, stato: 'confermata', confermataDa: ctx.utente.id, confermataIl: new Date() }, { transaction });
-    const successiva = await concludiEsecuzione(ctx, s, eff, r, dati, d, transaction);
+    const conclusa = await concludiEsecuzione(ctx, s, eff, r, dati, d, transaction);
     traccia(ctx, 'vigilo.segnalazione.confermata', `Segnalazione confermata: ${titoloDi(s)}`, prima, r, { scadenza: s.uuidScadenza });
-    return { registrazione: await r.reload({ include: [{ model: Fornitore, as: 'fornitore' }], transaction }), scadenza: await s.reload({ transaction }), successiva };
+    return { registrazione: await r.reload({ include: [{ model: Fornitore, as: 'fornitore' }], transaction }), scadenza: await s.reload({ transaction }), ...conclusa };
   });
   const id = esito.registrazione.idRegistrazione;
   dopo('confermata', async () => {

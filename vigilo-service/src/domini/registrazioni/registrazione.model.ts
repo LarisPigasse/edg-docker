@@ -9,13 +9,16 @@
 // =============================================================================
 import { CreationOptional, NonAttribute } from 'sequelize';
 import { sequelize } from '../../config/database';
-import { AUDIT, chiave, ConAudit, decimale, elenco, giorno, intero, istante, tenant, testo, uuid } from '../../core/db/colonne';
+import { AUDIT, chiave, ConAudit, decimale, elenco, giorno, intero, istante, json, tenant, testo, uuid } from '../../core/db/colonne';
 import type { Giorno } from '../../regole';
 import {
+  ESECUZIONI,
   ESITI,
   STATI_REGISTRAZIONE,
   TIPI_REGISTRAZIONE,
+  type Esecuzione,
   type Esito,
+  type RigaManodopera,
   type StatoRegistrazione,
   type TipoRegistrazione,
 } from '../valori';
@@ -43,6 +46,10 @@ export class Registrazione extends ConAudit<Registrazione> {
   declare idScadenzaSuccessiva: CreationOptional<number | null>;
   declare motivo: CreationOptional<string | null>;
   declare note: CreationOptional<string | null>;
+  /** Chi ha fatto il lavoro (passo 8) */
+  declare esecuzione: CreationOptional<Esecuzione | null>;
+  /** Manodopera interna, con il costo orario copiato (passo 8) */
+  declare manodopera: CreationOptional<RigaManodopera[] | null>;
   declare confermataDa: CreationOptional<number | null>;
   declare confermataIl: CreationOptional<Date | null>;
   declare motivoRifiuto: CreationOptional<string | null>;
@@ -73,6 +80,8 @@ Registrazione.init(
     idScadenzaSuccessiva: intero(),
     motivo: testo(512),
     note: testo(),
+    esecuzione: elenco(ESECUZIONI, true),
+    manodopera: json(true),
     confermataDa: intero(),
     confermataIl: istante(),
     motivoRifiuto: testo(512),

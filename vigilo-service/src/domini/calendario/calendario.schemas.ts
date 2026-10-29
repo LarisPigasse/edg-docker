@@ -2,7 +2,7 @@
 // Calendario — periodo e filtri (gli stessi della dashboard e dell'elenco)
 // =============================================================================
 import Joi from 'joi';
-import { giorno, natura, tipoSoggetto, uuid } from '../schemi';
+import { giorno, naturaFiltro as natura, tipoSoggetto, uuid } from '../schemi';
 
 export const filtriCalendario = Joi.object({
   dal: giorno.label('Dal').required(),
