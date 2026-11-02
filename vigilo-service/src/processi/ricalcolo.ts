@@ -6,7 +6,8 @@
 // "in scadenza" o "scaduta" con il passare dei giorni, senza modifiche).
 // Registrato in log-service (job.completed / job.failed); log-service lo
 // conosce fra i processi attesi e segnala se non gira.
-// Poi gli avvisi del giorno (ADR090), che a loro volta avviano le email urgenti.
+// Poi gli avvisi del giorno (ADR090), che a loro volta avviano le email urgenti,
+// e il controllo dell'avviso della libreria (B10b: lo crea solo se manca).
 // =============================================================================
 import cron from 'node-cron';
 import { runJob } from '../core/services/jobRunner';
@@ -14,6 +15,7 @@ import { oggiInItalia } from '../core/utils/oggi';
 import { rinnoviTaciti } from '../domini/registrazioni/registrazione.service';
 import { ricalcolaScadenze } from '../domini/scadenze/ricalcolo.service';
 import { generaAvvisiTutti } from '../domini/avvisi/generazione.service';
+import { avvisaLibreriaTutti } from '../domini/aggiornamenti/avviso.service';
 
 export const ID_RICALCOLO = 'vigilo.ricalcolo';
 
@@ -24,7 +26,9 @@ export async function ricalcoloNotturno(): Promise<string> {
   // ADR090: gli avvisi del giorno, dopo gli stati aggiornati
   const avvisi = await generaAvvisiTutti(oggi);
   const saltati = avvisi.saltati ? `, ${avvisi.saltati} tenant da riprovare` : '';
-  return `${cambiate} stati cambiati, ${taciti} rinnovi taciti, ${avvisi.avvisi} avvisi (${avvisi.consegne} consegne, ${avvisi.risolte} risolte)${saltati}`;
+  const lib = await avvisaLibreriaTutti('controllo');
+  const libreria = lib.nuovo ? `, ${lib.nuovo === 1 ? '1 avviso' : `${lib.nuovo} avvisi`} della libreria` : '';
+  return `${cambiate} stati cambiati, ${taciti} rinnovi taciti, ${avvisi.avvisi} avvisi (${avvisi.consegne} consegne, ${avvisi.risolte} risolte)${libreria}${saltati}`;
 }
 
 const ricalcolo = () => runJob(ID_RICALCOLO, 'Ricalcolo notturno delle scadenze', ricalcoloNotturno);

@@ -28,6 +28,7 @@ import { INCLUDE_AVVISO, esitoInvio, indirizziDi, linkNonRicevere, nomiTenant, p
 import { invioEmail } from './invio';
 import { chiaveRecapito } from './recapiti';
 import { recapitiDi } from './recapiti.service';
+import { TIPO_LIBRERIA } from '../aggiornamenti/avvisoLibreria';
 
 export interface EsitoInvio {
   inviate: number;
@@ -103,7 +104,9 @@ export async function inviaEmailSubito(adesso: Date = new Date()): Promise<Esito
           subject: `Vigilo · ${a.testo}`.slice(0, 256),
           template: 'vigilo/avviso',
           data: {
-            oggetto: a.urgente ? 'Una scadenza da sistemare subito' : 'Una scadenza da tenere d’occhio',
+            ...(a.tipo === TIPO_LIBRERIA
+              ? { oggetto: 'Novità nella libreria di Vigilo', introduzione: 'la libreria di Vigilo ha delle novità da decidere:', azione: 'Apri gli aggiornamenti' }
+              : { oggetto: a.urgente ? 'Una scadenza da sistemare subito' : 'Una scadenza da tenere d’occhio' }),
             nome: persona?.nome ? nomeProprio(persona.nome) : null,
             tenant: await nomeTenant(c.idTenant),
             ...v,

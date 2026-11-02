@@ -16,6 +16,10 @@ import { PARAMETRI } from '../../core/parametri';
 import { Avviso, Consegna, Controllo, PreferenzeAvvisi, Scadenza, Soggetto } from '../modelli';
 import { PREFERENZE_INIZIALI, nomeSoggetto, percorsoScadenza, type PreferenzeEmail } from './invio';
 import { statoDelTesto, tonoAvviso, type TonoAvviso } from './testo';
+import { TIPO_LIBRERIA } from '../aggiornamenti/avvisoLibreria';
+
+/** Dove si decidono gli aggiornamenti della libreria (B10b): la Configurazione col riquadro aperto */
+export const PERCORSO_AGGIORNAMENTI = '/vigilo/configurazione?aggiornamenti=1';
 
 export const APP_FRONTEND_URL = (process.env.APP_FRONTEND_URL || 'http://localhost:5174').replace(/\/$/, '');
 /** La pagina pubblica di app-frontend per non ricevere più gli avvisi (B8d-4) */
@@ -91,7 +95,7 @@ export function voceDi(a: Avviso, conLink: boolean): VoceEmail {
     stato,
     tono: tonoAvviso(a.evento, a.urgente),
     urgente: a.urgente,
-    url: conLink && s ? `${APP_FRONTEND_URL}${percorsoScadenza(s.uuidScadenza, s.soggetto?.uuidSoggetto ?? null)}` : null,
+    url: !conLink ? null : s ? `${APP_FRONTEND_URL}${percorsoScadenza(s.uuidScadenza, s.soggetto?.uuidSoggetto ?? null)}` : a.tipo === TIPO_LIBRERIA ? `${APP_FRONTEND_URL}${PERCORSO_AGGIORNAMENTI}` : null,
   };
 }
 

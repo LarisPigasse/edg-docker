@@ -28,6 +28,7 @@ import { recapitiRoutes } from './avvisi/recapiti.routes';
 import { allegatiRoutes } from './allegati/allegato.routes';
 import { segnalazioniRoutes } from './segnalazioni/segnalazione.routes';
 import { interventiRoutes } from './interventi/interventi.routes';
+import { aggiornamentiRoutes } from './aggiornamenti/aggiornamenti.routes';
 
 const router = Router();
 
@@ -50,5 +51,6 @@ router.use(impostazioniRoutes);
 router.use(allegatiRoutes);
 router.use(segnalazioniRoutes);
 router.use(interventiRoutes);
+router.use(aggiornamentiRoutes);
 
 export default router;

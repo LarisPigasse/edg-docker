@@ -1,5 +1,5 @@
 // Il riepilogo degli avvisi (04-avvisi 4.5, ADR093)
-import { giornoDellaSettimana, gruppoDi, lunediDi, riepilogoDovuto, settimanaleDovuto } from '../../src/domini/avvisi/riepilogo';
+import { giornoDellaSettimana, gruppoDi, lunediDi, quante, riepilogoDovuto, settimanaleDovuto } from '../../src/domini/avvisi/riepilogo';
 
 const r = { orarioRiepilogo: '08:00', giorniLavorativi: [1, 2, 3, 4, 5] };
 const ore = (o: string) => Number(o.slice(0, 2)) * 60 + Number(o.slice(3));
@@ -27,5 +27,9 @@ describe('riepilogo degli avvisi', () => {
   });
   test('gruppi dal tono', () => {
     expect([gruppoDi('pericolo'), gruppoDi('attenzione'), gruppoDi('normale')]).toEqual(['subito', 'organizzare', 'occhio']);
+  });
+
+  test('oggetto: scadenze, o avvisi con quello della libreria (B10b)', () => {
+    expect([quante(1, false), quante(3, false), quante(1, true), quante(4, true)]).toEqual(['1 scadenza', '3 scadenze', '1 avviso', '4 avvisi']);
   });
 });

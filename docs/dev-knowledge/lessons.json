@@ -1,5 +1,5 @@
 {
-  "lastUpdated": "2026-10-28",
+  "lastUpdated": "2026-11-02",
   "lessons": [
     {
       "id": "L001",
@@ -594,6 +594,24 @@
       "title": "CHECK con colonna NULL: il confronto \"sconosciuto\" passa il vincolo",
       "problem": "CHECK (NOT blocca_uso OR natura = 'riparazione') lasciava passare blocca_uso = true con natura NULL: natura = 'x' vale NULL, NOT true OR NULL = NULL, e un CHECK rifiuta solo FALSE, non NULL. Trovato solo con la prova dal vivo dei vincoli (Vigilo B10a).",
       "solution": "Nei CHECK su colonne che possono essere NULL usare confronti che non danno NULL: IS NOT DISTINCT FROM 'valore', COALESCE(col, '') = 'valore', o col IS NOT NULL AND col = 'valore'. Provare sempre ogni vincolo dal vivo con il caso NULL."
+    },
+    {
+      "id": "L067",
+      "date": "2026-11-02",
+      "category": "ui-components",
+      "severity": "medium",
+      "title": "Niente ConfirmModal sopra un Sheet aperto: il clic chiude il Sheet",
+      "problem": "Una ConfirmModal di @edg/ui aperta da un pannello Sheet viene renderizzata in un portale fuori dal Sheet: il primo clic nella finestra è per Radix un clic fuori dal Sheet, che chiama onOpenChange(false) e chiude il pannello; la finestra resta aperta e, se dipende dallo stato del pannello, vuota (B10b, \"Disattivare …?\" senza nome).",
+      "solution": "Dentro un Sheet la conferma sta nel suo piede (testo + Annulla + pulsante di conferma, stato locale) invece che in una finestra sovrapposta. Se una finestra serve davvero, impedire la chiusura del Sheet su interazione esterna (onInteractOutside) mentre la finestra è aperta."
+    },
+    {
+      "id": "L068",
+      "date": "2026-11-02",
+      "category": "docker",
+      "severity": "low",
+      "title": "Script di prova: dove gira cosa (token, database, cartelle di lavoro)",
+      "problem": "Gli script di prova dal vivo falliscono se lanciati nel container sbagliato: vigilo-service non ha jsonwebtoken né JWT_SECRET (ha GATEWAY_SECRET); i gateway hanno WORKDIR /usr/src/app, non /app, e exec-in-container parte da /app per default; nei comandi passati da cmd di Windows anche '>' e '|' fuori dalla pipeline base64 vengono interpretati.",
+      "solution": "Prove con token veri sui due gateway: nel container auth-service (/app/node_modules/jsonwebtoken, JWT_SECRET). Prove con database o moduli del servizio: nel container vigilo-service, chiamando il servizio su localhost:3006 con x-gateway-secret e x-user-data. Sempre file JS compresso gzip+base64; per i gateway passare workDir /usr/src/app."
     }
   ]
 }

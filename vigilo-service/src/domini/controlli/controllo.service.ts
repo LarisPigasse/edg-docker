@@ -128,8 +128,46 @@ export interface EsitoModifica {
   scadenzeRicalcolate: number;
 }
 
-export async function modificaControllo(ctx: Contesto, uuid: string, dati: Record<string, unknown>): Promise<EsitoModifica> {
+export type EsitoScadenze = Omit<EsitoModifica, 'controllo'>;
+
+/**
+ * Il cuore della modifica, comune al PATCH e agli aggiornamenti della libreria
+ * (B10b): scrive i campi, le categorie (null = invariate) e tiene allineate le
+ * scadenze. Il controllo arriva con le sue categorie; nessuna traccia (la
+ * scrive chi chiama).
+ */
+export async function applicaAlControllo(
+  ctx: Contesto,
+  c: Controllo,
+  campi: Record<string, unknown>,
+  nuoveCategorie: Categoria[] | null,
+  transaction: Transaction
+): Promise<EsitoScadenze> {
   const esito = { scadenzeCreate: 0, scadenzeChiuse: 0, scadenzeRicalcolate: 0 };
+  const categoriePrima = (c.categorie ?? []).map(k => k.idCategoria).sort();
+  const categorie = nuoveCategorie ?? (await Categoria.findAll({ where: { idCategoria: categoriePrima }, transaction }));
+  const categorieCambiate = cambiato(categoriePrima, categorie.map(k => k.idCategoria).sort());
+
+  const eraAttivo = c.attivo;
+  const eraAutomatico = c.automatico;
+  const statoCambia = (['cadenza', 'preavvisi', 'tolleranza'] as const).some(g => g in campi && cambiato(campi[g], c[g]));
+
+  c.set(campi as never);
+  verifica(c, categorie);
+  await c.save({ transaction });
+  if (categorieCambiate) await impostaCategorie(ctx, c, categorie, transaction);
+
+  if (eraAttivo && !c.attivo) {
+    esito.scadenzeChiuse = await chiudiScadenze({ idControllo: c.idControllo }, 'controllo-disattivato', transaction);
+  } else if (c.attivo && c.automatico && (!eraAttivo || !eraAutomatico || categorieCambiate)) {
+    esito.scadenzeCreate = await generaPer(ctx, c, categorie, transaction);
+  }
+  if (statoCambia && c.attivo) esito.scadenzeRicalcolate = await ricalcolaScadenze({ idControllo: c.idControllo }, ctx.oggi, transaction);
+  return esito;
+}
+
+export async function modificaControllo(ctx: Contesto, uuid: string, dati: Record<string, unknown>): Promise<EsitoModifica> {
+  let esito: EsitoScadenze = { scadenzeCreate: 0, scadenzeChiuse: 0, scadenzeRicalcolate: 0 };
   await sequelize.transaction(async transaction => {
     const c = await leggiControllo(ctx, uuid, transaction);
     const prima = snapshot(c);
@@ -139,28 +177,8 @@ export async function modificaControllo(ctx: Contesto, uuid: string, dati: Recor
       throw new ConflictError('Il tipo di soggetto non si cambia: il controllo ha già delle scadenze');
 
     const tipo = String(campi.tipoSoggetto ?? c.tipoSoggetto);
-    const categoriePrima = (c.categorie ?? []).map(k => k.idCategoria).sort();
-    const categorie = uuidCategorie
-      ? await categorieDa(ctx, uuidCategorie, tipo, transaction)
-      : await Categoria.findAll({ where: { idCategoria: categoriePrima }, transaction });
-    const categorieCambiate = cambiato(categoriePrima, categorie.map(k => k.idCategoria).sort());
-
-    const eraAttivo = c.attivo;
-    const eraAutomatico = c.automatico;
-    const statoCambia = (['cadenza', 'preavvisi', 'tolleranza'] as const).some(g => g in campi && cambiato(campi[g], c[g]));
-
-    c.set(campi as never);
-    verifica(c, categorie);
-    await c.save({ transaction });
-    if (categorieCambiate) await impostaCategorie(ctx, c, categorie, transaction);
-
-    if (eraAttivo && !c.attivo) {
-      esito.scadenzeChiuse = await chiudiScadenze({ idControllo: c.idControllo }, 'controllo-disattivato', transaction);
-    } else if (c.attivo && c.automatico && (!eraAttivo || !eraAutomatico || categorieCambiate)) {
-      esito.scadenzeCreate = await generaPer(ctx, c, categorie, transaction);
-    }
-    if (statoCambia && c.attivo) esito.scadenzeRicalcolate = await ricalcolaScadenze({ idControllo: c.idControllo }, ctx.oggi, transaction);
-
+    const categorie = uuidCategorie ? await categorieDa(ctx, uuidCategorie, tipo, transaction) : null;
+    esito = await applicaAlControllo(ctx, c, campi, categorie, transaction);
     traccia(ctx, 'vigilo.controllo.modificato', `Controllo modificato: ${c.nome}`, prima, c, esito);
   });
   return { controllo: await leggiControllo(ctx, uuid), ...esito };

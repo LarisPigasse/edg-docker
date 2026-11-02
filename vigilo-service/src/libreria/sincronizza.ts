@@ -11,6 +11,7 @@
 import type { ModelStatic, Model, Transaction } from 'sequelize';
 import { sequelize } from '../config/database';
 import { logger } from '../core/services/logger';
+import { avvisaLibreriaTutti } from '../domini/aggiornamenti/avviso.service';
 import { LibreriaCategoria, LibreriaControllo, ModelloSettore, ModelloVoce } from '../domini/modelli';
 import { LIBRERIA } from './index';
 import { improntaCategoria, improntaControllo, improntaModello } from './impronta';
@@ -191,6 +192,12 @@ export async function sincronizzaAllAvvio(): Promise<void> {
       logger.error('libreria.conflitto', `Libreria: ${esito.conflitti.length} voci cambiate senza nuova versione`, { conflitti: esito.conflitti }, 'SYSTEM');
     }
     if (c.inserisci || c.aggiorna || c.ritira) logger.info('libreria.sincronizzata', `Libreria sincronizzata: ${riepilogo}`, { conteggi: c }, 'SYSTEM');
+    // versioni nuove o ritiri: l'avviso ai clienti che hanno qualcosa da decidere (B10b), senza fermare l'avvio
+    if (c.aggiorna || c.ritira) {
+      void avvisaLibreriaTutti('sincronizzazione')
+        .then(t => console.log(`[Libreria] avvisi ai clienti: ${t.nuovo} nuovi, ${t.invariato} invariati, ${t.chiuso} chiusi${t.saltati ? `, ${t.saltati} non dati` : ''}`))
+        .catch(err => logger.warn('vigilo.avvisi', `Avvisi della libreria non dati: ${String(err)}`));
+    }
   } catch (err) {
     const errore = err instanceof Error ? err.message : String(err);
     // Colonna o tabella mancante: il servizio e' piu' nuovo dello schema

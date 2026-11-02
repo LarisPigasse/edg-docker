@@ -19,7 +19,7 @@
             </tr>
             <tr>
               <td style="padding:16px 24px 8px 24px;font-size:15px;line-height:1.6;">
-                <p style="margin:0;">{{#if nome}}Ciao {{nome}},{{else}}Buongiorno,{{/if}} {{#if urgente}}questa scadenza richiede un intervento subito:{{else}}ecco una scadenza da tenere d’occhio:{{/if}}</p>
+                <p style="margin:0;">{{#if nome}}Ciao {{nome}},{{else}}Buongiorno,{{/if}} {{#if introduzione}}{{introduzione}}{{else}}{{#if urgente}}questa scadenza richiede un intervento subito:{{else}}ecco una scadenza da tenere d’occhio:{{/if}}{{/if}}</p>
               </td>
             </tr>
             <tr>
@@ -42,7 +42,7 @@
             {{#if url}}
             <tr>
               <td style="padding:16px 24px;" align="left">
-                <a href="{{url}}" style="display:inline-block;background:#7c3aed;color:#ffffff;text-decoration:none;font-weight:600;font-size:15px;padding:12px 24px;border-radius:6px;">Apri la scadenza</a>
+                <a href="{{url}}" style="display:inline-block;background:#7c3aed;color:#ffffff;text-decoration:none;font-weight:600;font-size:15px;padding:12px 24px;border-radius:6px;">{{#if azione}}{{azione}}{{else}}Apri la scadenza{{/if}}</a>
               </td>
             </tr>
             {{/if}}

@@ -1,7 +1,7 @@
 // =============================================================================
 // Categorie — servizio (02-modello-dati, categorie)
 // =============================================================================
-import { literal, Op, type Order, type WhereOptions } from 'sequelize';
+import { literal, Op, type Order, type Transaction, type WhereOptions } from 'sequelize';
 import { sequelize } from '../../config/database';
 import type { Contesto } from '../../core/contesto';
 import { trovaNelTenant } from '../../core/db/tenant';
@@ -67,27 +67,34 @@ export async function modificaCategoria(ctx: Contesto, uuid: string, dati: Recor
         (await Controllo.count({ include: [{ association: 'categorie', where: { idCategoria: c.idCategoria } }], transaction }));
       if (usata) throw new ConflictError('Il tipo di soggetto non si cambia: la categoria ha già soggetti o controlli');
     }
-    const contatoriPrima = c.contatori;
-    try {
-      await c.update(dati as never, { transaction });
-    } catch (e) {
-      if (nomeDuplicato(e)) throw new ConflictError('Esiste già una categoria con questo nome per questo tipo di soggetto');
-      throw e;
-    }
-    // Contatori aggiunti alla categoria: si aggiungono ai soggetti che non li hanno
-    const nuovi = (c.contatori as UnitaUso[]).filter(u => !contatoriPrima.includes(u));
-    if (nuovi.length) {
-      const soggetti = await Soggetto.findAll({ where: { idCategoria: c.idCategoria, stato: { [Op.ne]: 'dismesso' } }, transaction });
-      for (const s of soggetti) {
-        for (const unita of nuovi) {
-          const esiste = await Contatore.count({ where: { idSoggetto: s.idSoggetto, unita, nome: '' }, transaction });
-          if (!esiste) await Contatore.create({ idTenant: ctx.idTenant, idSoggetto: s.idSoggetto, unita }, { transaction });
-        }
-      }
-    }
+    await applicaAllaCategoria(ctx, c, dati, transaction);
     traccia(ctx, 'vigilo.categoria.modificata', `Categoria modificata: ${c.nome}`, prima, c);
   });
   return leggiCategoria(ctx, uuid);
+}
+
+/**
+ * Il cuore della modifica, comune al PATCH e agli aggiornamenti della libreria
+ * (B10b): scrive i campi e aggiunge i contatori nuovi ai soggetti che non li
+ * hanno. Nessuna traccia (la scrive chi chiama).
+ */
+export async function applicaAllaCategoria(ctx: Contesto, c: Categoria, dati: Record<string, unknown>, transaction: Transaction): Promise<void> {
+  const contatoriPrima = c.contatori;
+  try {
+    await c.update(dati as never, { transaction });
+  } catch (e) {
+    if (nomeDuplicato(e)) throw new ConflictError('Esiste già una categoria con questo nome per questo tipo di soggetto');
+    throw e;
+  }
+  const nuovi = (c.contatori as UnitaUso[]).filter(u => !contatoriPrima.includes(u));
+  if (!nuovi.length) return;
+  const soggetti = await Soggetto.findAll({ where: { idCategoria: c.idCategoria, stato: { [Op.ne]: 'dismesso' } }, transaction });
+  for (const s of soggetti) {
+    for (const unita of nuovi) {
+      const esiste = await Contatore.count({ where: { idSoggetto: s.idSoggetto, unita, nome: '' }, transaction });
+      if (!esiste) await Contatore.create({ idTenant: ctx.idTenant, idSoggetto: s.idSoggetto, unita }, { transaction });
+    }
+  }
 }
 
 /** Si elimina solo una categoria senza soggetti (anche dismessi): altrimenti si disattiva */

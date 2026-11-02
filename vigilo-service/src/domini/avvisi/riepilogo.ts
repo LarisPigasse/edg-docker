@@ -42,3 +42,7 @@ export const GRUPPI: { chiave: GruppoRiepilogo; titolo: string; colore: string }
 ];
 
 export const gruppoDi = (tono: TonoAvviso): GruppoRiepilogo => (tono === 'pericolo' ? 'subito' : tono === 'attenzione' ? 'organizzare' : 'occhio');
+
+/** "3 scadenze"; con altro dentro (l'avviso della libreria, B10b) "3 avvisi" */
+export const quante = (n: number, nonSoloScadenze: boolean): string =>
+  nonSoloScadenze ? (n === 1 ? '1 avviso' : `${n} avvisi`) : n === 1 ? '1 scadenza' : `${n} scadenze`;

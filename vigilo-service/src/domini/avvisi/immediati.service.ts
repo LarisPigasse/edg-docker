@@ -52,30 +52,34 @@ export interface NuovoAvvisoImmediato {
 }
 
 /** Un avviso e le sue consegne: in app a tutti, per email a chi la vuole. Un evento già dato non si ripete */
-export async function creaAvviso(s: Scadenza, a: NuovoAvvisoImmediato, preferenze: (id: number) => Preferenze): Promise<void> {
-  if (!a.account.length) return;
+export const creaAvviso = (s: Scadenza, a: NuovoAvvisoImmediato, preferenze: (id: number) => Preferenze): Promise<boolean> =>
+  creaAvvisoPer({ idTenant: s.idTenant, idScadenza: s.idScadenza, riferimento: riferimentoCiclo(s.scadeIl ?? null, s.sogliaUso ?? null) }, a, preferenze);
+
+/**
+ * Come creaAvviso, anche senza scadenza (avviso della libreria, B10b): true se
+ * l'avviso e' nato, false se c'era gia' (vincolo unico) o non c'e' a chi darlo.
+ */
+export async function creaAvvisoPer(
+  base: { idTenant: number; idScadenza: number | null; riferimento: string },
+  a: NuovoAvvisoImmediato,
+  preferenze: (id: number) => Preferenze
+): Promise<boolean> {
+  if (!a.account.length) return false;
   let avviso: Avviso;
   try {
-    avviso = await Avviso.create({
-      idTenant: s.idTenant,
-      idScadenza: s.idScadenza,
-      evento: a.evento,
-      tipo: a.tipo,
-      urgente: a.urgente,
-      riferimento: riferimentoCiclo(s.scadeIl ?? null, s.sogliaUso ?? null),
-      testo: a.testo,
-    });
+    avviso = await Avviso.create({ ...base, evento: a.evento, tipo: a.tipo, urgente: a.urgente, testo: a.testo });
   } catch (err) {
-    if (err instanceof UniqueConstraintError) return;
+    if (err instanceof UniqueConstraintError) return false;
     throw err;
   }
   const adesso = new Date();
   const conEmail = a.account.filter(id => invioEmail(preferenze(id), a.urgente) !== 'mai');
   await Consegna.bulkCreate([
-    ...a.account.map(idAccount => ({ idTenant: s.idTenant, idAvviso: avviso.idAvviso, idAccount, canale: 'app' as const, stato: 'inviato' as const, inviatoIl: adesso })),
-    ...conEmail.map(idAccount => ({ idTenant: s.idTenant, idAvviso: avviso.idAvviso, idAccount, canale: 'email' as const, stato: 'in-coda' as const })),
+    ...a.account.map(idAccount => ({ idTenant: base.idTenant, idAvviso: avviso.idAvviso, idAccount, canale: 'app' as const, stato: 'inviato' as const, inviatoIl: adesso })),
+    ...conEmail.map(idAccount => ({ idTenant: base.idTenant, idAvviso: avviso.idAvviso, idAccount, canale: 'email' as const, stato: 'in-coda' as const })),
   ]);
   if (conEmail.length) segnalaInvio();
+  return true;
 }
 
 /** Dopo il commit, senza far fallire la richiesta */

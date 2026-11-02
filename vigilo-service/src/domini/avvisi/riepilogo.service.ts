@@ -26,7 +26,8 @@ import { APP_FRONTEND_URL, INCLUDE_AVVISO, esitoInvio, indirizziDi, linkNonRicev
 import { invioEmail } from './invio';
 import { chiaveRecapito } from './recapiti';
 import { recapitiDi } from './recapiti.service';
-import { GRUPPI, gruppoDi, riepilogoDovuto, settimanaleDovuto } from './riepilogo';
+import { GRUPPI, gruppoDi, quante, riepilogoDovuto, settimanaleDovuto } from './riepilogo';
+import { TIPO_LIBRERIA } from '../aggiornamenti/avvisoLibreria';
 
 export interface EsitoRiepiloghi {
   /** Tenant il cui riepilogo era dovuto */
@@ -134,7 +135,8 @@ async function riepilogoTenant(t: ImpostazioniTenant, oggi: string, nomeTenant: 
       try {
         await inviaEmail({
           to,
-          subject: `Vigilo · ${voci.length === 1 ? '1 scadenza' : `${voci.length} scadenze`} da guardare${tenant ? ` · ${tenant}` : ''}`,
+          // con l'avviso della libreria (B10b) le voci non sono solo scadenze
+          subject: `Vigilo · ${quante(voci.length, consegne.some(c => c.avviso!.tipo === TIPO_LIBRERIA))} da guardare${tenant ? ` · ${tenant}` : ''}`,
           template: 'vigilo/riepilogo',
           data: {
             oggetto: settimanale && consegne.some(c => invioEmail(preferenzeDella(c, preferenze), c.avviso!.urgente) === 'settimanale') ? 'Il riepilogo della settimana' : 'Il riepilogo di oggi',

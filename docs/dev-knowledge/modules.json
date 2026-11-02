@@ -1,5 +1,5 @@
 {
-  "lastUpdated": "2026-10-29",
+  "lastUpdated": "2026-11-02",
   "modules": {
     "auth-service": {
       "status": "stable",
@@ -148,13 +148,13 @@
     },
     "vigilo-service": {
       "status": "in-progress",
-      "notes": "B10a interventi fatto (ADR102): guasti come scadenze 'riparazione', esecuzione e manodopera, costo orario persona/tenant, avvisi immediati. Prossimo B10b aggiornamenti libreria.",
-      "lastUpdated": "2026-10-29"
+      "notes": "B10b fatto (ADR103): aggiornamenti della libreria (confronto a tre, decisione, registro, storico) e avviso 'libreria'. Prossimo B10c Spese e consumi.",
+      "lastUpdated": "2026-11-02"
     },
     "app-frontend (vigilo)": {
       "status": "in-progress",
-      "notes": "B10a fatto: Segnala un guasto, Chi ha fatto il lavoro/manodopera in Registra, storico con ore e costi, costo orario persona, pannello Interventi. Manca pagina Fornitori.",
-      "lastUpdated": "2026-10-29"
+      "notes": "B10b fatto: riquadro e pannello Aggiornamenti della libreria, segni sulle righe, Storico della libreria. Mancano pagina Fornitori e B10c.",
+      "lastUpdated": "2026-11-02"
     },
     "api-gateway": {
       "status": "stable",
