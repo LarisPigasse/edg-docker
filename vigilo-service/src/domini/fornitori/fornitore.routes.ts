@@ -4,10 +4,12 @@
 // Rubrica di Vigilo (officine, enti, compagnie). Si elimina solo se nessuna
 // registrazione lo cita; altrimenti si disattiva. Il tipo (obbligatorio) viene
 // dal catalogo comune, per chiave (F0); l'elenco dice anche quante
-// registrazioni citano il fornitore e l'ultima (F1).
+// registrazioni citano il fornitore e l'ultima (F1). L'elenco filtra per stato
+// (attivi, disattivati, tutti) e due fornitori del tenant non possono avere lo
+// stesso nome (F1).
 // =============================================================================
 import Joi from 'joi';
-import { literal, Op, type Order, type WhereOptions } from 'sequelize';
+import { col, fn, literal, Op, where as condizione, type Order, type WhereOptions } from 'sequelize';
 import { Router, Request, Response } from 'express';
 import { contestoDi } from '../../core/contesto';
 import { trovaNelTenant } from '../../core/db/tenant';
@@ -19,6 +21,7 @@ import { ConflictError } from '../../core/utils/errors';
 import { comeTesto, paginaDa, rispondiLista, schemaLista } from '../../core/utils/lista';
 import { createdResponse, noContentResponse, successResponse } from '../../core/utils/response';
 import { Fornitore, Registrazione, TipoFornitore } from '../modelli';
+import { erroreDoppione, filtroAttivo, STATI_FORNITORI, type StatoFornitori } from './fornitori';
 import { tipoAssegnabile } from './tipi.service';
 import { paramUuid } from '../schemi';
 
@@ -63,10 +66,28 @@ const campi = {
 };
 const crea = Joi.object({ ...campi, nome: campi.nome.required(), tipo: campi.tipo.required() });
 const modifica = Joi.object(campi).min(1);
-const lista = schemaLista(['nome', 'tipo'], 'nome', { attivo: Joi.boolean(), tipo: Joi.string().max(32) });
+const lista = schemaLista(['nome', 'tipo'], 'nome', {
+  stato: Joi.string().valid(...STATI_FORNITORI),
+  attivo: Joi.boolean(), // il vecchio filtro, per il modulo Registra
+  tipo: Joi.string().max(32),
+});
 /** Per tipo: per il nome del tipo, poi per nome */
 const ordine = (campo: string, verso: 'ASC' | 'DESC'): Order =>
   campo === 'tipo' ? [[{ model: TipoFornitore, as: 'tipo' }, 'nome', verso], ['nome', 'ASC']] : [[campo, verso], ['nome', 'ASC']];
+/** Nessun altro fornitore del tenant con lo stesso nome (maiuscole e spazi non contano), nemmeno disattivato */
+async function nomeLibero(idTenant: number, nome: string, escludi?: number) {
+  const esistente = await Fornitore.findOne({
+    where: {
+      idTenant,
+      ...(escludi ? { idFornitore: { [Op.ne]: escludi } } : {}),
+      [Op.and]: [condizione(fn('lower', col('nome')), fn('lower', nome.trim()))],
+    } as WhereOptions<Fornitore>,
+    attributes: ['nome', 'attivo'],
+  });
+  const errore = erroreDoppione(esistente);
+  if (errore) throw new ConflictError(errore);
+}
+
 /** '' diventa null: nel database solo valori veri */
 const pulisci = (b: Record<string, unknown>) => Object.fromEntries(Object.entries(b).map(([k, v]) => [k, v === '' ? null : v]));
 
@@ -75,7 +96,8 @@ export const fornitoriRoutes = Router();
 fornitoriRoutes.get('/fornitori', richiedi('read'), validateQuery(lista), async (req: Request, res: Response) => {
   const ctx = contestoDi(req);
   const p = paginaDa(req.query);
-  const where: WhereOptions<Fornitore> = { idTenant: ctx.idTenant, attivo: req.query.attivo === undefined ? true : (req.query.attivo as unknown as boolean) };
+  const attivo = filtroAttivo(req.query.stato as StatoFornitori | undefined, req.query.attivo as unknown as boolean | undefined);
+  const where: WhereOptions<Fornitore> = { idTenant: ctx.idTenant, ...(attivo !== undefined ? { attivo } : {}) };
   if (req.query.testo) Object.assign(where, { nome: { [Op.iLike]: comeTesto(String(req.query.testo)) } });
   if (req.query.tipo) {
     const tipo = await TipoFornitore.findOne({ where: { chiave: String(req.query.tipo) }, attributes: ['idTipo'] });
@@ -100,6 +122,7 @@ fornitoriRoutes.get('/fornitori/:id', richiedi('read'), validateParams(paramUuid
 fornitoriRoutes.post('/fornitori', richiedi('write'), validateBody(crea), async (req: Request, res: Response) => {
   const ctx = contestoDi(req);
   const { tipo, ...dati } = pulisci(req.body);
+  await nomeLibero(ctx.idTenant, String(dati.nome));
   const t = await tipoAssegnabile(String(tipo));
   const f = await Fornitore.create({ ...dati, idTipo: t.idTipo, idTenant: ctx.idTenant } as never);
   await f.reload();
@@ -112,6 +135,7 @@ fornitoriRoutes.patch('/fornitori/:id', richiedi('write'), validateParams(paramU
   const f = await trovaNelTenant(Fornitore, 'uuidFornitore', req.params.id, ctx.idTenant, 'Fornitore');
   const prima = snapshot(f);
   const { tipo, ...dati } = pulisci(req.body);
+  if (dati.nome !== undefined) await nomeLibero(ctx.idTenant, String(dati.nome), f.idFornitore);
   const idTipo = tipo !== undefined ? (await tipoAssegnabile(String(tipo), f.idTipo)).idTipo : undefined;
   await f.update({ ...dati, ...(idTipo !== undefined ? { idTipo } : {}) } as never);
   traccia(ctx, 'vigilo.fornitore.modificato', `Fornitore modificato: ${f.nome}`, prima, f);

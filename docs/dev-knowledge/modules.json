@@ -1,5 +1,5 @@
 {
-  "lastUpdated": "2026-11-02",
+  "lastUpdated": "2026-11-03",
   "modules": {
     "auth-service": {
       "status": "stable",
@@ -123,8 +123,8 @@
     },
     "pro-frontend (modulo SISTEMA)": {
       "status": "in-progress",
-      "notes": "Aggiunta pagina Account (creazione con password generata, modifica, attiva/disattiva con conferma, statistiche). Backend AccountController allineato al formato standard + nuovi endpoint (create, toggle). Da validare: rebuild auth-service + verifica utente su npm run dev:pro. Prossimo dopo conferma: Ruoli/Permessi.",
-      "lastUpdated": "2026-09-14"
+      "notes": "ADR104: registro components/module-admin (gestione per modulo, solo root); Vigilo → \"Tipi di fornitore\" dal menu della riga e dalla sezione Gestione.",
+      "lastUpdated": "2026-11-03"
     },
     "log-service (alerting/health)": {
       "status": "stable",
@@ -148,13 +148,13 @@
     },
     "vigilo-service": {
       "status": "in-progress",
-      "notes": "B10b fatto (ADR103): aggiornamenti della libreria (confronto a tre, decisione, registro, storico) e avviso 'libreria'. Prossimo B10c Spese e consumi.",
-      "lastUpdated": "2026-11-02"
+      "notes": "Blocco F (ADR104): tipi_fornitore comuni (soloRoot), fornitori con tipo, ?stato=, nome unico nel tenant, storico per fornitore. Jest 218/218. Prossimo: B10c.",
+      "lastUpdated": "2026-11-03"
     },
     "app-frontend (vigilo)": {
       "status": "in-progress",
-      "notes": "B10b fatto: riquadro e pannello Aggiornamenti della libreria, segni sulle righe, Storico della libreria. Mancano pagina Fornitori e B10c.",
-      "lastUpdated": "2026-11-02"
+      "notes": "Blocco F (ADR104): pagina Fornitori (filtri, pannello, disattiva/elimina, dettaglio con registrazioni) e + Nuovo fornitore nel modulo Registra.",
+      "lastUpdated": "2026-11-03"
     },
     "api-gateway": {
       "status": "stable",
