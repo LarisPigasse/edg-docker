@@ -24,7 +24,7 @@ import { costoOrarioDi, deduciEsecuzione, erroriManodopera, manodoperaPredefinit
 import { interventiEffettivi } from '../impostazioni/limiti';
 import { snapshot } from '../../core/services/logger';
 import { traccia } from '../../core/services/traccia';
-import { ConflictError, ValidationError } from '../../core/utils/errors';
+import { ConflictError, ForbiddenError, ValidationError } from '../../core/utils/errors';
 import type { Pagina } from '../../core/utils/lista';
 import { confronta, parti, prossimaScadenza, type Giorno, type ImpostazioniEffettive } from '../../regole';
 import { registraLettura } from '../contatori/contatore.service';
@@ -341,19 +341,32 @@ export async function registraRinvio(ctx: Contesto, uuid: string, d: { dataNuova
  * Lo storico di un soggetto: le registrazioni di tutte le sue scadenze
  * (aperte e chiuse), le più recenti per prime, con il titolo della scadenza.
  */
+/** Lo storico di un soggetto (anche per l'addetto, nel suo ambito) o di un fornitore (solo l'ufficio, F1) */
 export async function elencaRegistrazioni(ctx: Contesto, query: Record<string, unknown>, p: Pagina) {
-  const soggetto = await trovaNelTenant(Soggetto, 'uuidSoggetto', String(query.soggetto), ctx.idTenant, 'Soggetto');
-  await verificaAmbito(ctx, soggetto.idSoggetto, 'Soggetto');
+  let perSoggetto: { idSoggetto: number } | undefined;
+  let perFornitore: { idFornitore: number } | undefined;
+  if (query.fornitore) {
+    if (!ctx.capacita.read) throw new ForbiddenError("Lo storico di un fornitore è dell'ufficio");
+    const f = await trovaNelTenant(Fornitore, 'uuidFornitore', String(query.fornitore), ctx.idTenant, 'Fornitore');
+    perFornitore = { idFornitore: f.idFornitore };
+  } else {
+    const soggetto = await trovaNelTenant(Soggetto, 'uuidSoggetto', String(query.soggetto), ctx.idTenant, 'Soggetto');
+    await verificaAmbito(ctx, soggetto.idSoggetto, 'Soggetto');
+    perSoggetto = { idSoggetto: soggetto.idSoggetto };
+  }
   const { rows, count } = await Registrazione.findAndCountAll({
-    where: { idTenant: ctx.idTenant },
+    where: { idTenant: ctx.idTenant, ...(perFornitore ?? {}) },
     include: [
       {
         model: Scadenza,
         as: 'scadenza',
-        where: { idSoggetto: soggetto.idSoggetto },
+        ...(perSoggetto ? { where: perSoggetto } : {}),
         required: true,
-        attributes: ['uuidScadenza', 'titolo', 'idControllo'],
-        include: [{ model: Controllo, as: 'controllo', attributes: ['nome'] }],
+        attributes: ['uuidScadenza', 'titolo', 'idControllo', 'idSoggetto'],
+        include: [
+          { model: Controllo, as: 'controllo', attributes: ['nome'] },
+          ...(perFornitore ? [{ model: Soggetto, as: 'soggetto', attributes: ['uuidSoggetto', 'nome', 'identificativo'] }] : []),
+        ],
       },
       { model: Fornitore, as: 'fornitore' },
     ],

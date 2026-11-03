@@ -16,6 +16,7 @@ import { controlliRoutes } from './controlli/controllo.routes';
 import { soggettiRoutes } from './soggetti/soggetto.routes';
 import { assegnazioniRoutes } from './soggetti/assegnazione.routes';
 import { fornitoriRoutes } from './fornitori/fornitore.routes';
+import { tipiFornitoreRoutes } from './fornitori/tipi.routes';
 import { contatoriRoutes } from './contatori/contatore.routes';
 import { scadenzeRoutes } from './scadenze/scadenza.routes';
 import { avvioRoutes } from './avvio/avvio.routes';
@@ -39,6 +40,7 @@ router.use(categorieRoutes);
 router.use(controlliRoutes);
 router.use(soggettiRoutes);
 router.use(assegnazioniRoutes);
+router.use(tipiFornitoreRoutes); // prima di /fornitori/:id
 router.use(fornitoriRoutes);
 router.use(contatoriRoutes);
 router.use(scadenzeRoutes);

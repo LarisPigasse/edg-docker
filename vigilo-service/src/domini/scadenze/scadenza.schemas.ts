@@ -73,10 +73,15 @@ export const conferma = Joi.object(campiRegistra);
 export const rifiuto = Joi.object({ motivo: Joi.string().trim().min(1).max(LIMITI_SEGNALAZIONI.motivo).required() });
 
 /** Lo storico di un soggetto: le più recenti per prime */
-export const listaRegistrazioni = schemaLista(['eseguitaIl'], 'eseguitaIl').keys({
-  soggetto: uuid.required(),
-  verso: Joi.string().valid('asc', 'desc').default('desc'),
-});
+/** Lo storico di un soggetto o di un fornitore (F1): uno dei due */
+export const listaRegistrazioni = schemaLista(['eseguitaIl'], 'eseguitaIl')
+  .keys({
+    soggetto: uuid,
+    fornitore: uuid,
+    verso: Joi.string().valid('asc', 'desc').default('desc'),
+  })
+  .xor('soggetto', 'fornitore')
+  .messages({ 'object.missing': 'Indica il soggetto o il fornitore', 'object.xor': 'Indica il soggetto o il fornitore, non entrambi' });
 
 export const rinvio = Joi.object({
   dataNuova: giorno.required(),

@@ -78,6 +78,10 @@ scadenzeRoutes.get('/registrazioni', richiedi('read', 'own'), validateQuery(sche
     righe.map(r => ({
       ...presentaRegistrazione(r, ctx),
       scadenza: r.scadenza ? { uuid: r.scadenza.uuidScadenza, titolo: r.scadenza.titolo || r.scadenza.controllo?.nome || '' } : null,
+      // nello storico di un fornitore (F1): di quale soggetto
+      ...(r.scadenza?.soggetto
+        ? { soggetto: { uuid: r.scadenza.soggetto.uuidSoggetto, nome: r.scadenza.soggetto.nome, identificativo: r.scadenza.soggetto.identificativo ?? null } }
+        : {}),
     })),
     totale,
     p

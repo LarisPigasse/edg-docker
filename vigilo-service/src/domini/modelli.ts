@@ -14,6 +14,7 @@ import { Categoria } from './categorie/categoria.model';
 import { Soggetto } from './soggetti/soggetto.model';
 import { Assegnazione } from './soggetti/assegnazione.model';
 import { Fornitore } from './fornitori/fornitore.model';
+import { TipoFornitore } from './fornitori/tipoFornitore.model';
 import { Controllo } from './controlli/controllo.model';
 import { ControlloCategoria } from './controlli/controlloCategoria.model';
 import { Contatore } from './contatori/contatore.model';
@@ -84,6 +85,8 @@ Registrazione.belongsTo(Scadenza, { ...fk('idScadenzaSuccessiva'), as: 'successi
 Registrazione.belongsTo(Fornitore, { ...fk('idFornitore'), as: 'fornitore' });
 Registrazione.belongsTo(Contatore, { ...fk('idContatore'), as: 'contatore' });
 Fornitore.hasMany(Registrazione, { ...fk('idFornitore'), as: 'registrazioni' });
+Fornitore.belongsTo(TipoFornitore, { ...fk('idTipo'), as: 'tipo' });
+TipoFornitore.hasMany(Fornitore, { ...fk('idTipo'), as: 'fornitori' });
 
 // Avvisi e consegne
 Scadenza.hasMany(Avviso, { ...fk('idScadenza'), as: 'avvisi' });
@@ -101,6 +104,7 @@ export {
   Soggetto,
   Assegnazione,
   Fornitore,
+  TipoFornitore,
   Controllo,
   ControlloCategoria,
   Contatore,

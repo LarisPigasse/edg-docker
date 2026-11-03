@@ -51,3 +51,25 @@ export function richiedi(...ammesse: Capacita[]) {
     next();
   };
 }
+
+/** Root: il permesso '*', come in auth-service (requireRoot). L'accesso assistito non lo ha mai. */
+export const eRoot = (permessi: readonly string[] | undefined): boolean => !!permessi?.includes('*');
+
+/**
+ * Middleware: solo root, per ciò che vale per tutti i tenant (il catalogo dei
+ * tipi di fornitore, F0). Un amministratore cliente con 'vigilo.*' non passa.
+ */
+export function soloRoot() {
+  return (req: Request, res: Response, next: NextFunction): void => {
+    if (!req.user) {
+      unauthorized(res);
+      return;
+    }
+    // in accesso assistito mai, anche se un giorno il token portasse '*'
+    if (!eRoot(req.user.permissions) || req.user.assistenza) {
+      forbidden(res, "Riservato all'amministratore della piattaforma");
+      return;
+    }
+    next();
+  };
+}
