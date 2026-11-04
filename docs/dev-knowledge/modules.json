@@ -148,12 +148,12 @@
     },
     "vigilo-service": {
       "status": "in-progress",
-      "notes": "Blocco F (ADR104): tipi_fornitore comuni (soloRoot), fornitori con tipo, ?stato=, nome unico nel tenant, storico per fornitore. Jest 218/218. Prossimo: B10c.",
+      "notes": "B10c (ADR105): GET /resoconti/spese, regole pure resoconti, soglie km/ore come parametri. Jest 223/223, dal vivo 12/12. Demo dati sul Tenant Demo.",
       "lastUpdated": "2026-11-03"
     },
     "app-frontend (vigilo)": {
       "status": "in-progress",
-      "notes": "Blocco F (ADR104): pagina Fornitori (filtri, pannello, disattiva/elimina, dettaglio con registrazioni) e + Nuovo fornitore nel modulo Registra.",
+      "notes": "B10c (ADR105): vista Spese e consumi nella Dashboard (filtri, riquadri, mese per mese, per soggetto con costo per km/ora, per natura, a chi vanno), solo con vigilo.costi.",
       "lastUpdated": "2026-11-03"
     },
     "api-gateway": {

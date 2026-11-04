@@ -45,6 +45,10 @@ export const LIMITI_PIATTAFORMA = {
   attesaModificaMs: { predefinito: 4096, min: 1024, max: 16384 },
   /** Dimensione massima di un documento caricato (MB, B9a) */
   allegatoMb: { predefinito: 16, min: 1, max: 64 },
+  /** Uso minimo nel periodo per mostrare il costo per km (B10c) */
+  sogliaKm: { predefinito: 512, min: 64, max: 4096 },
+  /** Uso minimo nel periodo per mostrare il costo per ora (B10c) */
+  sogliaOre: { predefinito: 32, min: 8, max: 256 },
 } as const satisfies Record<string, Limiti>;
 
 export const PARAMETRI = {
@@ -53,4 +57,6 @@ export const PARAMETRI = {
   lotto: parametro('VIGILO_LOTTO', LIMITI_PIATTAFORMA.lotto),
   attesaModificaMs: parametro('VIGILO_ATTESA_MODIFICA_MS', LIMITI_PIATTAFORMA.attesaModificaMs),
   allegatoMb: parametro('VIGILO_ALLEGATO_MB', LIMITI_PIATTAFORMA.allegatoMb),
+  sogliaKm: parametro('VIGILO_SOGLIA_KM', LIMITI_PIATTAFORMA.sogliaKm),
+  sogliaOre: parametro('VIGILO_SOGLIA_ORE', LIMITI_PIATTAFORMA.sogliaOre),
 } as const;
