@@ -77,6 +77,8 @@ export const setupAuthAssociations = (models: any[]) => {
 
   if (AssistedSession && Account) {
     AssistedSession.belongsTo(Account, { foreignKey: 'operatorAccountId', as: 'operatore' });
+    // AA4: in Assistenza, l'utente di cui si vede la vista
+    AssistedSession.belongsTo(Account, { foreignKey: 'perContoAccountId', as: 'perConto' });
   }
 
   if (AssistedSession && Tenant) {

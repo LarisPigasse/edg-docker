@@ -20,7 +20,7 @@ import { traccia } from '../../core/services/traccia';
 import { ConflictError } from '../../core/utils/errors';
 import { comeTesto, paginaDa, rispondiLista, schemaLista } from '../../core/utils/lista';
 import { createdResponse, noContentResponse, successResponse } from '../../core/utils/response';
-import { Fornitore, Registrazione, TipoFornitore } from '../modelli';
+import { Fornitore, Registrazione, Rifornimento, TipoFornitore } from '../modelli';
 import { erroreDoppione, filtroAttivo, STATI_FORNITORI, type StatoFornitori } from './fornitori';
 import { tipoAssegnabile } from './tipi.service';
 import { paramUuid } from '../schemi';
@@ -28,8 +28,19 @@ import { paramUuid } from '../schemi';
 const CON_TIPO = { model: TipoFornitore, as: 'tipo', attributes: ['chiave', 'nome', 'attivo'] };
 const USO = {
   include: [
-    [literal(`(SELECT count(*) FROM registrazioni r WHERE r.id_fornitore = "Fornitore".id_fornitore)`), 'nRegistrazioni'],
-    [literal(`(SELECT max(r.eseguita_il) FROM registrazioni r WHERE r.id_fornitore = "Fornitore".id_fornitore)`), 'ultimaIl'],
+    // registrazioni e rifornimenti (costo dei mezzi, tappa 2) che citano il fornitore
+    [
+      literal(
+        `((SELECT count(*) FROM registrazioni r WHERE r.id_fornitore = "Fornitore".id_fornitore) + (SELECT count(*) FROM rifornimenti f WHERE f.id_fornitore = "Fornitore".id_fornitore))`
+      ),
+      'nRegistrazioni',
+    ],
+    [
+      literal(
+        `GREATEST((SELECT max(r.eseguita_il) FROM registrazioni r WHERE r.id_fornitore = "Fornitore".id_fornitore), (SELECT max(f.fatto_il) FROM rifornimenti f WHERE f.id_fornitore = "Fornitore".id_fornitore))`
+      ),
+      'ultimaIl',
+    ],
   ] as [ReturnType<typeof literal>, string][],
 };
 
@@ -145,8 +156,8 @@ fornitoriRoutes.patch('/fornitori/:id', richiedi('write'), validateParams(paramU
 fornitoriRoutes.delete('/fornitori/:id', richiedi('write'), validateParams(paramUuid), async (req: Request, res: Response) => {
   const ctx = contestoDi(req);
   const f = await trovaNelTenant(Fornitore, 'uuidFornitore', req.params.id, ctx.idTenant, 'Fornitore');
-  if (await Registrazione.count({ where: { idFornitore: f.idFornitore } }))
-    throw new ConflictError('Il fornitore è citato in alcune registrazioni: si può solo disattivare');
+  if ((await Registrazione.count({ where: { idFornitore: f.idFornitore } })) || (await Rifornimento.count({ where: { idFornitore: f.idFornitore } })))
+    throw new ConflictError('Il fornitore è citato in alcune registrazioni o in alcuni rifornimenti: si può solo disattivare');
   const prima = snapshot(f);
   await f.destroy();
   traccia(ctx, 'vigilo.fornitore.eliminato', `Fornitore eliminato: ${f.nome}`, prima, null);

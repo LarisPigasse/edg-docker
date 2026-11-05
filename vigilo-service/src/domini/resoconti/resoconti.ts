@@ -11,13 +11,17 @@
 //   costoPerUnita   spesa ÷ uso, solo sopra la soglia minima d'uso (sotto il
 //                   numero sarebbe fuorviante: 500 € su 8 km)
 //   variazione      percentuale rispetto all'anno prima
-//   riepilogo       totali, mese per mese, per natura, per soggetto, per
-//                   fornitore e per tipo di fornitore
+//   riepilogo       totali, mese per mese, per natura (i rifornimenti come
+//                   natura "uso", con il dettaglio per voce), per soggetto,
+//                   per fornitore e per tipo di fornitore
 // La spesa di una registrazione è importo + manodopera (ore × costo orario
 // copiato nella riga, passo 8).
 // =============================================================================
 import { differenzaGiorni, giorniNelMese, giorno, parti, type Giorno } from '../../regole';
-import type { NaturaEffettiva, TipoSoggetto } from '../valori';
+import type { NaturaEffettiva, TipoSoggetto, VoceRifornimento } from '../valori';
+
+/** La natura di una spesa nel resoconto: quella della scadenza, o "uso" per i rifornimenti */
+export type NaturaResoconto = NaturaEffettiva | 'uso';
 
 export const PERIODI = ['anno', '12m', 'prec', 'personalizzato'] as const;
 export type Periodo = (typeof PERIODI)[number];
@@ -92,12 +96,16 @@ export function variazione(ora: number, prima: number): number | null {
   return Math.round(((ora - prima) / prima) * 100);
 }
 
-/** Una registrazione come la usa il resoconto */
+/** Una registrazione (o un rifornimento) come la usa il resoconto */
 export interface RigaSpesa {
   giorno: Giorno;
-  idScadenza: number;
+  /** null per un rifornimento */
+  idScadenza: number | null;
   soggetto: { id: number; uuid: string; nome: string; identificativo: string | null; tipo: TipoSoggetto } | null;
-  natura: NaturaEffettiva;
+  natura: NaturaResoconto;
+  /** Solo rifornimenti: la voce e i litri */
+  voce?: VoceRifornimento | null;
+  litri?: number | null;
   fornitore: { uuid: string; nome: string; tipo: { chiave: string; nome: string } | null } | null;
   importo: number;
   manodopera: number;
@@ -153,6 +161,11 @@ export function riepilogo(ora: readonly RigaSpesa[], prima: readonly RigaSpesa[]
 
   const nature = perChiave(ora, r => r.natura, spesaDi);
   const perNatura = [...nature.entries()].map(([natura, e]) => ({ natura, spesa: tondo(e.spesa), n: e.n })).sort((a, b) => b.spesa - a.spesa);
+  // il dettaglio dei rifornimenti, voce per voce, con i litri
+  const voci = perChiave(ora, r => (r.natura === 'uso' ? (r.voce ?? null) : null), spesaDi);
+  const perVoce = [...voci.entries()]
+    .map(([voce, e]) => ({ voce, spesa: tondo(e.spesa), n: e.n, litri: somma(e.righe, r => r.litri ?? 0) }))
+    .sort((a, b) => b.spesa - a.spesa);
 
   const spesaPrima = perChiave(prima, r => r.soggetto?.id ?? null, spesaDi);
   const soggetti = perChiave(ora, r => r.soggetto?.id ?? null, spesaDi);
@@ -184,6 +197,7 @@ export function riepilogo(ora: readonly RigaSpesa[], prima: readonly RigaSpesa[]
     riparazioni: { spesa: somma(rip, spesaDi), guasti: new Set(rip.map(r => r.idScadenza)).size, spesaPrima: somma(ripPrima, spesaDi) },
     perMese,
     perNatura,
+    perVoce,
     perSoggetto,
     perFornitore,
     perTipoFornitore,

@@ -149,8 +149,8 @@ Un JWT normale, così gateway e servizi non cambiano, con un campo in più:
 | **AA1** ✅ | auth-service (tabella, rotte, token, permesso, log) e gateway; prove dal vivo 58/58 sui due gateway (2026-10-21) |
 | **AA2** ✅ | `@edg/auth`, `@edg/ui` e app-frontend: scambio del codice, sessione per scheda, barra, fine; visto a video e prove dal vivo 62/62 (2026-10-21) |
 | **AA3** ✅ | pro-frontend: *Accesso assistito* nelle azioni del tenant (finestra con modalità e motivo; scheda aperta nel clic, collegamento a mano se il browser la blocca) e pagina *SISTEMA › Assistenze* (aperte/tutte, chiusura); visto a video il 2026-10-21 |
-| AA4 (dopo) | Assistenza "vedi come X" in sola lettura |
-| AA5 (dopo) | accessi dell'assistenza visibili al cliente |
+| **AA4** ✅ | Assistenza "vedi come X" in sola lettura: token con l'identità dell'utente scelto (qualunque account attivo del tenant, admin compreso), scritture respinte dal gateway e già nel client, barra "come X", "Vedi come" in pro-frontend; dal vivo 31/31 e a video (2026-11-04, ADR106) |
+| **AA5** ✅ | accessi dell'assistenza visibili all'amministratore del cliente (`account.assistenze`, `GET /auth/assistenza/nel-mio-tenant`, pagina *Accessi dell'assistenza EDG* nel menu utente di EDG App, del personale EDG solo il nome); dal vivo 29/29 e a video (2026-11-04, ADR106). Rinviati: avviso al cliente a ogni ingresso e consenso |
 
 ## 9. Decisioni (2026-10-21)
 

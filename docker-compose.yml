@@ -641,6 +641,8 @@ services:
       VIGILO_ALLEGATO_MB: ${VIGILO_ALLEGATO_MB:-16} # dimensione massima di un documento caricato, da 1 a 64 MB (ADR099)
       VIGILO_SOGLIA_KM: ${VIGILO_SOGLIA_KM:-512} # uso minimo nel periodo per il costo per km, da 64 a 4096 (B10c)
       VIGILO_SOGLIA_ORE: ${VIGILO_SOGLIA_ORE:-32} # uso minimo nel periodo per il costo per ora, da 8 a 256 (B10c)
+      VIGILO_ESPORTA_RIGHE: ${VIGILO_ESPORTA_RIGHE:-16384} # righe al massimo nel CSV delle spese, da 1024 a 65536
+      VIGILO_SCOSTAMENTO_PERCENTO: ${VIGILO_SCOSTAMENTO_PERCENTO:-32} # costo dei mezzi: % sopra la media della categoria per segnalare, da 8 a 128
     volumes:
       - vigilo-uploads:/app/uploads
     expose:

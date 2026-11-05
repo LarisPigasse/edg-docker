@@ -47,10 +47,14 @@ export type Esito = (typeof ESITI)[number];
 export const ESECUZIONI = ['interna', 'esterna', 'entrambe'] as const;
 export type Esecuzione = (typeof ESECUZIONI)[number];
 
-export const FONTI_LETTURA = ['manuale', 'registrazione', 'telematica', 'importazione'] as const;
+export const FONTI_LETTURA = ['manuale', 'registrazione', 'telematica', 'importazione', 'rifornimento'] as const;
 export type FonteLettura = (typeof FONTI_LETTURA)[number];
 
-export const ENTITA_ALLEGATO = ['soggetto', 'scadenza', 'registrazione'] as const;
+export const ENTITA_ALLEGATO = ['soggetto', 'scadenza', 'registrazione', 'rifornimento'] as const;
+
+/** Voci delle spese d'uso dei mezzi senza scadenza (rifornimenti, costo dei mezzi tappa 2) */
+export const VOCI_RIFORNIMENTO = ['carburante', 'adblue', 'pedaggi', 'altro'] as const;
+export type VoceRifornimento = (typeof VOCI_RIFORNIMENTO)[number];
 export type EntitaAllegato = (typeof ENTITA_ALLEGATO)[number];
 
 export const CANALI = ['app', 'email', 'whatsapp'] as const;

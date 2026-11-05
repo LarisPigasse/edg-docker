@@ -17,6 +17,7 @@ import type { Categoria } from '../categorie/categoria.model';
 import type { Contatore } from '../contatori/contatore.model';
 import type { Scadenza } from '../scadenze/scadenza.model';
 import type { Assegnazione } from './assegnazione.model';
+import type { Possesso } from './possesso';
 
 export class Soggetto extends ConAudit<Soggetto> {
   declare idSoggetto: CreationOptional<number>;
@@ -38,6 +39,8 @@ export class Soggetto extends ConAudit<Soggetto> {
   declare idAccount: CreationOptional<number | null>;
   /** Solo persone: €/h della manodopera (passo 8); lo vede solo chi ha vigilo.costi */
   declare costoOrario: CreationOptional<number | null>;
+  /** Solo veicoli, macchine e attrezzature: come si ha il mezzo e la quota mensile (costo dei mezzi) */
+  declare possesso: CreationOptional<Possesso | null>;
   declare note: CreationOptional<string | null>;
 
   declare categoria?: NonAttribute<Categoria | null>;
@@ -66,6 +69,7 @@ Soggetto.init(
     idReferente: intero(),
     idAccount: intero(),
     costoOrario: decimale('costoOrario'),
+    possesso: json(true),
     note: testo(),
     createdAt: istante(false),
     updatedAt: istante(false),

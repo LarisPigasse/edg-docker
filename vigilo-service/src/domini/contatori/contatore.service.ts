@@ -40,7 +40,7 @@ export async function aggiornaContatore(c: Contatore, oggi: Giorno, transaction:
 export async function registraLettura(
   ctx: Contesto,
   c: Contatore,
-  dati: { valore: number; lettoIl: Giorno; note?: string | null; fonte?: FonteLettura; idRegistrazione?: number | null },
+  dati: { valore: number; lettoIl: Giorno; note?: string | null; fonte?: FonteLettura; idRegistrazione?: number | null; idRifornimento?: number | null },
   transaction: Transaction
 ): Promise<Lettura> {
   if (confronta(dati.lettoIl, ctx.oggi) > 0) throw new ValidationError('La data della lettura non può essere nel futuro');
@@ -54,6 +54,7 @@ export async function registraLettura(
       lettoIl: dati.lettoIl,
       fonte: dati.fonte ?? 'manuale',
       idRegistrazione: dati.idRegistrazione ?? null,
+      idRifornimento: dati.idRifornimento ?? null,
       anomala,
       note: dati.note || null,
     },
@@ -104,6 +105,7 @@ export async function eliminaLettura(ctx: Contesto, uuidLettura: string): Promis
   return sequelize.transaction(async transaction => {
     const l = await trovaNelTenant(Lettura, 'uuidLettura', uuidLettura, ctx.idTenant, 'Lettura', { transaction });
     if (l.idRegistrazione) throw new ConflictError('La lettura fa parte di una registrazione: si corregge la registrazione');
+    if (l.idRifornimento) throw new ConflictError('La lettura fa parte di un rifornimento: si corregge il rifornimento');
     const c = await Contatore.findByPk(l.idContatore, { transaction });
     if (!ctx.capacita.write) {
       // l'addetto: solo dentro il suo ambito e solo le letture che ha inserito lui

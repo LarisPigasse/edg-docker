@@ -5,6 +5,7 @@ import type { Contesto } from '../../core/contesto';
 import { riferimentoCategoria } from '../categorie/categoria.presenta';
 import type { Contatore } from '../contatori/contatore.model';
 import { IDENTIFICATIVO } from './datiTipo';
+import { TIPI_CON_POSSESSO } from './possesso';
 import type { Soggetto } from './soggetto.model';
 
 export const riferimentoSoggetto = (s: Soggetto) => ({
@@ -50,6 +51,8 @@ export function presentaSoggetto(s: Soggetto, ctx?: Contesto) {
     })),
     note: s.note ?? null,
     ...(ctx?.capacita.costi && s.tipo === 'persona' ? { costoOrario: s.costoOrario ?? null } : {}),
+    // costo dei mezzi: come si ha il mezzo e la quota mensile, solo con vigilo.costi
+    ...(ctx?.capacita.costi && TIPI_CON_POSSESSO.includes(s.tipo) ? { possesso: s.possesso ?? null } : {}),
     ...(extra.nAperte !== undefined
       ? { scadenze: { aperte: Number(extra.nAperte), statoPeggiore: extra.peggiore ?? null, urgenzaIl: extra.urgenza ?? null } }
       : {}),

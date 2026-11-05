@@ -27,6 +27,7 @@ import { Consegna } from './avvisi/consegna.model';
 import { PreferenzeAvvisi } from './avvisi/preferenzeAvvisi.model';
 import { RecapitoEmail } from './avvisi/recapitoEmail.model';
 import { DecisioneLibreria } from './aggiornamenti/decisioneLibreria.model';
+import { Rifornimento } from './rifornimenti/rifornimento.model';
 
 const fk = (foreignKey: string) => ({ foreignKey, constraints: false });
 
@@ -94,6 +95,13 @@ Avviso.belongsTo(Scadenza, { ...fk('idScadenza'), as: 'scadenza' });
 Avviso.hasMany(Consegna, { ...fk('idAvviso'), as: 'consegne' });
 Consegna.belongsTo(Avviso, { ...fk('idAvviso'), as: 'avviso' });
 
+// Rifornimenti (costo dei mezzi, tappa 2)
+Soggetto.hasMany(Rifornimento, { ...fk('idSoggetto'), as: 'rifornimenti' });
+Rifornimento.belongsTo(Soggetto, { ...fk('idSoggetto'), as: 'soggetto' });
+Rifornimento.belongsTo(Fornitore, { ...fk('idFornitore'), as: 'fornitore' });
+Rifornimento.hasOne(Lettura, { ...fk('idRifornimento'), as: 'lettura' });
+Lettura.belongsTo(Rifornimento, { ...fk('idRifornimento'), as: 'rifornimento' });
+
 export {
   LibreriaCategoria,
   LibreriaControllo,
@@ -117,4 +125,5 @@ export {
   PreferenzeAvvisi,
   RecapitoEmail,
   DecisioneLibreria,
+  Rifornimento,
 };

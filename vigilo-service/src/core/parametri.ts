@@ -49,6 +49,10 @@ export const LIMITI_PIATTAFORMA = {
   sogliaKm: { predefinito: 512, min: 64, max: 4096 },
   /** Uso minimo nel periodo per mostrare il costo per ora (B10c) */
   sogliaOre: { predefinito: 32, min: 8, max: 256 },
+  /** Righe al massimo nel CSV delle spese: oltre si restringono periodo o filtri */
+  esportaRighe: { predefinito: 16384, min: 1024, max: 65536 },
+  /** Costo dei mezzi: oltre questa percentuale sopra la media della categoria il mezzo è segnalato */
+  scostamentoPercento: { predefinito: 32, min: 8, max: 128 },
 } as const satisfies Record<string, Limiti>;
 
 export const PARAMETRI = {
@@ -59,4 +63,6 @@ export const PARAMETRI = {
   allegatoMb: parametro('VIGILO_ALLEGATO_MB', LIMITI_PIATTAFORMA.allegatoMb),
   sogliaKm: parametro('VIGILO_SOGLIA_KM', LIMITI_PIATTAFORMA.sogliaKm),
   sogliaOre: parametro('VIGILO_SOGLIA_ORE', LIMITI_PIATTAFORMA.sogliaOre),
+  esportaRighe: parametro('VIGILO_ESPORTA_RIGHE', LIMITI_PIATTAFORMA.esportaRighe),
+  scostamentoPercento: parametro('VIGILO_SCOSTAMENTO_PERCENTO', LIMITI_PIATTAFORMA.scostamentoPercento),
 } as const;

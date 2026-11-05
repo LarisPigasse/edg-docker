@@ -38,6 +38,8 @@ const DEFAULT_ROLES: RoleDefinition[] = [
       'sistema.moduli',
       'sistema.tenant',
       'sistema.account', // ADR049: account di tutti i tenant, mai root
+      'sistema.assistenza', // ADR085: accesso assistito (vale solo nel tenant di sistema)
+      'account.assistenze', // AA5: il cliente vede gli accessi dell'assistenza EDG
       'vigilo.*', // ADR084: tutto Vigilo (configurazione, dati, costi)
     ],
   },

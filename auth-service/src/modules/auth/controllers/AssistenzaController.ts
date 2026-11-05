@@ -47,9 +47,22 @@ export class AssistenzaController {
     successResponse(res, await this.service.chiudiDaEdg(Number(req.params.id), chi), 'Sessione di assistenza chiusa');
   });
 
+  /** AA4: gli account del tenant fra cui scegliere per l'Assistenza */
+  accountTenant: Handler = this.handle('auth.assistenza_account', async (req, res) => {
+    successResponse(res, await this.service.accountDelTenant(Number(req.query.tenantId)));
+  });
+
   elenco: Handler = this.handle('auth.assistenza_elenco', async (req, res) => {
     const { aperte, limit } = req.query as unknown as { aperte?: boolean; limit?: number };
     successResponse(res, await this.service.elenco({ aperte, limit }));
+  });
+
+  /** AA5: gli accessi dell'assistenza EDG nel tenant di chi chiede (amministratore del cliente) */
+  nelMioTenant: Handler = this.handle('auth.assistenza_nel_mio_tenant', async (req, res) => {
+    const tenantId = (req as any).account?.tenantId;
+    if (!tenantId) return void unauthorized(res);
+    const { limit } = req.query as unknown as { limit?: number };
+    successResponse(res, await this.service.nelTenant(Number(tenantId), limit));
   });
 
   private handle(action: string, fn: Handler): Handler {

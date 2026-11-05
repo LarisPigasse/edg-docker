@@ -5,6 +5,7 @@ import Joi from 'joi';
 import { schemaLista } from '../../core/utils/lista';
 import { giorno, tipoSoggetto, uuid } from '../schemi';
 import { STATI_SOGGETTO } from '../valori';
+import { MODI_POSSESSO } from './possesso';
 
 const campi = {
   categoria: uuid.allow(null),
@@ -18,6 +19,17 @@ const campi = {
   note: Joi.string().trim().max(4096).allow('', null),
   /** Solo persone e solo con vigilo.costi; i limiti in impostazioni/limiti.ts (passo 8) */
   costoOrario: Joi.number().allow(null),
+  /** Solo veicoli, macchine e attrezzature e solo con vigilo.costi; le regole in possesso.ts */
+  possesso: Joi.object({
+    modo: Joi.string()
+      .valid(...MODI_POSSESSO)
+      .required(),
+    prezzo: Joi.number(),
+    anni: Joi.number().integer(),
+    valoreFinale: Joi.number(),
+    canone: Joi.number(),
+    dal: giorno.allow(null),
+  }).allow(null),
 };
 
 export const creaSoggetto = Joi.object({ ...campi, tipo: tipoSoggetto.required(), nome: campi.nome.required() });

@@ -36,14 +36,15 @@ import { traccia } from '../../core/services/traccia';
 import { ConflictError, ValidationError } from '../../core/utils/errors';
 import { verificaAmbito } from '../ambito/ambito.service';
 import { indirizziDi } from '../avvisi/email';
-import { Allegato, Controllo, Registrazione, Scadenza, Soggetto } from '../modelli';
+import { Allegato, Controllo, Registrazione, Rifornimento, Scadenza, Soggetto } from '../modelli';
+import { NOMI_VOCI } from '../rifornimenti/rifornimenti';
 import { ENTITA_ALLEGATO, type EntitaAllegato } from '../valori';
 import { LIMITI_ALLEGATI, TIPI_ALLEGATO, byteMassimi, nomePulito, tipoDaFirma, type TipoAllegato } from './allegati';
 
 const CARTELLA = path.resolve(process.env.VIGILO_ALLEGATI_DIR || '/app/uploads');
 const IN_ARRIVO = path.join(CARTELLA, '.in-arrivo');
 
-const ETICHETTA: Record<EntitaAllegato, string> = { soggetto: 'soggetto', scadenza: 'scadenza', registrazione: 'registrazione' };
+const ETICHETTA: Record<EntitaAllegato, string> = { soggetto: 'soggetto', scadenza: 'scadenza', registrazione: 'registrazione', rifornimento: 'rifornimento' };
 
 /** Il percorso sul disco; mai fuori dalla cartella degli allegati */
 function assoluto(relativo: string): string {
@@ -58,7 +59,7 @@ function rimuoviFile(percorsi: string[]): void {
     rm(assoluto(p), { force: true }).catch(err => logger.warn('vigilo.allegati', `File non rimosso (${p}): ${String(err)}`));
 }
 
-const ETICHETTA_RISORSA: Record<EntitaAllegato, string> = { soggetto: 'Soggetto', scadenza: 'Scadenza', registrazione: 'Registrazione' };
+const ETICHETTA_RISORSA: Record<EntitaAllegato, string> = { soggetto: 'Soggetto', scadenza: 'Scadenza', registrazione: 'Registrazione', rifornimento: 'Rifornimento' };
 
 /** L'id nel tenant della cosa a cui appartiene un documento, dentro l'ambito dell'utente (404 altrimenti) */
 async function idEntitaDi(ctx: Contesto, entita: EntitaAllegato, uuid: string, transaction?: Transaction): Promise<number> {
@@ -70,6 +71,10 @@ async function idEntitaDi(ctx: Contesto, entita: EntitaAllegato, uuid: string, t
     const s = await trovaNelTenant(Scadenza, 'uuidScadenza', uuid, ctx.idTenant, 'Scadenza', { transaction });
     id = s.idScadenza;
     idSoggetto = s.idSoggetto ?? null;
+  } else if (entita === 'rifornimento') {
+    const r = await trovaNelTenant(Rifornimento, 'uuidRifornimento', uuid, ctx.idTenant, 'Rifornimento', { transaction });
+    id = r.idRifornimento;
+    idSoggetto = r.idSoggetto;
   } else {
     const r = await trovaNelTenant(Registrazione, 'uuidRegistrazione', uuid, ctx.idTenant, 'Registrazione', {
       include: [{ model: Scadenza, as: 'scadenza', attributes: ['idSoggetto'] }],
@@ -86,6 +91,7 @@ async function idEntitaDi(ctx: Contesto, entita: EntitaAllegato, uuid: string, t
 async function soggettoDellAllegato(a: Allegato): Promise<number | null> {
   if (a.entita === 'soggetto') return a.idEntita;
   if (a.entita === 'scadenza') return (await Scadenza.findByPk(a.idEntita, { attributes: ['idSoggetto'] }))?.idSoggetto ?? null;
+  if (a.entita === 'rifornimento') return (await Rifornimento.findByPk(a.idEntita, { attributes: ['idSoggetto'] }))?.idSoggetto ?? null;
   const r = await Registrazione.findByPk(a.idEntita, { attributes: ['idScadenza'], include: [{ model: Scadenza, as: 'scadenza', attributes: ['idSoggetto'] }] });
   return r?.scadenza?.idSoggetto ?? null;
 }
@@ -96,9 +102,9 @@ async function soggettoDellAllegato(a: Allegato): Promise<number | null> {
 export interface AppartenenzaAllegato {
   entita: EntitaAllegato;
   uuid: string;
-  /** Titolo della scadenza (anche per una registrazione); null per il soggetto */
+  /** Titolo della scadenza (anche per una registrazione), voce del rifornimento; null per il soggetto */
   titolo: string | null;
-  /** Solo per una registrazione */
+  /** Solo per una registrazione o un rifornimento: il giorno */
   eseguitaIl: string | null;
 }
 
@@ -169,6 +175,15 @@ export async function elencaAllegati(ctx: Contesto, entita: EntitaAllegato, uuid
     gruppi.push({ entita: 'soggetto', idEntita: [s.idSoggetto] });
     segna('soggetto', s.idSoggetto, { entita: 'soggetto', uuid: s.uuidSoggetto, titolo: null, eseguitaIl: null });
     await scadenzeE(await Scadenza.findAll({ where: { idTenant: ctx.idTenant, idSoggetto: s.idSoggetto }, ...conControllo }));
+    // gli scontrini dei rifornimenti, con la voce come titolo
+    const rif = await Rifornimento.findAll({ where: { idTenant: ctx.idTenant, idSoggetto: s.idSoggetto }, attributes: ['idRifornimento', 'uuidRifornimento', 'voce', 'fattoIl'] });
+    if (rif.length) gruppi.push({ entita: 'rifornimento', idEntita: rif.map(r => r.idRifornimento) });
+    for (const r of rif) segna('rifornimento', r.idRifornimento, { entita: 'rifornimento', uuid: r.uuidRifornimento, titolo: NOMI_VOCI[r.voce], eseguitaIl: r.fattoIl });
+  } else if (entita === 'rifornimento') {
+    const r = await trovaNelTenant(Rifornimento, 'uuidRifornimento', uuid, ctx.idTenant, 'Rifornimento');
+    await verificaAmbito(ctx, r.idSoggetto, 'Rifornimento');
+    gruppi.push({ entita: 'rifornimento', idEntita: [r.idRifornimento] });
+    segna('rifornimento', r.idRifornimento, { entita: 'rifornimento', uuid: r.uuidRifornimento, titolo: NOMI_VOCI[r.voce], eseguitaIl: r.fattoIl });
   } else if (entita === 'scadenza') {
     const s = await trovaNelTenant(Scadenza, 'uuidScadenza', uuid, ctx.idTenant, 'Scadenza', { ...conControllo, attributes: [...conControllo.attributes, 'idSoggetto'] });
     await verificaAmbito(ctx, s.idSoggetto, 'Scadenza');

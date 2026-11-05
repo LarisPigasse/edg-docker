@@ -21,11 +21,12 @@ import { parti, primaScadenza, type Giorno } from '../../regole';
 import { eliminaAllegatiDi } from '../allegati/allegati.service';
 import { ambitoDi, verificaAmbito } from '../ambito/ambito.service';
 import { erroriInterventi } from '../impostazioni/limiti';
-import { Assegnazione, Categoria, Contatore, Controllo, Lettura, Registrazione, Scadenza, Soggetto } from '../modelli';
+import { Assegnazione, Categoria, Contatore, Controllo, Lettura, Registrazione, Rifornimento, Scadenza, Soggetto } from '../modelli';
 import { chiudiScadenze, controlliAutomaticiPer, generaScadenze, riapriScadenzeArchiviate } from '../scadenze/ciclo.service';
 import { ricalcolaScadenze } from '../scadenze/ricalcolo.service';
 import type { StatoSoggetto, TipoSoggetto } from '../valori';
 import { validaCampi } from './campi';
+import { erroriPossesso, possessoDa, TIPI_CON_POSSESSO, type DatiPossesso, type Possesso } from './possesso';
 import { IDENTIFICATIVO, normalizzaIdentificativo, validaDati } from './datiTipo';
 
 const GRAVITA_SQL = `CASE s.stato WHEN 'scaduta' THEN 4 WHEN 'in-tolleranza' THEN 3 WHEN 'in-scadenza' THEN 2 WHEN 'da-completare' THEN 1 ELSE 0 END`;
@@ -173,6 +174,17 @@ function costoOrarioDa(ctx: Contesto, tipo: TipoSoggetto, valore: unknown): numb
   return valore as number;
 }
 
+/** Il costo di possesso dal corpo della richiesta: solo mezzi, solo con vigilo.costi, dentro i limiti. undefined = non cambia */
+function possessoDalCorpo(ctx: Contesto, tipo: TipoSoggetto, valore: unknown): Possesso | null | undefined {
+  if (valore === undefined) return undefined;
+  if (!ctx.capacita.costi) throw new ForbiddenError('Per il costo di possesso serve il permesso vigilo.costi');
+  if (valore === null) return null;
+  if (!TIPI_CON_POSSESSO.includes(tipo)) throw new ValidationError('Il costo di possesso è solo di veicoli, macchine e attrezzature');
+  const errori = erroriPossesso(valore as DatiPossesso);
+  if (errori.length) throw new ValidationError(errori.join('. '));
+  return possessoDa(valore as DatiPossesso);
+}
+
 export async function creaSoggetto(ctx: Contesto, body: Record<string, unknown>) {
   let uuid = '';
   let scadenzeCreate = 0;
@@ -196,6 +208,7 @@ export async function creaSoggetto(ctx: Contesto, body: Record<string, unknown>)
           idReferente: await collegatoDa(ctx, body.referente as string | null, 'persona', 'Referente', transaction),
           note: (body.note as string) || null,
           costoOrario: costoOrarioDa(ctx, tipo, body.costoOrario) ?? null,
+          possesso: possessoDalCorpo(ctx, tipo, body.possesso) ?? null,
         },
         { transaction }
       );
@@ -233,6 +246,7 @@ export async function modificaSoggetto(ctx: Contesto, uuid: string, body: Record
     if ('codice' in body) s.codice = (body.codice as string) || null;
     if ('note' in body) s.note = (body.note as string) || null;
     if ('costoOrario' in body) s.costoOrario = costoOrarioDa(ctx, s.tipo, body.costoOrario) ?? null;
+    if ('possesso' in body) s.possesso = possessoDalCorpo(ctx, s.tipo, body.possesso) ?? null;
     if ('sede' in body) s.idSede = await collegatoDa(ctx, body.sede as string | null, 'sede', 'Sede', transaction);
     if ('referente' in body) s.idReferente = await collegatoDa(ctx, body.referente as string | null, 'persona', 'Referente', transaction);
     if (s.idSede === s.idSoggetto || s.idReferente === s.idSoggetto) throw new ValidationError('Un soggetto non può essere sede o referente di sé stesso');
@@ -298,7 +312,9 @@ export async function eliminaSoggetto(ctx: Contesto, uuid: string): Promise<void
       include: [{ model: Contatore, as: 'contatore', where: { idSoggetto: s.idSoggetto }, attributes: [] }],
       transaction,
     });
-    if (registrazioni || letture) throw new ConflictError('Il soggetto ha uno storico (registrazioni o letture): si può solo dismettere');
+    const rifornimenti = await Rifornimento.count({ where: { idSoggetto: s.idSoggetto }, transaction });
+    if (registrazioni || letture || rifornimenti)
+      throw new ConflictError('Il soggetto ha uno storico (registrazioni, letture o rifornimenti): si può solo dismettere');
     const prima = snapshot(s);
     // i documenti del soggetto e delle sue scadenze (che se ne vanno con lui)
     const scadenze = await Scadenza.findAll({ where: { idTenant: ctx.idTenant, idSoggetto: s.idSoggetto }, attributes: ['idScadenza'], transaction });

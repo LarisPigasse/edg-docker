@@ -1,5 +1,5 @@
 {
-  "lastUpdated": "2026-11-03",
+  "lastUpdated": "2026-11-05",
   "modules": {
     "auth-service": {
       "status": "stable",
@@ -147,9 +147,9 @@
       "lastUpdated": "2026-10-07"
     },
     "vigilo-service": {
-      "status": "in-progress",
-      "notes": "B10c (ADR105): GET /resoconti/spese, regole pure resoconti, soglie km/ore come parametri. Jest 223/223, dal vivo 12/12. Demo dati sul Tenant Demo.",
-      "lastUpdated": "2026-11-03"
+      "status": "review",
+      "notes": "Costo dei mezzi tappa 2 (rifornimenti, ADR109): migrazione eseguita, Jest 239/239, dal vivo 50/50 sui due gateway, a video. In revisione globale dell'utente. Commit rimandato.",
+      "lastUpdated": "2026-11-05"
     },
     "app-frontend (vigilo)": {
       "status": "in-progress",
@@ -160,6 +160,11 @@
       "status": "stable",
       "notes": "ADR098: voci pubblica: true in serviceRoutes (senza JWT, limite per IP su Redis PUBLIC_RATE_LIMIT_*, solo segreto). Verificato sui due gateway.",
       "lastUpdated": "2026-10-27"
+    },
+    "Accesso assistito (auth-service, gateway, @edg/auth, app/pro-frontend)": {
+      "status": "stable",
+      "notes": "AA1-AA5 completi (ADR085, ADR106): Preparazione, Assistenza in sola lettura \"vedi come\", accessi visibili all'admin del cliente. Rinviati: avviso al cliente e consenso.",
+      "lastUpdated": "2026-11-04"
     }
   }
 }

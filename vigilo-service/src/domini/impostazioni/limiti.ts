@@ -118,6 +118,33 @@ export const inSilenzio = (minuti: number, s: Silenzio): boolean => {
 };
 
 // -----------------------------------------------------------------------------
+// Costo di possesso dei mezzi (costo dei mezzi, tappa 1): limiti dei valori
+// che si scrivono nella scheda. Larghi apposta: escludono l'assurdo (uno zero
+// di troppo su un prezzo fuori scala, 0 anni), non le macchine vere; l'errore
+// plausibile lo segnala l'avviso morbido del confronto con la categoria.
+// -----------------------------------------------------------------------------
+
+export const LIMITI_POSSESSO = {
+  /** Prezzo d'acquisto, € (2^24) */
+  prezzo: { min: 0, max: 16777216 },
+  /** Anni di uso previsti */
+  anni: { min: 1, max: 32 },
+  /** Canone mensile di leasing o noleggio, € (2^16) */
+  canone: { min: 0, max: 65536 },
+} as const;
+
+// Rifornimenti (costo dei mezzi, tappa 2): limiti di ciò che si scrive. Larghi
+// anche per le macchine (serbatoi di trattori e gruppi elettrogeni).
+export const LIMITI_RIFORNIMENTI = {
+  /** Importo di un rifornimento, € (2^16) */
+  importo: { min: 0, max: 65536 },
+  /** Litri di un rifornimento (2^14) */
+  litri: { min: 0, max: 16384 },
+  /** Km o ore letti, come le letture dei contatori (2^24) */
+  lettura: { min: 0, max: 16777216 },
+} as const;
+
+// -----------------------------------------------------------------------------
 // Interventi (passo 8): costo orario predefinito e giorni proposti per riparare
 // -----------------------------------------------------------------------------
 

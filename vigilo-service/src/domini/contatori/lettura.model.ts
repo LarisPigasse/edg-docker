@@ -21,6 +21,8 @@ export class Lettura extends ConAudit<Lettura> {
   declare lettoIl: Giorno;
   declare fonte: CreationOptional<FonteLettura>;
   declare idRegistrazione: CreationOptional<number | null>;
+  /** La lettura data con un rifornimento: si corregge dal rifornimento */
+  declare idRifornimento: CreationOptional<number | null>;
   declare anomala: CreationOptional<boolean>;
   declare note: CreationOptional<string | null>;
 
@@ -37,6 +39,7 @@ Lettura.init(
     lettoIl: giorno(false),
     fonte: elenco(FONTI_LETTURA, false, 'manuale'),
     idRegistrazione: intero(),
+    idRifornimento: intero(),
     anomala: booleano(false),
     note: testo(256),
     createdAt: istante(false),

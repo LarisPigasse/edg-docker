@@ -7,11 +7,22 @@
 //   blocked:<accountId>           account disattivato
 //   blocked:session:<sessionId>   sessione revocata
 //
+// Accesso assistito in modalita' Assistenza (AA4): "vedi come l'utente" in
+// sola lettura. Passano solo GET, HEAD e OPTIONS; ogni scrittura riceve 403,
+// per tutti i servizi, salvo l'uscita dalla sessione (POST /auth/assistenza/fine).
+//
 // Redis non deve MAI bloccare il traffico (ADR040): se non e' pronto o non
 // risponde, si lascia passare (fail-open).
 //
 // Richiede che jwtValidatorMiddleware sia gia' stato eseguito (req.userData).
 // =============================================================================
+
+const LETTURE = new Set(['GET', 'HEAD', 'OPTIONS']);
+const USCITA_ASSISTENZA = /\/auth\/assistenza\/fine\/?(\?|$)/;
+
+/** In Assistenza (sola lettura) la richiesta e' una scrittura da fermare (pura) */
+const scritturaInSolaLettura = (assistenza, method, url) =>
+  assistenza?.modo === 'assistenza' && !LETTURE.has(String(method).toUpperCase()) && !USCITA_ASSISTENZA.test(String(url));
 
 /**
  * @param {import('ioredis').Redis | null} redisClient
@@ -43,10 +54,14 @@ function createSessionGuard(redisClient) {
     if (await isAssistBlocked(req.userData?.assistenza?.id)) {
       return res.status(401).json({ success: false, error: 'Sessione di assistenza terminata' });
     }
+    if (scritturaInSolaLettura(req.userData?.assistenza, req.method, req.originalUrl)) {
+      const messaggio = 'In assistenza puoi solo guardare: le modifiche non sono permesse';
+      return res.status(403).json({ success: false, error: messaggio, message: messaggio, code: 'ASSISTENZA_SOLA_LETTURA' });
+    }
     next();
   };
 
   return { isAccountBlocked, isSessionBlocked, isAssistBlocked, sessionGuard };
 }
 
-module.exports = { createSessionGuard };
+module.exports = { createSessionGuard, scritturaInSolaLettura };
