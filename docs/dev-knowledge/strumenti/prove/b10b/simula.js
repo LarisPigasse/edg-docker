@@ -1,0 +1,36 @@
+// Prova a video di B10b: simula aggiornamenti in attesa sul Tenant Demo (salva gli originali in /tmp/b10b-originali.json)
+const { Client } = require('/app/node_modules/pg');
+const fs = require('fs');
+const E = process.env;
+(async () => {
+  const db = new Client({ host: E.DB_HOST, port: E.DB_PORT, user: E.DB_USER, password: E.DB_PASSWORD, database: E.DB_NAME });
+  await db.connect();
+  const q = async (s, a) => (await db.query(s, a)).rows;
+  const COL = 'id_controllo, nome, chiave_libreria, preavvisi, tolleranza, versione_libreria, versione_ignorata, origine, attivo, aggiornamento_visto_il, aggiornamento_visto_da';
+  const per = async (w, a) => (await q(`SELECT ${COL} FROM controlli WHERE id_tenant = 2 AND ${w} LIMIT 1`, a))[0];
+  const A = await per('chiave_libreria = $1', ['veicolo.revisione']);
+  const B = await per("nome = 'Assicurazione RCA' AND chiave_libreria IS NOT NULL");
+  const D = await per("nome = 'Controllo periodico del tachigrafo' AND chiave_libreria IS NOT NULL");
+  const C = (await q("SELECT id_categoria, nome, chiave_libreria, icona, descrizione, versione_libreria, versione_ignorata, origine, attiva, aggiornamento_visto_il, aggiornamento_visto_da FROM categorie WHERE id_tenant = 2 AND nome = 'Autovetture'"))[0];
+  const lib = async (t, k) => (await q(`SELECT * FROM ${t} WHERE chiave = $1`, [k]))[0];
+  const LA = await lib('libreria_controlli', A.chiave_libreria), LB = await lib('libreria_controlli', B.chiave_libreria), LC = await lib('libreria_categorie', C.chiave_libreria);
+  const furgoni = (await q("SELECT id_categoria, chiave_libreria FROM categorie WHERE id_tenant = 2 AND chiave_libreria = 'veicolo.furgoni'"))[0];
+  const catA = (await q('SELECT id_categoria FROM controlli_categorie WHERE id_controllo = $1', [A.id_controllo])).map(r => r.id_categoria);
+  const max = async (t, c) => (await q(`SELECT coalesce(max(${c}), 0) AS m FROM ${t}`))[0].m;
+  const LD = await lib('libreria_controlli', D.chiave_libreria);
+  const orig = { A, B, C, D, catA, novA: LA.novita, novD: LD.novita, maxAvv: await max('avvisi', 'id_avviso'), maxCon: await max('consegne', 'id_consegna'), maxDec: await max('decisioni_libreria', 'id_decisione') };
+  if (fs.existsSync('/tmp/b10b-originali.json')) throw new Error('simulazione già attiva: prima ripristina');
+  fs.writeFileSync('/tmp/b10b-originali.json', JSON.stringify(orig));
+  const P = { giorni: [16, 4], uso: LA.preavvisi.uso };
+  await q('UPDATE controlli SET preavvisi = $2, tolleranza = $3, origine = $4, versione_libreria = $5 WHERE id_controllo = $1', [A.id_controllo, P, { giorni: 2, uso: LA.tolleranza.uso }, { ...A.origine, preavvisi: P, tolleranza: { giorni: 4, uso: LA.tolleranza.uso }, categorie: LA.categorie.filter(k => k !== 'veicolo.furgoni') }, LA.versione - 1]);
+  await q('DELETE FROM controlli_categorie WHERE id_controllo = $1 AND id_categoria = $2', [A.id_controllo, furgoni.id_categoria]);
+  await q('UPDATE controlli SET nome = $2, origine = $3, versione_libreria = $4 WHERE id_controllo = $1', [B.id_controllo, 'RCA flotta', { ...B.origine, nome: 'RCA (vecchio nome)' }, LB.versione - 1]);
+  await q('UPDATE categorie SET icona = $2, descrizione = $3, origine = $4, versione_libreria = $5 WHERE id_categoria = $1', [C.id_categoria, 'Car', 'Le auto aziendali', { ...C.origine, icona: 'Car', descrizione: 'Auto di servizio' }, LC.versione - 1]);
+  await q('UPDATE libreria_controlli SET ritirato = true, novita = $2 WHERE chiave = $1', [D.chiave_libreria, 'PROVA: il controllo periodico si fa ora insieme alla revisione annuale.']);
+  await q("UPDATE libreria_controlli SET novita = $2 WHERE chiave = $1", [A.chiave_libreria, 'PROVA: preavvisi più lunghi (64, 32 e 8 giorni) e revisione anche per i furgoni fino a 3,5 t.']);
+  await db.end();
+  const { avvisaLibreria } = require('/app/dist/domini/aggiornamenti/avviso.service');
+  console.log('avviso:', await avvisaLibreria(2, 'sincronizzazione'));
+  console.log('simulazione attiva');
+  setTimeout(() => process.exit(0), 256);
+})().catch(e => { console.log('ERRORE', e.message); process.exit(1); });

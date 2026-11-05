@@ -10,6 +10,29 @@
 
 ## 1. Dove siamo
 
+### Punto di ripartenza (2026-11-05) — leggere per primo
+
+- **Tutto committato dall'utente** fino al costo dei mezzi tappa 2 (rifornimenti, ADR109) compreso. Nessun lavoro in sospeso nei repository.
+- **Fase attuale: revisione globale di Vigilo guidata dall'utente.** L'utente prova Vigilo in ogni aspetto e propone gli aggiustamenti **uno alla volta**; per ciascuno: proposta (con costo/beneficio), suo sì, implementazione, verifica completa. Alla fine di Vigilo, revisione generale di pro-frontend e app-frontend (elenco in §2).
+- **Dati demo sul Tenant Demo (tenant 2)**: restano finché l'utente non dice di toglierli (dettagli nel paragrafo lungo qui sotto: soggetti, registrazioni, guasti, costo di possesso, 742 rifornimenti, fornitore "Distributore Nereto").
+- **Strumenti**: `docs/dev-knowledge/strumenti/` (README): `w.py` per le modifiche sul posto (copiarlo in `~/w.py` a inizio sessione), `comando.sh` per preparare i comandi di `exec-in-container`, `prove/` con gli script dal vivo e dei dati demo.
+- **Account di prova (tenant 2)**: demo.admin id 9 (admin), demo.operatore id 10 (ufficio: write+read, senza costi nei token di prova), demo.utente id 4 (addetto, `vigilo.own`, persona "Demo Utente", mezzo assegnato "Furgone Demo" `01c2d7bd-…`). Nel browser l'utente entra da sé (mai inserire password); per vedere come un altro utente: pro-frontend › Tenant › Accesso assistito › "Vedi come".
+- **Ultimi numeri**: Jest di vigilo-service 239/239; prove dal vivo rifornimenti 50/50, costo mezzi 29/29, CSV 16/16, AA4 31/31, AA5 29/29.
+
+#### Regole di lavoro dell'utente (vincolanti)
+- In italiano, un passo alla volta: proponi, aspetta il sì, poi implementa. "Il gioco vale la candela": valuta costi e benefici.
+- Quantità in potenze di 2 quando possibile.
+- Niente valori fissi: parametri modificabili con limiti minimi e massimi invalicabili (ADR093: `core/parametri.ts` per la piattaforma, `impostazioni/limiti.ts` per il tenant).
+- File dei repo modificati solo con device_bash, sul posto, conservando CRLF/LF (`~/w.py`). Mantenere le modifiche manuali dell'utente (rileggere prima di modificare). **Mai Prettier.**
+- Rebuild e commit li fa l'utente: dirgli quali servizi ricostruire e, alla fine, proporre il messaggio di commit.
+- Prima di dire che è fatto: tsc, lint (frontend; vigilo-service e auth-service non hanno configurazione ESLint), Jest (vigilo-service), prove dal vivo sui due gateway e prova a video nel browser del pannello a 1440/1024/470 px. Frontend: `apps/<app>/config/typescript/tsconfig.verify.json` temporaneo (`extends: ./tsconfig.app.json`, `paths` `@/*` → `../../src/*`, `@edg/ui` → `../../../../packages/ui/src/index.ts`, `@edg/auth` → `../../../../packages/auth/src/index.ts`; per pro-frontend anche `@edg/ui/explorer`), poi cancellarlo (serve il permesso di cancellazione, da chiedere a ogni sessione).
+- Interfaccia: raggi mai oltre 8 px; struttura delle feature `api / components / constants / hooks / pages / types / utils`.
+- Non inserire mai le password dell'utente: se serve, si collega lui nel browser.
+- Script nei container: file JS compresso gzip+base64 (`strumenti/comando.sh`), eseguito con exec-in-container senza virgolette esterne (passa da cmd di Windows); `require` con percorso assoluto `/app/node_modules/...`; container `auth-service` per le prove con token (JWT firmati con `JWT_SECRET`, issuer `edg-auth-service`), `vigilo-service` per `pg`. Migrazioni di vigilo-service: `npx sequelize db:migrate` nel container; migrazioni SQL di auth-service: `mysql -uroot -p$MYSQL_ROOT_PASSWORD edg_auth` nel container auth-mysql (via file).
+- L054: negli update di massa di Sequelize su modelli con validatori di riga serve `validate: false`.
+- Browser del pannello: gli screenshot possono restare indietro o bloccarsi, verificare dal DOM con javascript_tool; i download si intercettano sovrascrivendo `EventTarget.prototype.dispatchEvent` e `URL.createObjectURL`; reimpostare `resize_window` a `desktop` alla fine.
+
+
 Conclusa la parte **gestione e monitoraggio del sistema** (ADR034–ADR046), tutta
 verificata dal vivo e committata in edg-docker ed edg-system.
 
@@ -64,6 +87,10 @@ verificata dal vivo e committata in edg-docker ed edg-system.
 - Gateway, solo sviluppo: una richiesta con `Host: localhost` su un percorso sconosciuto (es. `/api/auth/...`) finisce nel proxy dei frontend, va su pro-frontend e torna al gateway all'infinito; in produzione Traefik smista per dominio. Valutare un 404 per `/api/*` non dichiarati.
 - Aggiornamenti della libreria (B10b): il toast copre il pulsante a destra del piede del Sheet per qualche secondo; valutare la posizione dei toast quando un pannello è aperto.
 - Segnalazioni (B9c): l'avviso all'ufficio nasce dopo il commit; un ritiro nello stesso istante può arrivare prima che l'avviso esista, che così resta da leggere: rarissimo, valutare un controllo dello stato al momento di creare l'avviso.
+- Rifornimenti (ADR109): il dettaglio del fornitore ("Registrazioni") non elenca i rifornimenti che lo citano, anche se ne conta l'uso; valutare una sezione "Rifornimenti".
+- Rifornimenti: consumo in l/h mai visto con dati veri (nessuna macchina con contatore a ore nei dati demo).
+- Spese e consumi: "Per soggetto" conta in "Registrazioni" anche i rifornimenti; il confronto con l'anno prima dei camion è alto solo perché i rifornimenti demo coprono 14 mesi.
+- Tabelle di @edg/ui con colonne numeriche: l'intestazione resta a sinistra mentre le cifre sono a destra (`className: 'text-right'` vale solo per le celle); valutare l'allineamento dell'intestazione.
 
 
 **Alla pubblicazione in produzione**
@@ -189,8 +216,8 @@ verificata dal vivo e committata in edg-docker ed edg-system.
 - Prove delle API senza password: firmare un JWT di prova dentro api-gateway-1 con `JWT_SECRET` (account reali: 1 root, 3 admin EDG, 2 operatore, 4 admin di `ted`) e chiamare `http://localhost:8080/auth/...`. Ripulire sempre i dati di prova.
 - Audit di una modifica: verificare `stato.diff` in `azionelogs`, non solo che l'evento esista (L045).
 - Prove con dati temporanei (ADR061-063): script nel container **auth-service** (`/app`, ha `jsonwebtoken` e `mysql2`, variabili `DB_*` e `JWT_SECRET`), che chiama il gateway su `http://api-gateway-1:8080` e ripulisce direttamente in MySQL; marcare i dati di prova (es. `notes`) per poterli togliere con sicurezza. Il ruolo `admin` è globale: un permesso aggiunto per prova vale anche per gli admin EDG.
-- Patch dei file: `~/scratch/edit.py` sul VM (stdin JSON `[[vecchio, nuovo], ...]`, ogni vecchio deve comparire una volta sola, conserva i fine riga); se in una nuova sessione non c'è più, ricrearlo (poche righe di python). **Mai Prettier** (L058). Cancellare file nei repository richiede, a ogni nuova sessione, il permesso di cancellazione (device_request_delete_permission).
+- Patch dei file: `~/w.py` sul VM (copia in `docs/dev-knowledge/strumenti/w.py`: `write` da stdin, `edit` con stdin JSON `[[vecchio, nuovo], ...]`, ogni vecchio una volta sola, conserva i fine riga). **Mai Prettier** (L058). Cancellare file nei repository richiede, a ogni nuova sessione, il permesso di cancellazione (device_request_delete_permission).
 - Verifiche a video: app-frontend in Vite su `http://localhost:5174` (se la porta è occupata, chiudere il Vite precedente); il pannello del browser chiede `request_access` (once) a ogni caricamento; `resize_window` 1440×900 per le prove, poi `desktop`. Col pannello nascosto le animazioni restano ferme (L060).
 - Dati di Vigilo sul tenant EDG (id 1): azzerati il 2026-10-15 (backup `daily/2026-10-15_1734`; script di azzeramento in L061), **riavviati il 2026-10-19** con Base + Autotrasporto e due veicoli di prova (vedi il paragrafo iniziale).
 - Stati dell'interfaccia che i dati non mostrano (prima dell'avvio, Dashboard vuota, passo Fatto): si provano alterando nel browser le risposte di `fetch` (`/me`, `/dashboard`, `/avvio`; il POST si intercetta senza inviarlo) e navigando con `history.pushState` + `popstate`, poi si ricarica la pagina (L064).
-- Controllo `tsc` dei frontend: config temporanea `tsconfig.verify.json` nell'app con `paths` verso `packages/ui/src`, `packages/ui/src/explorer` e `packages/auth/src` (i link dei workspace non si risolvono dal VM), poi cancellarla. Modifiche ai file: conservare CRLF/LF (L050).
+- Controllo `tsc` dei frontend: config temporanea `config/typescript/tsconfig.verify.json` nell'app (vedi il Punto di ripartenza) con `paths` verso `packages/ui/src`, `packages/ui/src/explorer` e `packages/auth/src` (i link dei workspace non si risolvono dal VM), poi cancellarla. Modifiche ai file: conservare CRLF/LF (L050).

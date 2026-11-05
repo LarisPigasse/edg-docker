@@ -1,0 +1,24 @@
+const { Client } = require('/app/node_modules/pg');
+const E = process.env;
+const U = JSON.stringify({ accountType: 'cliente', tenantId: 2, roleId: 1, modules: ['*'], accountId: 9, email: 'demo.admin@expressdeliverygroup.com', permissions: ['vigilo.*'] });
+const api = async p => (await (await fetch(`http://localhost:${E.PORT || 3006}/api/vigilo${p}`, { headers: { 'x-gateway-secret': E.GATEWAY_SECRET, 'x-user-data': U } })).json());
+(async () => {
+  const db = new Client({ host: E.DB_HOST, port: E.DB_PORT, user: E.DB_USER, password: E.DB_PASSWORD, database: E.DB_NAME });
+  await db.connect();
+  const q = async (t, s) => console.log(t, JSON.stringify((await db.query(s)).rows));
+  await q('stati', "SELECT stato, count(*)::int n FROM scadenze WHERE id_tenant=2 AND chiusa_il IS NULL GROUP BY 1 ORDER BY 1");
+  await q('soggetti', "SELECT tipo, stato, count(*)::int n FROM soggetti WHERE id_tenant=2 GROUP BY 1,2 ORDER BY 1,2");
+  await q('registrazioni', "SELECT stato, tipo, esito, count(*)::int n, sum(importo)::int euro FROM registrazioni WHERE id_tenant=2 GROUP BY 1,2,3 ORDER BY 1,2,3");
+  await q('anomale', "SELECT count(*)::int FROM letture WHERE id_tenant=2 AND anomala");
+  await q('avvisi', "SELECT count(*)::int FROM avvisi WHERE id_tenant=2");
+  const r = await api('/resoconti/spese?periodo=anno');
+  const d = r.data;
+  console.log('ANNO', r.success, JSON.stringify(d.periodo), 'totale', JSON.stringify(d.totale), 'prima', d.totalePrima.spesa, 'rip', JSON.stringify(d.riparazioni));
+  console.log('nature', JSON.stringify(d.perNatura));
+  console.log('soggetti', JSON.stringify(d.perSoggetto.slice(0, 6).map(s => [s.nome, s.spesa, s.variazione, s.uso, s.costoPerUnita])));
+  console.log('fornitori', JSON.stringify(d.perFornitore.slice(0, 5).map(f => [f.nome, f.importi, f.n])), 'tipi', JSON.stringify(d.perTipoFornitore.map(t => [t.nome, t.importi])));
+  console.log('mesi', JSON.stringify(d.perMese));
+  const p = (await api('/resoconti/spese?periodo=12m&tipo=veicolo')).data;
+  console.log('12M veicoli', JSON.stringify(p.periodo), p.totale.spesa, p.perSoggetto.length);
+  await db.end();
+})().catch(e => console.log('ERRORE', e.message));

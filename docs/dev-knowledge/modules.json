@@ -148,13 +148,13 @@
     },
     "vigilo-service": {
       "status": "review",
-      "notes": "Costo dei mezzi tappa 2 (rifornimenti, ADR109): migrazione eseguita, Jest 239/239, dal vivo 50/50 sui due gateway, a video. In revisione globale dell'utente. Commit rimandato.",
+      "notes": "Committato fino al costo dei mezzi tappa 2 (rifornimenti, ADR109). Jest 239/239. In revisione globale guidata dall'utente. Ripartenza: next-session.md §1.",
       "lastUpdated": "2026-11-05"
     },
     "app-frontend (vigilo)": {
-      "status": "in-progress",
-      "notes": "B10c (ADR105): vista Spese e consumi nella Dashboard (filtri, riquadri, mese per mese, per soggetto con costo per km/ora, per natura, a chi vanno), solo con vigilo.costi.",
-      "lastUpdated": "2026-11-03"
+      "status": "review",
+      "notes": "Committato: rifornimenti (scheda mezzo, Azioni, I miei mezzi), costo dei mezzi con blocco Uso, Spese per voce. In revisione globale dell'utente.",
+      "lastUpdated": "2026-11-05"
     },
     "api-gateway": {
       "status": "stable",
