@@ -2,7 +2,9 @@
 // Dashboard — vista "Da fare" (07-interfaccia 7.3, rivista il 2026-10-13)
 // =============================================================================
 // Risponde a "che cosa devo fare, e entro quando?":
-//   conteggi     i riquadri per stato (con gli stessi filtri dell'elenco)
+//   conteggi     i riquadri per stato (con gli stessi filtri dell'elenco); le
+//                fasce "in scadenza" non si sovrappongono (2026-11-09): entro 8,
+//                da 9 a 32 e piu' avanti fanno insieme inScadenza
 //   perControllo le scadenze da fare per controllo (per nome), con lo stato peggiore
 //   perMese      quante scadenze cadono nei prossimi 12 mesi, piu' l'arretrato
 //   soggetti     quanti soggetti per tipo e il loro stato peggiore
@@ -17,6 +19,9 @@ import { aggiungiGiorni, aggiungiMesi, STATI } from '../../regole';
 import { Controllo, Scadenza } from '../modelli';
 import { scadenzeSegnalate } from '../registrazioni/registrazione.service';
 import { filtri, GRAVITA } from '../scadenze/scadenza.service';
+
+/** Le fasce "in scadenza" della dashboard, in giorni: entro 8, da 9 a 32, piu' avanti */
+export const FASCE_GIORNI = [8, 32] as const;
 
 /** 4 scaduta, 3 in tolleranza, 2 in scadenza, 1 da completare, 0 in regola */
 const STATO_DI_GRAVITA = ['in-regola', 'da-completare', 'in-scadenza', 'in-tolleranza', 'scaduta'] as const;
@@ -34,11 +39,18 @@ export async function conteggi(ctx: Pick<Contesto, 'oggi'>, f: Pick<Filtri, 'whe
     Scadenza.count({ where: { ...f.where, chiusaIl: null, ...extra } as WhereOptions<Scadenza>, include: f.include });
   const n = {} as Record<(typeof STATI)[number], number>;
   for (const stato of STATI) n[stato] = await conta({ stato });
+  const g8 = aggiungiGiorni(ctx.oggi, FASCE_GIORNI[0]);
+  const g32 = aggiungiGiorni(ctx.oggi, FASCE_GIORNI[1]);
+  const entro8 = await conta({ stato: 'in-scadenza', urgenzaIl: { [Op.lte]: g8 } });
+  const entro32 = await conta({ stato: 'in-scadenza', urgenzaIl: { [Op.gt]: g8, [Op.lte]: g32 } });
   return {
     scadute: n['scaduta'],
     inTolleranza: n['in-tolleranza'],
-    entro8: await conta({ stato: 'in-scadenza', urgenzaIl: { [Op.lte]: aggiungiGiorni(ctx.oggi, 8) } }),
-    entro32: await conta({ stato: 'in-scadenza', urgenzaIl: { [Op.lte]: aggiungiGiorni(ctx.oggi, 32) } }),
+    entro8,
+    /** Da 9 a 32 giorni: non comprende le entro 8 */
+    entro32,
+    /** Oltre i 32 giorni (preavvisi lunghi) o senza una data d'urgenza */
+    piuAvanti: n['in-scadenza'] - entro8 - entro32,
     inScadenza: n['in-scadenza'],
     daCompletare: n['da-completare'],
     inRegola: n['in-regola'],

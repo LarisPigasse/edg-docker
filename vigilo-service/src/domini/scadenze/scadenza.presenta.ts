@@ -6,16 +6,25 @@
 // personalizzate): e' l'ereditarieta' visibile del passo 7.
 // Gli importi escono solo a chi ha vigilo.costi (06-servizio-api 6.3).
 // `segnalata`: c'è una segnalazione dell'addetto da confermare (B9c).
+// Le registrazioni dicono chi le ha scritte e chi le ha confermate: i nomi
+// arrivano già letti (autori.ts), una richiesta per risposta.
 // =============================================================================
 import type { Contesto } from '../../core/contesto';
 import { descriviCadenza, descriviPreavvisi, descriviTolleranza, testoStato, type ImpostazioniEffettive, type Situazione } from '../../regole';
 import { costoManodopera, costoTotale, naturaEffettiva, oreManodopera } from '../interventi/interventi';
 import type { Registrazione } from '../registrazioni/registrazione.model';
 import { presentaContatore, riferimentoSoggetto } from '../soggetti/soggetto.presenta';
+import { NESSUN_NOME, nomeAutore, nomiAutori, type NomiAutori } from '../soggetti/autori';
 import { etichetteDate } from '../valori';
 import type { Scadenza } from './scadenza.model';
 
-export function presentaScadenza(s: Scadenza, sit: Situazione, ctx: Contesto, segnalata = false) {
+/** Chi ha chiuso la scadenza, già col nome (chiusura.ts) */
+export interface ChiusaDa {
+  da: string | null;
+  automatica: boolean;
+}
+
+export function presentaScadenza(s: Scadenza, sit: Situazione, ctx: Contesto, segnalata = false, chiusaDa: ChiusaDa | null = null) {
   const unita = s.contatore?.unita ?? null;
   return {
     uuid: s.uuidScadenza,
@@ -36,7 +45,7 @@ export function presentaScadenza(s: Scadenza, sit: Situazione, ctx: Contesto, se
     urgenzaIl: s.urgenzaIl ?? null,
     fineIl: s.fineIl ?? null,
     ripetizioniRimaste: s.ripetizioniRimaste ?? null,
-    chiusa: s.chiusaIl ? { il: s.chiusaIl, motivo: s.motivoChiusura } : null,
+    chiusa: s.chiusaIl ? { il: s.chiusaIl, motivo: s.motivoChiusura, da: chiusaDa?.da ?? null, automatica: chiusaDa?.automatica ?? false } : null,
     note: s.note ?? null,
     segnalata,
   };
@@ -58,7 +67,11 @@ export function presentaImpostazioni(eff: ImpostazioniEffettive, s: Scadenza) {
   };
 }
 
-export function presentaRegistrazione(r: Registrazione, ctx: Contesto) {
+/** I nomi di chi ha scritto e confermato queste registrazioni (più altri account, es. chi ha aggiunto la scadenza) */
+export const autoriDelle = (righe: readonly Registrazione[], ...altri: (number | null | undefined)[]): Promise<NomiAutori> =>
+  nomiAutori([...righe.flatMap(r => [r.creatoDa, r.confermataDa]), ...altri]);
+
+export function presentaRegistrazione(r: Registrazione, ctx: Contesto, nomi: NomiAutori = NESSUN_NOME) {
   return {
     uuid: r.uuidRegistrazione,
     tipo: r.tipo,
@@ -78,6 +91,13 @@ export function presentaRegistrazione(r: Registrazione, ctx: Contesto) {
     motivoRifiuto: r.motivoRifiuto ?? null,
     /** L'ha inserita l'utente (l'addetto ritira solo le sue segnalazioni) */
     tua: r.creatoDa === ctx.utente.id,
+    /** Chi l'ha registrata; null se automatica o se il nome non si è letto */
+    registrataDa: nomeAutore(nomi, r.creatoDa),
+    /** Scritta da un processo (rinnovo tacito), non da una persona */
+    automatica: r.creatoDa == null,
+    /** Segnalazione dell'addetto confermata: da chi e quando (B9c) */
+    confermataDa: nomeAutore(nomi, r.confermataDa),
+    confermataIl: r.confermataIl ?? null,
     // passo 8: chi ha fatto il lavoro e la manodopera; le ore a tutti, gli euro solo a chi ha vigilo.costi
     esecuzione: r.esecuzione ?? null,
     manodopera: (r.manodopera ?? []).map(m => ({
@@ -91,12 +111,16 @@ export function presentaRegistrazione(r: Registrazione, ctx: Contesto) {
 }
 
 /** La risposta di una registrazione che chiude o sposta la scadenza (Registra, conferma di una segnalazione) */
-export function presentaEsecuzione(ctx: Contesto, e: { registrazione: Registrazione; scadenza: Scadenza; successiva: Scadenza | null; rimessoInServizio?: boolean }) {
+export function presentaEsecuzione(
+  ctx: Contesto,
+  e: { registrazione: Registrazione; scadenza: Scadenza; successiva: Scadenza | null; rimessoInServizio?: boolean },
+  nomi: NomiAutori = NESSUN_NOME
+) {
   const { registrazione, scadenza, successiva } = e;
   return {
     /** Riparato l'ultimo guasto bloccante: il mezzo è tornato in servizio (B10a) */
     rimessoInServizio: !!e.rimessoInServizio,
-    registrazione: presentaRegistrazione(registrazione, ctx),
+    registrazione: presentaRegistrazione(registrazione, ctx, nomi),
     scadenza: { uuid: scadenza.uuidScadenza, chiusa: scadenza.chiusaIl ? { il: scadenza.chiusaIl, motivo: scadenza.motivoChiusura } : null, scadeIl: scadenza.scadeIl ?? null },
     successiva: successiva ? { uuid: successiva.uuidScadenza, scadeIl: successiva.scadeIl ?? null, sogliaUso: successiva.sogliaUso ?? null, stato: successiva.stato } : null,
   };

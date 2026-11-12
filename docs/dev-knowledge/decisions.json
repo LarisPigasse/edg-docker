@@ -1,5 +1,5 @@
 {
-  "lastUpdated": "2026-11-05",
+  "lastUpdated": "2026-11-12",
   "decisions": [
     {
       "id": "ADR001",
@@ -980,6 +980,24 @@
       "context": "Dopo la tappa 1 (ADR108) mancava il blocco Uso del costo dei mezzi. L'utente ha deciso: quattro voci (Carburante, AdBlue, Pedaggi, Altro), non solo veicoli ma anche macchine e attrezzature (consumo per ora), registrazione diretta dell'addetto, rifornimenti nel Totale speso con le voci distinguibili quando serve il dettaglio.",
       "decision": "Tabella `rifornimenti` propria (non registrazioni di scadenze): voce con CHECK, litri solo per carburante/AdBlue, importo > 0, fornitore facoltativo (solo l'ufficio lo indica), riferimento, note. I km/ore letti diventano una lettura del contatore principale (fonte 'rifornimento', legata con FK CASCADE, eliminabile solo eliminando o correggendo il rifornimento). Scontrini come allegati con entità 'rifornimento', caricati dal modulo solo dopo il salvataggio. Permessi: write o own nell'ambito; l'addetto corregge ed elimina solo i suoi; importo e prezzo al litro visibili con vigilo.costi o a chi l'ha scritto. Nei resoconti natura 'uso' con dettaglio `perVoce` (spesa, numero, litri) e CSV con colonna Litri; nel costo dei mezzi blocco `rifornimenti` {totale, litri di carburante, consumo l/100 km o l/h solo con uso sopra soglia}, incluso nel totale e fra i motivi di \"soprattutto\". Limiti invalicabili in `LIMITI_RIFORNIMENTI` (importo ≤ 65.536 €, litri ≤ 16.384, lettura ≤ 16.777.216).",
       "rationale": "Un rifornimento non ha cadenza né esito: metterlo fra le registrazioni avrebbe richiesto scadenze fittizie e sporcato fatte-in-tempo e avvisi. Una tabella dedicata tiene semplici le regole, permette all'addetto di scrivere dal telefono senza toccare le scadenze e lascia ai resoconti un'unione esplicita (UNION ALL nel CSV, righe con natura 'uso' nel riepilogo). Il consumo usa solo il carburante perché AdBlue e pedaggi non misurano l'efficienza; litri facoltativi per non bloccare chi ha solo l'importo.",
+      "status": "accepted"
+    },
+    {
+      "id": "ADR110",
+      "date": "2026-11-11",
+      "title": "Vigilo: controlli non seguiti per soggetto, con motivo e storico delle decisioni",
+      "context": "Un controllo vale per tutti i soggetti del suo tipo e delle categorie scelte; si poteva disattivare solo per tutta l'azienda. Eliminare una scadenza non bastava (solo senza registrazioni, e Vigilo la ricrea a ogni cambio di categoria, ripristino o modifica del controllo). L'utente vuole scegliere per ogni soggetto quali controlli seguire (es. mezzo esente dal bollo), con il motivo e chi ha deciso, per una tracciabilità adatta a un'azienda certificata.",
+      "decision": "Tabella controlli_non_seguiti (soggetto, controllo, motivo obbligatorio; chi/quando = creato_da/created_at; ripresa_il, ripresa_da, nota_ripresa), una sola decisione in corso per coppia (indice parziale). Le righe non si cancellano: tornare a seguire chiude la decisione e la lascia come storico. Non seguire chiude la scadenza aperta con motivo 'non-seguita' (bloccato se c'è una segnalazione dell'addetto da confermare); riprendere riapre la scadenza chiusa con le sue date, o ne crea una nuova se il controllo è automatico (regola pura comeRiprendere). generaScadenze, riapriScadenzeArchiviate e la creazione a mano saltano le coppie escluse (esclusioni/inCorso.ts, senza dipendenze circolari). Rotte GET /soggetti/:id/controlli (read/own), POST .../non-seguire e .../riprendi (write). Interfaccia: scheda \"Controlli\" del soggetto con lo storico delle decisioni; Aggiungi scadenza non propone i controlli non seguiti.",
+      "rationale": "Una decisione esplicita e duratura è l'unico modo stabile: il punto unico di generazione delle scadenze la rispetta per ogni evento futuro. Conservare la riga alla ripresa dà la storia completa (chi ha smesso, chi ha ripreso, perché) senza una tabella di log a parte. Riaprire la scadenza di prima mantiene date e registrazioni, scelta dell'utente. Il motivo obbligatorio risponde alla domanda \"perché non lo controllate?\" in un audit.",
+      "status": "accepted"
+    },
+    {
+      "id": "ADR111",
+      "date": "2026-11-12",
+      "title": "Vigilo: report in PDF e CSV generati nel browser, con basi comuni",
+      "context": "Mancavano i report di molte pagine di Vigilo (soggetti, scheda del soggetto, piano dei controlli, controlli non seguiti, storico, rifornimenti, fornitori, calendario). Esistevano solo il PDF delle Scadenze, il PDF di Da fare e PDF/CSV di Spese e consumi (quest'ultimo CSV generato dal servizio).",
+      "decision": "I report si generano nel browser con le righe lette dal servizio: @edg/ui utils/exportCsv.ts (exportTableToCsv, csvDate, csvText: BOM, punto e virgola, CRLF, virgola decimale, apostrofo contro le formule, come resoconti/csv.ts del servizio) accanto a exportTableToPdf/exportReportToPdf. In Vigilo: MenuEsporta (pulsante Esporta con PDF, CSV o voci libere; solo icona sotto i 640 px), leggiFinoA in api/client.ts (elenco filtrato intero fino a 1024 righe, con troncate), useEsportazione (leggi → vuoto/PDF/CSV → avviso se parziale), colonne e testi come regole pure in utils/esporta*.ts e utils/pdf*.ts. Il servizio cambia solo dove manca un dato: GET /controlli-non-seguiti (decisioni del tenant) e registratoDa nei rifornimenti. Report: Soggetti (PDF/CSV), Scheda del soggetto (PDF), Configurazione (Piano dei controlli, Controlli non seguiti in corso o con lo storico), Storico e Rifornimenti del mezzo (PDF/CSV), Fornitori (PDF/CSV), Calendario (agenda del mese in PDF).",
+      "rationale": "Gli elenchi di Vigilo restano piccoli per natura (centinaia di righe): generarli nel browser evita nuovi endpoint e usa gli stessi testi della pagina, così PDF, CSV e schermo dicono le stesse cose. Le basi comuni rendono ogni nuovo report quasi solo una definizione di colonne. Il CSV lato servizio resta per i dettagli lunghi (spese del periodo).",
       "status": "accepted"
     }
   ]

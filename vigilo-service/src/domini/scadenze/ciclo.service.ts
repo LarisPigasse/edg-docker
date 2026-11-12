@@ -9,6 +9,8 @@
 //   soggetto ripristinato -> si riaprono quelle chiuse dall'ultima
 //                            archiviazione, con le loro date
 //   controllo disattivato -> le sue scadenze aperte si chiudono
+//   controllo non seguito -> per quel soggetto non nasce né si riapre niente
+//                            (esclusioni, revisione 2026-11-11)
 // Una sola scadenza aperta per (soggetto, controllo): lo garantisce anche il
 // database (uq_scadenze_aperta).
 // =============================================================================
@@ -17,13 +19,18 @@ import { parti, primaScadenza, type Giorno } from '../../regole';
 import type { Contesto } from '../../core/contesto';
 import { Contatore, Controllo, Scadenza, Soggetto } from '../modelli';
 import type { MotivoChiusura } from '../valori';
+import { coppia } from '../esclusioni/esclusioni';
+import { controlliNonSeguitiDi, coppieNonSeguite } from '../esclusioni/inCorso';
 import { ricalcolaScadenze } from './ricalcolo.service';
 
-/** Il controllo vale per il soggetto? (stesso tipo; categorie vuote = tutti) */
-export const siApplica = (controllo: Controllo, idCategorie: number[], soggetto: Soggetto): boolean =>
+/** Il controllo riguarda il soggetto per tipo e categoria (categorie vuote = tutti), qualunque sia il suo stato */
+export const valePer = (controllo: Controllo, idCategorie: number[], soggetto: Soggetto): boolean =>
   controllo.tipoSoggetto === soggetto.tipo &&
-  soggetto.stato !== 'dismesso' &&
   (idCategorie.length === 0 || (soggetto.idCategoria != null && idCategorie.includes(soggetto.idCategoria)));
+
+/** Il controllo vale per il soggetto? (stesso tipo e categoria, soggetto non dismesso) */
+export const siApplica = (controllo: Controllo, idCategorie: number[], soggetto: Soggetto): boolean =>
+  soggetto.stato !== 'dismesso' && valePer(controllo, idCategorie, soggetto);
 
 /** I soggetti (non dismessi) a cui si applica un controllo */
 export async function soggettiDelControllo(controllo: Controllo, idCategorie: number[], transaction?: Transaction): Promise<Soggetto[]> {
@@ -69,12 +76,18 @@ export async function generaScadenze(
     attributes: ['idSoggetto', 'idControllo'],
     transaction,
   });
-  const esistenti = new Set(aperte.map(s => `${s.idSoggetto}:${s.idControllo}`));
+  const esistenti = new Set(aperte.map(s => coppia(Number(s.idSoggetto), Number(s.idControllo))));
+  // le coppie che l'ufficio ha deciso di non seguire non ricevono scadenze
+  const nonSeguite = await coppieNonSeguite(
+    coppie.map(c => c.soggetto.idSoggetto),
+    coppie.map(c => c.controllo.idControllo),
+    transaction
+  );
 
   const create: Scadenza[] = [];
   for (const { soggetto, controllo } of coppie) {
-    const chiave = `${soggetto.idSoggetto}:${controllo.idControllo}`;
-    if (esistenti.has(chiave)) continue;
+    const chiave = coppia(soggetto.idSoggetto, controllo.idControllo);
+    if (esistenti.has(chiave) || nonSeguite.has(chiave)) continue;
     esistenti.add(chiave);
     const uso = controllo.cadenza.uso;
     const contatore = uso
@@ -109,9 +122,12 @@ export async function riapriScadenzeArchiviate(idSoggetto: number, oggi: Giorno,
   const dove = { idSoggetto, motivoChiusura: 'soggetto-dismesso' } as WhereOptions<Scadenza>;
   const ultima = (await Scadenza.max('chiusaIl', { where: dove, transaction })) as Date | null;
   if (!ultima) return 0;
+  // quelle dei controlli che nel frattempo si è deciso di non seguire restano chiuse
+  const nonSeguiti = await controlliNonSeguitiDi(idSoggetto, transaction);
+  const seguite = nonSeguiti.length ? { [Op.or]: [{ idControllo: null }, { idControllo: { [Op.notIn]: nonSeguiti } }] } : {};
   const [n] = await Scadenza.update(
     { chiusaIl: null, motivoChiusura: null },
-    { where: { ...(dove as object), chiusaIl: ultima } as WhereOptions<Scadenza>, transaction, validate: false }
+    { where: { ...(dove as object), ...seguite, chiusaIl: ultima } as WhereOptions<Scadenza>, transaction, validate: false }
   );
   if (n) await ricalcolaScadenze({ idSoggetto }, oggi, transaction);
   return n;

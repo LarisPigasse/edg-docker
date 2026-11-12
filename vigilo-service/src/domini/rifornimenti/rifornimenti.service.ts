@@ -24,6 +24,7 @@ import { ambitoDi, verificaAmbito } from '../ambito/ambito.service';
 import { aggiornaContatore, registraLettura } from '../contatori/contatore.service';
 import { Contatore, Fornitore, Lettura, Rifornimento, Soggetto } from '../modelli';
 import { ricalcolaScadenze } from '../scadenze/ricalcolo.service';
+import { NESSUN_NOME, nomeAutore, nomiAutori, type NomiAutori } from '../soggetti/autori';
 import type { VoceRifornimento } from '../valori';
 import { erroriRifornimento, NOMI_VOCI, prezzoAlLitro, TIPI_CON_RIFORNIMENTI, type DatiRifornimento } from './rifornimenti';
 
@@ -45,7 +46,7 @@ const CON_TUTTO = [
   { model: Lettura, as: 'lettura', include: [{ model: Contatore, as: 'contatore', attributes: ['unita', 'nome'] }] },
 ];
 
-export function presentaRifornimento(r: Rifornimento, ctx: Contesto) {
+export function presentaRifornimento(r: Rifornimento, ctx: Contesto, nomi: NomiAutori = NESSUN_NOME) {
   const mio = r.creatoDa != null && r.creatoDa === ctx.utente.id;
   const conImporto = ctx.capacita.costi || mio;
   return {
@@ -61,6 +62,8 @@ export function presentaRifornimento(r: Rifornimento, ctx: Contesto) {
     note: r.note ?? null,
     lettura: r.lettura ? { valore: r.lettura.valore, unita: r.lettura.contatore?.unita ?? 'km', anomala: r.lettura.anomala } : null,
     mio,
+    /** Chi l'ha registrato (revisione 2026-11-12); null se il nome non si è letto */
+    registratoDa: nomeAutore(nomi, r.creatoDa),
     /** Può correggerlo ed eliminarlo chi chiede */
     modificabile: ctx.capacita.write || mio,
     creatoIl: r.createdAt,
@@ -116,7 +119,7 @@ async function modificabile(ctx: Contesto, uuid: string, transaction: Transactio
 export async function leggiRifornimento(ctx: Contesto, uuid: string, transaction?: Transaction) {
   const r = await trovaNelTenant(Rifornimento, 'uuidRifornimento', uuid, ctx.idTenant, 'Rifornimento', { include: CON_TUTTO, transaction });
   await verificaAmbito(ctx, r.idSoggetto, 'Rifornimento');
-  return presentaRifornimento(r, ctx);
+  return presentaRifornimento(r, ctx, await nomiAutori([r.creatoDa]));
 }
 
 /** GET /rifornimenti: dal più recente; l'addetto vede quelli dei mezzi del suo ambito */
@@ -140,7 +143,8 @@ export async function elencaRifornimenti(ctx: Contesto, q: { soggetto?: string; 
     offset: p.offset,
     distinct: true,
   });
-  return { elementi: rows.map(r => presentaRifornimento(r, ctx)), totale: count };
+  const nomi = await nomiAutori(rows.map(r => r.creatoDa));
+  return { elementi: rows.map(r => presentaRifornimento(r, ctx, nomi)), totale: count };
 }
 
 /** POST /rifornimenti */

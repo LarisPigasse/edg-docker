@@ -1,5 +1,5 @@
 {
-  "lastUpdated": "2026-11-03",
+  "lastUpdated": "2026-11-10",
   "lessons": [
     {
       "id": "L001",
@@ -621,6 +621,33 @@
       "title": "Tailwind v4: breakpoint arbitrario in px perde contro sm/lg/xl (in rem)",
       "problem": "Una classe come min-[1400px]:grid-cols-6 accanto a lg:grid-cols-3 non si applica mai: Tailwind v4 non sa ordinare un breakpoint in px rispetto a quelli predefiniti in rem, lo mette prima nel CSS e lg: vince sempre. La regola esiste nel foglio di stile ma la colonna resta quella di lg (visto sui riquadri della Dashboard di Vigilo).",
       "solution": "Scrivere i breakpoint arbitrari in rem, come quelli di Tailwind: min-[100rem]:grid-cols-6 (1600 px). Verificare con getComputedStyle(el).gridTemplateColumns, non solo con la presenza della classe."
+    },
+    {
+      "id": "L070",
+      "date": "2026-11-09",
+      "category": "cron",
+      "severity": "high",
+      "title": "node-cron non recupera le esecuzioni saltate: serve un giro di recupero",
+      "problem": "Il ricalcolo notturno di Vigilo (00:16) girava solo se il servizio era attivo a quell'ora: con la macchina sospesa di notte (o un riavvio a cavallo della mezzanotte) node-cron salta l'esecuzione senza recuperarla. Dal 6 al 9/11 stati e avvisi del giorno sono rimasti fermi (scadenze \"scaduta ieri\" ancora \"in scadenza\" in dashboard). Anche i tenant saltati per auth-service non pronto all'avvio non venivano mai riprovati.",
+      "solution": "Per ogni processo giornaliero: ricordare il giorno dell'ultima esecuzione completa e, con un giro periodico (VIGILO_RECUPERO_MINUTI, 16 da 4 a 64), rieseguirlo se manca e l'ora prevista è passata (regola pura ricalcoloDovuto in processi/recupero.ts). Un'esecuzione con tenant saltati non conta come completa; un solo giro alla volta (flag inCorso). Il lavoro deve essere idempotente."
+    },
+    {
+      "id": "L071",
+      "date": "2026-11-10",
+      "category": "ui-components",
+      "severity": "high",
+      "title": "Portali custom dentro dialog Radix: pointer-events, chiusura al clic, Esc",
+      "problem": "DatePicker e TimePicker disegnano il pannello con createPortal nel body. Un dialog Radix modale (Sheet, Modal) mette pointer-events:none sul body: il calendario si vedeva ma non si cliccava (date solo a mano). Inoltre lo Sheet non aveva il controllo dei portali sicuri; Radix 1.1.x decide il clic fuori dopo il click, quando il portale si è già chiuso al mousedown (useClickOutside), quindi il controllo \"portale aperto\" arrivava tardi; Esc chiudeva calendario e dialog insieme perdendo i dati.",
+      "solution": "@edg/ui utils/safePortal.ts: safePortalProps (data-modal-safe-portal + pointerEvents:auto) sulla radice del portale; keepOpenOnSafeInteraction per onInteractOutside di Modal e Sheet, che ricorda in fase di cattura se al pointerdown un portale era aperto; keepOpenOnSafeEscape per onEscapeKeyDown. Provare sempre con clic veri del mouse: un click() da JavaScript ignora pointer-events."
+    },
+    {
+      "id": "L072",
+      "date": "2026-11-10",
+      "category": "sequelize",
+      "severity": "medium",
+      "title": "modificatoDa non dice chi ha chiuso: i processi non lo aggiornano",
+      "problem": "Gli hook di audit (core/db/audit.ts) scrivono creatoDa/modificatoDa solo quando c'è un account nella richiesta; nei processi pianificati (rinnovo tacito, ricalcolo) lasciano il valore precedente. Usare scadenza.modificatoDa per dire \"chi l'ha chiusa\" attribuirebbe un rinnovo tacito all'ultima persona che aveva toccato la scadenza.",
+      "solution": "Per l'autore di un evento si usa la riga che lo rappresenta: la registrazione che ha chiuso (confermataDa ?? creatoDa; rinnovo tacito = automatica), regola pura domini/scadenze/chiusura.ts. modificatoDa solo per le chiusure fatte da un'azione dell'ufficio (soggetto dismesso, controllo disattivato). Nomi letti da auth-service una volta per risposta (domini/soggetti/autori.ts), con risposta comunque valida se auth non risponde."
     }
   ]
 }

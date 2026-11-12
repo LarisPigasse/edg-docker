@@ -20,3 +20,11 @@ All'inizio di una nuova conversazione: `cp docs/dev-knowledge/strumenti/w.py ~/w
   - `costo/demo.js` costo di possesso sui mezzi, `costo/prove.js` (tappa 1, ADR108)
   - `rifornimenti/demo.js` (`MODO=piano|scrivi`, 742 rifornimenti già caricati: non rilanciare con scrivi),
     `rifornimenti/prove.js` (tappa 2, ADR109; si ripulisce da solo)
+  - `revisione/` prove della revisione globale (auth-service, sola lettura): `stati.js` (nessuna
+    scadenza "in scadenza" con la data passata, L070), `fasce.js` (fasce della dashboard che non si sovrappongono),
+    `autori-vivo.js` e `chiuse-vivo.js` (chi ha scritto, segnalato e chiuso: nomi nello storico e nelle chiuse),
+    `nonseguiti-vivo.js` (controlli non seguiti: giro completo sul bollo dell'Iveco S-Way 02; lascia una
+    decisione di prova nello storico, da togliere dopo con un DELETE su controlli_non_seguiti),
+    `report-nonseguiti.js` (report "Controlli non seguiti": lascia 2 decisioni di prova sull'Iveco S-Way 02;
+    poi `riprendi-bollo.js` in auth-service e `pulisci-report.js` in vigilo-service),
+    `rifornimenti-autore.js` (registratoDa nei rifornimenti del DAF XF 01)

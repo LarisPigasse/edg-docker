@@ -18,6 +18,8 @@ import { conSegnalazione, scadenzeSegnalate } from '../registrazioni/registrazio
 import { nomeDellAccount } from '../soggetti/account.service';
 import { Categoria, Contatore, Controllo, Registrazione, Scadenza, Soggetto } from '../modelli';
 import { siApplica } from './ciclo.service';
+import { autoreChiusura, type AutoreChiusura } from './chiusura';
+import { coppieNonSeguite } from '../esclusioni/inCorso';
 import { effettiveDi, predefinitiDi, ricalcolaScadenze, situazioneDi } from './ricalcolo.service';
 
 /** Gravità dello stato (4 scaduta … 0 in regola): per ordinare e per lo stato peggiore */
@@ -78,7 +80,13 @@ export async function elencaScadenze(ctx: Contesto, q: Record<string, unknown>, 
     if (stati.some(s => !(STATI as readonly string[]).includes(s))) throw new ValidationError(`Stati ammessi: ${STATI.join(', ')}`);
     where.stato = stati;
   }
-  if (q.entro !== undefined) where.urgenzaIl = { [Op.lte]: aggiungiGiorni(ctx.oggi, Number(q.entro)) };
+  // fascia d'urgenza: oltre N giorni (escluso) ed entro M (compreso), come i riquadri della dashboard
+  if (q.entro !== undefined || q.oltre !== undefined) {
+    const urgenza: Record<symbol, string> = {};
+    if (q.oltre !== undefined) urgenza[Op.gt] = aggiungiGiorni(ctx.oggi, Number(q.oltre));
+    if (q.entro !== undefined) urgenza[Op.lte] = aggiungiGiorni(ctx.oggi, Number(q.entro));
+    where.urgenzaIl = urgenza;
+  }
   if (q.segnalate === true || q.segnalate === 'true') where.idScadenza = scadenzeSegnalate(ctx.idTenant);
   const { rows, count } = await Scadenza.findAndCountAll({
     where: where as WhereOptions<Scadenza>,
@@ -89,10 +97,27 @@ export async function elencaScadenze(ctx: Contesto, q: Record<string, unknown>, 
   });
   const predefiniti = (await predefinitiDi([ctx.idTenant])).get(ctx.idTenant)!;
   const segnalate = await conSegnalazione(rows.map(s => s.idScadenza));
+  const chiusure = await autoriChiusura(rows.filter(s => s.chiusaIl));
   return {
-    righe: rows.map(s => ({ s, sit: situazioneDi(s, s.controllo, s.contatore, predefiniti, ctx.oggi).sit, segnalata: segnalate.has(s.idScadenza) })),
+    righe: rows.map(s => ({
+      s,
+      sit: situazioneDi(s, s.controllo, s.contatore, predefiniti, ctx.oggi).sit,
+      segnalata: segnalate.has(s.idScadenza),
+      chiusura: chiusure.get(s.idScadenza) ?? null,
+    })),
     totale: count,
   };
+}
+
+/** Chi ha chiuso le scadenze indicate (chiusura.ts): una sola lettura delle loro registrazioni confermate */
+async function autoriChiusura(chiuse: Scadenza[]): Promise<Map<number, AutoreChiusura>> {
+  if (!chiuse.length) return new Map();
+  const registrazioni = await Registrazione.findAll({
+    where: { idScadenza: chiuse.map(s => s.idScadenza), stato: 'confermata' },
+    attributes: ['idScadenza', 'tipo', 'esito', 'creatoDa', 'confermataDa'],
+    order: [['eseguitaIl', 'DESC'], ['idRegistrazione', 'DESC']],
+  });
+  return new Map(chiuse.map(s => [s.idScadenza, autoreChiusura(s, registrazioni.filter(r => r.idScadenza === s.idScadenza))]));
 }
 
 /** Il dettaglio: impostazioni effettive con origine, registrazioni, prossima se registrata oggi, segnalazione in attesa (B9c) */
@@ -158,6 +183,8 @@ export async function creaScadenza(ctx: Contesto, body: Record<string, unknown>)
       if (!soggetto) throw new ValidationError('Una scadenza di un controllo ha bisogno del soggetto');
       if (!siApplica(controllo, (controllo.categorie ?? []).map(c => c.idCategoria), soggetto))
         throw new ValidationError('Il controllo non si applica a questo soggetto (tipo o categoria diversi)');
+      if ((await coppieNonSeguite([soggetto.idSoggetto], [controllo.idControllo], transaction)).size)
+        throw new ConflictError('Questo controllo non si segue per questo soggetto: per aggiungerlo, torna a seguirlo dalla scheda (Controlli)');
     } else if (!body.titolo) {
       throw new ValidationError('Un promemoria ha bisogno di un titolo');
     }

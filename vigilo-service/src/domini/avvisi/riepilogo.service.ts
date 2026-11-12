@@ -65,13 +65,14 @@ async function inCoda(idTenant: number): Promise<Consegna[]> {
   return tutte;
 }
 
-/** "3 scadute · 2 in tolleranza · 5 entro 8 giorni · 12 entro 32 giorni · 4 da completare" (solo i numeri non zero) */
+/** "3 scadute · 2 in tolleranza · 5 entro 8 giorni · 7 entro 32 giorni · 2 più avanti · 4 da completare" (solo i numeri non zero; fasce che non si sovrappongono) */
 function numeriDi(n: Awaited<ReturnType<typeof conteggi>>): string {
   const parti: [number, string, string][] = [
     [n.scadute, 'scaduta', 'scadute'],
     [n.inTolleranza, 'in tolleranza', 'in tolleranza'],
     [n.entro8, 'entro 8 giorni', 'entro 8 giorni'],
     [n.entro32, 'entro 32 giorni', 'entro 32 giorni'],
+    [n.piuAvanti, 'più avanti', 'più avanti'],
     [n.daCompletare, 'da completare', 'da completare'],
   ];
   return parti.filter(([x]) => x > 0).map(([x, uno, molti]) => `${x} ${x === 1 ? uno : molti}`).join(' · ');

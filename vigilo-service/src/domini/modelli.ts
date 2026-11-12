@@ -28,6 +28,7 @@ import { PreferenzeAvvisi } from './avvisi/preferenzeAvvisi.model';
 import { RecapitoEmail } from './avvisi/recapitoEmail.model';
 import { DecisioneLibreria } from './aggiornamenti/decisioneLibreria.model';
 import { Rifornimento } from './rifornimenti/rifornimento.model';
+import { ControlloNonSeguito } from './esclusioni/esclusione.model';
 
 const fk = (foreignKey: string) => ({ foreignKey, constraints: false });
 
@@ -102,6 +103,11 @@ Rifornimento.belongsTo(Fornitore, { ...fk('idFornitore'), as: 'fornitore' });
 Rifornimento.hasOne(Lettura, { ...fk('idRifornimento'), as: 'lettura' });
 Lettura.belongsTo(Rifornimento, { ...fk('idRifornimento'), as: 'rifornimento' });
 
+// controlli non seguiti per soggetto (revisione 2026-11-11)
+Soggetto.hasMany(ControlloNonSeguito, { ...fk('idSoggetto'), as: 'controlliNonSeguiti' });
+ControlloNonSeguito.belongsTo(Soggetto, { ...fk('idSoggetto'), as: 'soggetto' });
+ControlloNonSeguito.belongsTo(Controllo, { ...fk('idControllo'), as: 'controllo' });
+
 export {
   LibreriaCategoria,
   LibreriaControllo,
@@ -126,4 +132,5 @@ export {
   RecapitoEmail,
   DecisioneLibreria,
   Rifornimento,
+  ControlloNonSeguito,
 };

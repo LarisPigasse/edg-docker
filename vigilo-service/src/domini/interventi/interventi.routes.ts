@@ -19,5 +19,5 @@ export const interventiRoutes = Router();
 interventiRoutes.post('/soggetti/:id/guasti', richiedi('write', 'own'), validateParams(paramUuid), validateBody(schemi.guasto), async (req: Request, res: Response) => {
   const ctx = contestoDi(req);
   const { uuid, sospeso } = await segnalaGuasto(ctx, req.params.id, req.body);
-  createdResponse(res, { ...presentaDettaglio(await leggiScadenza(ctx, uuid), ctx), sospeso }, sospeso ? 'Guasto segnalato: il mezzo è sospeso' : 'Guasto segnalato');
+  createdResponse(res, { ...(await presentaDettaglio(await leggiScadenza(ctx, uuid), ctx)), sospeso }, sospeso ? 'Guasto segnalato: il mezzo è sospeso' : 'Guasto segnalato');
 });

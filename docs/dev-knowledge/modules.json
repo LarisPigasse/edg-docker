@@ -1,5 +1,5 @@
 {
-  "lastUpdated": "2026-11-05",
+  "lastUpdated": "2026-11-12",
   "modules": {
     "auth-service": {
       "status": "stable",
@@ -148,13 +148,13 @@
     },
     "vigilo-service": {
       "status": "review",
-      "notes": "Committato fino al costo dei mezzi tappa 2 (rifornimenti, ADR109). Jest 239/239. In revisione globale guidata dall'utente. Ripartenza: next-session.md §1.",
-      "lastUpdated": "2026-11-05"
+      "notes": "Revisione 9-11/11: recupero ricalcolo (L070), fasce dashboard, autori e chi ha chiuso (L072), controlli non seguiti (ADR110, migrazione eseguita). Jest 261/261. Prossimo: report mancanti.",
+      "lastUpdated": "2026-11-12"
     },
     "app-frontend (vigilo)": {
       "status": "review",
-      "notes": "Committato: rifornimenti (scheda mezzo, Azioni, I miei mezzi), costo dei mezzi con blocco Uso, Spese per voce. In revisione globale dell'utente.",
-      "lastUpdated": "2026-11-05"
+      "notes": "Report fatti (ADR111): Soggetti, Scheda soggetto, Piano dei controlli, Controlli non seguiti, Storico, Rifornimenti, Fornitori, Calendario. Prossimo: elenchi/liste/tabelle.",
+      "lastUpdated": "2026-11-12"
     },
     "api-gateway": {
       "status": "stable",

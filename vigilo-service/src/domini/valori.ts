@@ -31,6 +31,8 @@ export const MOTIVI_CHIUSURA = [
   'fine-ricorrenza',
   'soggetto-dismesso',
   'controllo-disattivato',
+  /** Il controllo non si segue più per quel soggetto (controlli non seguiti, 2026-11-11) */
+  'non-seguita',
 ] as const;
 export type MotivoChiusura = (typeof MOTIVI_CHIUSURA)[number];
 

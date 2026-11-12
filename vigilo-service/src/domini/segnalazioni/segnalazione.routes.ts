@@ -12,7 +12,7 @@ import { richiedi } from '../../core/middleware/permessi';
 import { validateBody, validateParams } from '../../core/middleware/validate';
 import { createdResponse, noContentResponse, successResponse } from '../../core/utils/response';
 import { paramUuid } from '../schemi';
-import { presentaEsecuzione, presentaRegistrazione } from '../scadenze/scadenza.presenta';
+import { autoriDelle, presentaEsecuzione, presentaRegistrazione } from '../scadenze/scadenza.presenta';
 import * as schemi from '../scadenze/scadenza.schemas';
 import * as servizio from './segnalazione.service';
 
@@ -20,7 +20,8 @@ export const segnalazioniRoutes = Router();
 
 segnalazioniRoutes.post('/scadenze/:id/segnalazioni', richiedi('own'), validateParams(paramUuid), validateBody(schemi.segnalazione), async (req: Request, res: Response) => {
   const ctx = contestoDi(req);
-  createdResponse(res, presentaRegistrazione(await servizio.segnala(ctx, req.params.id, req.body), ctx), 'Segnalazione inviata: l’ufficio la confermerà');
+  const r = await servizio.segnala(ctx, req.params.id, req.body);
+  createdResponse(res, presentaRegistrazione(r, ctx, await autoriDelle([r])), 'Segnalazione inviata: l’ufficio la confermerà');
 });
 
 segnalazioniRoutes.delete('/segnalazioni/:id', richiedi('own'), validateParams(paramUuid), async (req: Request, res: Response) => {
@@ -30,10 +31,12 @@ segnalazioniRoutes.delete('/segnalazioni/:id', richiedi('own'), validateParams(p
 
 segnalazioniRoutes.post('/segnalazioni/:id/conferma', richiedi('write'), validateParams(paramUuid), validateBody(schemi.conferma), async (req: Request, res: Response) => {
   const ctx = contestoDi(req);
-  successResponse(res, presentaEsecuzione(ctx, await servizio.conferma(ctx, req.params.id, req.body)), 'Segnalazione confermata');
+  const e = await servizio.conferma(ctx, req.params.id, req.body);
+  successResponse(res, presentaEsecuzione(ctx, e, await autoriDelle([e.registrazione])), 'Segnalazione confermata');
 });
 
 segnalazioniRoutes.post('/segnalazioni/:id/rifiuto', richiedi('write'), validateParams(paramUuid), validateBody(schemi.rifiuto), async (req: Request, res: Response) => {
   const ctx = contestoDi(req);
-  successResponse(res, presentaRegistrazione(await servizio.respingi(ctx, req.params.id, req.body.motivo), ctx), 'Segnalazione respinta');
+  const r = await servizio.respingi(ctx, req.params.id, req.body.motivo);
+  successResponse(res, presentaRegistrazione(r, ctx, await autoriDelle([r])), 'Segnalazione respinta');
 });

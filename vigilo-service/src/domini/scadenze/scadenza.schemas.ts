@@ -103,6 +103,8 @@ const filtri = {
   /** Solo quelle con una segnalazione dell'addetto da confermare (B9c) */
   segnalate: Joi.boolean(),
   entro: Joi.number().integer().min(0).max(4096),
+  /** Con `entro`: solo quelle oltre questi giorni (la fascia "da 9 a 32" e' oltre 8, entro 32) */
+  oltre: Joi.number().integer().min(0).max(4096),
 };
 
 export const listaScadenze = schemaLista(['urgenza', 'scadeIl', 'soggetto', 'stato', 'chiusaIl'], 'urgenza', filtri);

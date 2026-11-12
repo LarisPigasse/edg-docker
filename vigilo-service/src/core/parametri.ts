@@ -53,6 +53,8 @@ export const LIMITI_PIATTAFORMA = {
   esportaRighe: { predefinito: 16384, min: 1024, max: 65536 },
   /** Costo dei mezzi: oltre questa percentuale sopra la media della categoria il mezzo è segnalato */
   scostamentoPercento: { predefinito: 32, min: 8, max: 128 },
+  /** Ogni quanti minuti si controlla se il ricalcolo di oggi manca (servizio fermo a mezzanotte) */
+  recuperoMinuti: { predefinito: 16, min: 4, max: 64 },
 } as const satisfies Record<string, Limiti>;
 
 export const PARAMETRI = {
@@ -65,4 +67,5 @@ export const PARAMETRI = {
   sogliaOre: parametro('VIGILO_SOGLIA_ORE', LIMITI_PIATTAFORMA.sogliaOre),
   esportaRighe: parametro('VIGILO_ESPORTA_RIGHE', LIMITI_PIATTAFORMA.esportaRighe),
   scostamentoPercento: parametro('VIGILO_SCOSTAMENTO_PERCENTO', LIMITI_PIATTAFORMA.scostamentoPercento),
+  recuperoMinuti: parametro('VIGILO_RECUPERO_MINUTI', LIMITI_PIATTAFORMA.recuperoMinuti),
 } as const;
