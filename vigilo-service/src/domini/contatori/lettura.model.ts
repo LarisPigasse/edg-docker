@@ -11,6 +11,8 @@ import { AUDIT, booleano, chiave, ConAudit, elenco, giorno, intero, istante, ten
 import type { Giorno } from '../../regole';
 import { FONTI_LETTURA, type FonteLettura } from '../valori';
 import type { Contatore } from './contatore.model';
+import type { Registrazione } from '../registrazioni/registrazione.model';
+import type { Rifornimento } from '../rifornimenti/rifornimento.model';
 
 export class Lettura extends ConAudit<Lettura> {
   declare idLettura: CreationOptional<number>;
@@ -27,6 +29,9 @@ export class Lettura extends ConAudit<Lettura> {
   declare note: CreationOptional<string | null>;
 
   declare contatore?: NonAttribute<Contatore>;
+  /** Nell'elenco: da dove viene una lettura non manuale */
+  declare registrazione?: NonAttribute<Registrazione>;
+  declare rifornimento?: NonAttribute<Rifornimento>;
 }
 
 Lettura.init(

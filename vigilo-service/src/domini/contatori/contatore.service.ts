@@ -93,6 +93,15 @@ export async function elencaLetture(ctx: Contesto, uuidContatore: string, p: Pag
   await verificaAmbito(ctx, c.idSoggetto, 'Contatore');
   const { rows, count } = await Lettura.findAndCountAll({
     where: { idContatore: c.idContatore },
+    // da dove viene una lettura che non si elimina da sola (la registrazione o il rifornimento)
+    include: [
+      {
+        association: 'registrazione',
+        attributes: ['eseguitaIl'],
+        include: [{ association: 'scadenza', attributes: ['titolo'], include: [{ association: 'controllo', attributes: ['nome'] }] }],
+      },
+      { association: 'rifornimento', attributes: ['fattoIl', 'voce'] },
+    ],
     order: [['lettoIl', p.verso], ['idLettura', p.verso]],
     limit: p.righe,
     offset: p.offset,

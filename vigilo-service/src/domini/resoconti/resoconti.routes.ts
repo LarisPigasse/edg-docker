@@ -10,18 +10,22 @@
 //                          guasti, unità, confronto con la categoria)
 //   GET /resoconti/possesso/anteprima   quota mensile, errori e avviso morbido
 //                          mentre si scrive il costo di possesso
+//   GET /resoconti/mezzi/:id/andamento   i costi del mezzo mese per mese
+//                          (anche "da quando c'è"; read e costi; 2026-11-16)
+//   GET /resoconti/fornitori   interventi e costi per fornitore nel periodo
+//                          (tutti, un tipo o uno; read e costi; 2026-11-12)
 // =============================================================================
 import Joi from 'joi';
 import { Router, Request, Response } from 'express';
 import { contestoDi } from '../../core/contesto';
 import { richiedi } from '../../core/middleware/permessi';
-import { validateQuery } from '../../core/middleware/validate';
+import { validateParams, validateQuery } from '../../core/middleware/validate';
 import { successResponse } from '../../core/utils/response';
 import { intestazioneNome } from '../allegati/allegati';
-import { giorno, tipoSoggetto, uuid } from '../schemi';
+import { giorno, paramUuid, tipoSoggetto, uuid } from '../schemi';
 import { PERIODI } from './resoconti';
-import { righeCsv, spese, type FiltriSpese } from './resoconti.service';
-import { anteprimaPossesso, costoMezzi, type FiltriMezzi, type RichiestaAnteprima } from './mezzi.service';
+import { interventiFornitori, righeCsv, spese, type FiltriFornitori, type FiltriSpese } from './resoconti.service';
+import { andamentoMezzo, anteprimaPossesso, costoMezzi, type FiltriAndamento, type FiltriMezzi, type RichiestaAnteprima } from './mezzi.service';
 import { MODI_POSSESSO } from '../soggetti/possesso';
 
 const filtri = Joi.object({
@@ -36,6 +40,26 @@ const filtri = Joi.object({
 });
 
 const filtriMezzi = filtri.keys({ soggetto: uuid });
+
+/** L'andamento dei costi di un mezzo: gli ultimi 12 mesi chiusi (predefinito), i periodi di Spese e consumi e "da quando c'è" */
+const filtriAndamento = Joi.object({
+  periodo: Joi.string()
+    .valid('chiusi', ...PERIODI, 'inizio')
+    .default('chiusi'),
+  dal: giorno,
+  al: giorno,
+});
+
+/** Interventi e costi per fornitore: il periodo (ultimi 12 mesi se manca) e un fornitore o un tipo */
+const filtriFornitori = Joi.object({
+  periodo: Joi.string()
+    .valid(...PERIODI)
+    .default('12m'),
+  dal: giorno,
+  al: giorno,
+  fornitore: uuid,
+  tipoFornitore: Joi.string().trim().max(64),
+});
 
 const anteprima = Joi.object({
   modo: Joi.string().valid(...MODI_POSSESSO),
@@ -54,6 +78,17 @@ resocontiRoutes.get('/resoconti/mezzi', richiedi('read'), richiedi('costi'), val
   successResponse(res, await costoMezzi(contestoDi(req), req.query as FiltriMezzi));
 });
 
+resocontiRoutes.get(
+  '/resoconti/mezzi/:id/andamento',
+  richiedi('read'),
+  richiedi('costi'),
+  validateParams(paramUuid),
+  validateQuery(filtriAndamento),
+  async (req: Request, res: Response) => {
+    successResponse(res, await andamentoMezzo(contestoDi(req), req.params.id, req.query as FiltriAndamento));
+  }
+);
+
 resocontiRoutes.get('/resoconti/possesso/anteprima', richiedi('read'), richiedi('costi'), validateQuery(anteprima), async (req: Request, res: Response) => {
   const q = { ...(req.query as RichiestaAnteprima) };
   if ((q.dal as unknown) === '') q.dal = null;
@@ -66,6 +101,10 @@ resocontiRoutes.get('/resoconti/spese/righe.csv', richiedi('read'), richiedi('co
   res.setHeader('Content-Disposition', intestazioneNome(csv.nome, false));
   res.setHeader('Cache-Control', 'no-store');
   res.send(csv.testo);
+});
+
+resocontiRoutes.get('/resoconti/fornitori', richiedi('read'), richiedi('costi'), validateQuery(filtriFornitori), async (req: Request, res: Response) => {
+  successResponse(res, await interventiFornitori(contestoDi(req), req.query as FiltriFornitori));
 });
 
 resocontiRoutes.get('/resoconti/spese', richiedi('read'), richiedi('costi'), validateQuery(filtri), async (req: Request, res: Response) => {

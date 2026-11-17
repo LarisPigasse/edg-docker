@@ -1,7 +1,8 @@
 // =============================================================================
 // Contatori e letture — /api/vigilo/... (lettura: read; modifiche: write)
 // L'addetto (own) legge e inserisce letture dei mezzi del suo ambito e corregge
-// le sue (B9b); `tua` dice se l'ha inserita chi chiede
+// le sue (B9b); `tua` dice se l'ha inserita chi chiede; `origine` da quale
+// registrazione o rifornimento viene, se non è manuale (si corregge da lì)
 // =============================================================================
 import Joi from 'joi';
 import { Router, Request, Response } from 'express';
@@ -12,6 +13,7 @@ import { paginaDa, rispondiLista, schemaLista } from '../../core/utils/lista';
 import { createdResponse, successResponse } from '../../core/utils/response';
 import { giorno, paramUuid } from '../schemi';
 import { presentaContatore } from '../soggetti/soggetto.presenta';
+import { NOMI_VOCI } from '../rifornimenti/rifornimenti';
 import type { Lettura } from './lettura.model';
 import * as servizio from './contatore.service';
 
@@ -24,6 +26,12 @@ const presentaLettura = (l: Lettura, ctx: Contesto) => ({
   note: l.note ?? null,
   registrataIl: l.createdAt,
   tua: l.creatoDa === ctx.utente.id,
+  /** Da dove viene (solo nell'elenco): la registrazione di una scadenza o un rifornimento */
+  origine: l.registrazione
+    ? { tipo: 'registrazione' as const, il: l.registrazione.eseguitaIl, titolo: l.registrazione.scadenza?.titolo ?? l.registrazione.scadenza?.controllo?.nome ?? null }
+    : l.rifornimento
+      ? { tipo: 'rifornimento' as const, il: l.rifornimento.fattoIl, titolo: NOMI_VOCI[l.rifornimento.voce] }
+      : null,
 });
 
 const nuovoContatore = Joi.object({ unita: Joi.string().valid('km', 'ore').required(), nome: Joi.string().trim().max(64).allow('') });

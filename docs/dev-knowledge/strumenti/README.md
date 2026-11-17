@@ -27,4 +27,7 @@ All'inizio di una nuova conversazione: `cp docs/dev-knowledge/strumenti/w.py ~/w
     decisione di prova nello storico, da togliere dopo con un DELETE su controlli_non_seguiti),
     `report-nonseguiti.js` (report "Controlli non seguiti": lascia 2 decisioni di prova sull'Iveco S-Way 02;
     poi `riprendi-bollo.js` in auth-service e `pulisci-report.js` in vigilo-service),
-    `rifornimenti-autore.js` (registratoDa nei rifornimenti del DAF XF 01)
+    `rifornimenti-autore.js` (registratoDa nei rifornimenti del DAF XF 01),
+    `interventi-fornitori.js` (report per fornitore confrontato con "A chi vanno"), `csv-spese.js` (CSV delle spese),
+    `origine-letture.js` (letture dei tagliandi del DAF con l'origine, quelle manuali senza),
+    `andamento-vivo.js` (andamento dei costi del DAF confrontato con la scheda)

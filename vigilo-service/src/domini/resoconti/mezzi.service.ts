@@ -9,17 +9,22 @@
 // solo mezzo, ma il confronto si fa sempre con tutta la categoria.
 // GET /resoconti/possesso/anteprima: la quota mensile, gli errori e l'avviso
 // morbido mentre si scrive il costo di possesso (regole in possesso.ts).
+// GET /resoconti/mezzi/:id/andamento: i tre blocchi del costo mese per mese
+// (regole in andamento.ts), anche "da quando c'è" (2026-11-16).
 // =============================================================================
 import { QueryTypes } from 'sequelize';
 import { sequelize } from '../../config/database';
 import type { Contesto } from '../../core/contesto';
 import { trovaNelTenant } from '../../core/db/tenant';
 import { PARAMETRI } from '../../core/parametri';
-import type { Giorno } from '../../regole';
-import { Categoria } from '../modelli';
+import { aggiungiGiorni, differenzaGiorni, type Giorno } from '../../regole';
+import { ValidationError } from '../../core/utils/errors';
+import { Categoria, Soggetto } from '../modelli';
 import { avvisoQuota, erroriPossesso, quotaMensile, TIPI_CON_POSSESSO, type DatiPossesso, type Possesso } from '../soggetti/possesso';
 import type { StatoSoggetto, TipoSoggetto } from '../valori';
 import { bloccoDi, costiMezzi, type MezzoDaCalcolare } from './mezzi';
+import { andamentoCosti, inizioLettura, soloMesiChiusi, ultimiMesiChiusi } from './andamento';
+import { intervalloDi, LIMITI_RESOCONTI, type Intervallo, type Periodo } from './resoconti';
 import { filtroDi, periodoDi, righe, usi, type FiltriSpese } from './resoconti.service';
 
 export interface FiltriMezzi extends FiltriSpese {
@@ -93,6 +98,74 @@ export async function costoMezzi(ctx: Contesto, q: FiltriMezzi) {
     soglie,
     sogliaScostamento,
     mezzi: q.soggetto ? costi.filter(c => c.uuid === q.soggetto) : costi,
+  };
+}
+
+/**
+ * I periodi dell'andamento: "chiusi" (gli ultimi 12 mesi chiusi, predefinito),
+ * quelli di Spese e consumi ("12m" fino a oggi, come la scheda dei costi, con il
+ * mese in corso) e "da quando c'è"
+ */
+export type PeriodoAndamento = Periodo | 'chiusi' | 'inizio';
+
+export interface FiltriAndamento {
+  periodo?: PeriodoAndamento;
+  dal?: Giorno;
+  al?: Giorno;
+}
+
+/**
+ * GET /resoconti/mezzi/:id/andamento: il costo del mezzo mese per mese. Solo
+ * mesi chiusi (predefinito: gli ultimi 12), tranne "12m": fino a oggi come la
+ * scheda dei costi, con il mese in corso (segnalato in meseInCorso).
+ */
+export async function andamentoMezzo(ctx: Contesto, uuid: string, q: FiltriAndamento) {
+  const s = await trovaNelTenant(Soggetto, 'uuidSoggetto', uuid, ctx.idTenant, 'Mezzo');
+  if (!TIPI_CON_POSSESSO.includes(s.tipo)) throw new ValidationError('L\'andamento dei costi vale per veicoli, macchine e attrezzature');
+  const possesso = s.possesso ? { mensile: Number(s.possesso.mensile), dal: s.possesso.dal ?? null } : null;
+  const fine = s.stato === 'dismesso' ? (s.statoDal ?? null) : null;
+  const infoPossesso = s.possesso ? { mensile: Number(s.possesso.mensile), modo: s.possesso.modo, dal: s.possesso.dal ?? null } : null;
+  let periodo: Intervallo;
+  let troncato = false;
+  if (q.periodo === 'inizio') {
+    // da quando c'è: dalla data del possesso, o da quando è stato inserito; al massimo gli ultimi 4 anni
+    const al = fine && fine < ctx.oggi ? fine : ctx.oggi;
+    let dal = possesso?.dal ?? (s.createdAt.toISOString().slice(0, 10) as Giorno);
+    if (differenzaGiorni(dal, al) + 1 > LIMITI_RESOCONTI.giorniMassimi) {
+      dal = aggiungiGiorni(al, -(LIMITI_RESOCONTI.giorniMassimi - 1));
+      troncato = true;
+    }
+    periodo = { dal: dal > al ? al : dal, al };
+  } else if ((q.periodo ?? 'chiusi') === 'chiusi') {
+    periodo = ultimiMesiChiusi(ctx.oggi, 12);
+  } else {
+    const p = intervalloDi(q.periodo as Periodo, ctx.oggi, q.dal, q.al);
+    if (typeof p === 'string') throw new ValidationError(p);
+    periodo = p;
+  }
+  // solo dati consolidati: il mese in corso non entra (sembrerebbe un calo), tranne in "12m" (come la scheda)
+  const comeLaScheda = q.periodo === '12m';
+  const chiuso = comeLaScheda ? periodo : soloMesiChiusi(periodo, ctx.oggi);
+  if (!chiuso) {
+    return { periodo, troncato, nessunMeseChiuso: true, obblighiRipartiti: true, meseInCorso: null, possesso: infoPossesso, mesi: [], totali: { quota: 0, obblighi: 0, possesso: 0, manutenzione: 0, uso: 0, totale: 0 }, quote: { possesso: 0, manutenzione: 0, uso: 0 } };
+  }
+  periodo = chiuso;
+  // le spese del mezzo dal primo mese che ha ancora rate di obblighi nel periodo
+  const spese = (
+    await righe(ctx, { dal: inizioLettura(periodo), al: periodo.al }, { sql: ' AND so.id_soggetto = :idSoggetto', valori: { idSoggetto: s.idSoggetto } })
+  ).map(r => ({ giorno: r.giorno, blocco: bloccoDi(r.natura), spesa: r.importo + r.manodopera }));
+  return {
+    periodo,
+    /** "Da quando c'è" oltre i 4 anni: si mostrano gli ultimi 4 */
+    troncato,
+    /** Il periodo non contiene ancora mesi chiusi (es. anno in corso a gennaio) */
+    nessunMeseChiuso: false,
+    /** "12m": obblighi per intero nel mese del pagamento, come la scheda; altrimenti ripartiti sui 12 mesi */
+    obblighiRipartiti: !comeLaScheda,
+    /** "AAAA-MM" del mese in corso se il periodo lo contiene (solo "12m"): è parziale, fino a oggi */
+    meseInCorso: comeLaScheda && periodo.al >= `${ctx.oggi.slice(0, 7)}-01` ? ctx.oggi.slice(0, 7) : null,
+    possesso: infoPossesso,
+    ...andamentoCosti({ periodo, possesso, fine, spese, ripartisciObblighi: !comeLaScheda }),
   };
 }
 

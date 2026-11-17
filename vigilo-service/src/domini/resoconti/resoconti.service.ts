@@ -10,6 +10,8 @@
 // Le query sono in sequenza: letture semplici, il pool resta libero.
 // righeCsv: il dettaglio delle stesse registrazioni per il CSV, una riga per
 // spesa, al massimo VIGILO_ESPORTA_RIGHE (oltre: si restringono i filtri).
+// interventiFornitori: le stesse righe con un fornitore (tutti, un tipo o uno),
+// raggruppate per fornitore con subtotali e totale (fornitori.ts, 2026-11-12).
 // =============================================================================
 import { QueryTypes } from 'sequelize';
 import { sequelize } from '../../config/database';
@@ -20,10 +22,11 @@ import { comeTesto } from '../../core/utils/lista';
 import { ValidationError } from '../../core/utils/errors';
 import type { Giorno, UnitaUso } from '../../regole';
 import { costoManodopera, oreManodopera } from '../interventi/interventi';
-import { Soggetto } from '../modelli';
+import { Fornitore, Soggetto } from '../modelli';
 import type { Esecuzione, NaturaEffettiva, RigaManodopera, TipoSoggetto, VoceRifornimento } from '../valori';
 import { confrontoDi, costoPerUnita, intervalloDi, riepilogo, usoNelPeriodo, type Intervallo, type NaturaResoconto, type Periodo, type RigaSpesa } from './resoconti';
 import { nomeFileCsv, testoCsv, type RigaCsv } from './csv';
+import { perFornitore, type RigaFornitore } from './fornitori';
 import { NOMI_VOCI } from '../rifornimenti/rifornimenti';
 
 export interface FiltriSpese {
@@ -204,18 +207,29 @@ interface RigaCsvDb {
   natura: NaturaResoconto;
   esecuzione: Esecuzione | null;
   litri: string | number | null;
+  uuid_fornitore: string | null;
   nome_fornitore: string | null;
+  chiave_tipo: string | null;
   nome_tipo: string | null;
   riferimento: string | null;
   importo: string | number | null;
   manodopera: RigaManodopera[] | null;
 }
 
-/** GET /resoconti/spese/righe.csv: il dettaglio del periodo, dalla spesa più vecchia */
-export async function righeCsv(ctx: Contesto, q: FiltriSpese): Promise<{ nome: string; testo: string; righe: number }> {
-  const periodo = periodoDi(ctx, q);
-  const f = await filtroDi(ctx, q);
-  const massimo = PARAMETRI.esportaRighe;
+/** Condizioni in più sul fornitore delle spese (report per fornitore) */
+interface FiltroFornitore {
+  sql: string;
+  valori: Record<string, unknown>;
+}
+
+const NESSUN_FILTRO_FORNITORE: FiltroFornitore = { sql: '', valori: {} };
+
+/**
+ * Il dettaglio delle spese del periodo (registrazioni e rifornimenti), dalla
+ * più vecchia: per il CSV delle spese e per il report per fornitore. Oltre
+ * `massimo` righe si chiede di restringere.
+ */
+async function dettaglioSpese(ctx: Contesto, periodo: Intervallo, f: Filtro, ff: FiltroFornitore, massimo: number): Promise<RigaCsvDb[]> {
   // registrazioni e rifornimenti insieme, dalla spesa più vecchia
   const voci = Object.entries(NOMI_VOCI).map(([k, n]) => `WHEN '${k}' THEN '${n}'`).join(' ');
   const rr = await sequelize.query<RigaCsvDb>(
@@ -223,7 +237,7 @@ export async function righeCsv(ctx: Contesto, q: FiltriSpese): Promise<{ nome: s
        SELECT r.eseguita_il AS il, to_char(r.eseguita_il, 'YYYY-MM-DD') AS giorno, r.importo, r.manodopera, r.esecuzione, r.riferimento,
               NULL::numeric AS litri, so.nome AS nome_soggetto, so.identificativo, so.tipo AS tipo_soggetto, se.nome AS nome_sede,
               COALESCE(sc.titolo, c.nome) AS scadenza, COALESCE(sc.natura, c.natura, 'promemoria') AS natura,
-              fo.nome AS nome_fornitore, tf.nome AS nome_tipo, 0 AS ordine, r.id_registrazione AS id
+              fo.uuid_fornitore, fo.nome AS nome_fornitore, tf.chiave AS chiave_tipo, tf.nome AS nome_tipo, 0 AS ordine, r.id_registrazione AS id
          FROM registrazioni r
          JOIN scadenze sc ON sc.id_scadenza = r.id_scadenza
          LEFT JOIN soggetti so ON so.id_soggetto = sc.id_soggetto
@@ -232,26 +246,34 @@ export async function righeCsv(ctx: Contesto, q: FiltriSpese): Promise<{ nome: s
          LEFT JOIN fornitori fo ON fo.id_fornitore = r.id_fornitore
          LEFT JOIN tipi_fornitore tf ON tf.id_tipo = fo.id_tipo
         WHERE r.id_tenant = :t AND r.tipo = 'esecuzione' AND r.stato = 'confermata'
-          AND r.eseguita_il BETWEEN :dal AND :al${f.sql}
+          AND r.eseguita_il BETWEEN :dal AND :al${f.sql}${ff.sql}
        UNION ALL
        SELECT r.fatto_il, to_char(r.fatto_il, 'YYYY-MM-DD'), r.importo, NULL::jsonb, NULL, r.riferimento,
               r.litri, so.nome, so.identificativo, so.tipo, se.nome,
               CASE r.voce ${voci} END, 'uso',
-              fo.nome, tf.nome, 1, r.id_rifornimento
+              fo.uuid_fornitore, fo.nome, tf.chiave, tf.nome, 1, r.id_rifornimento
          FROM rifornimenti r
          JOIN soggetti so ON so.id_soggetto = r.id_soggetto
          LEFT JOIN soggetti se ON se.id_soggetto = so.id_sede
          LEFT JOIN fornitori fo ON fo.id_fornitore = r.id_fornitore
          LEFT JOIN tipi_fornitore tf ON tf.id_tipo = fo.id_tipo
-        WHERE r.id_tenant = :t AND r.fatto_il BETWEEN :dal AND :al${f.sql}
+        WHERE r.id_tenant = :t AND r.fatto_il BETWEEN :dal AND :al${f.sql}${ff.sql}
      ) spese
      ORDER BY il, nome_soggetto NULLS LAST, ordine, id
      LIMIT :limite`,
-    { replacements: { t: ctx.idTenant, dal: periodo.dal, al: periodo.al, limite: massimo + 1, ...f.valori }, type: QueryTypes.SELECT }
+    { replacements: { t: ctx.idTenant, dal: periodo.dal, al: periodo.al, limite: massimo + 1, ...f.valori, ...ff.valori }, type: QueryTypes.SELECT }
   );
   if (rr.length > massimo) {
     throw new ValidationError(`Oltre ${massimo} spese nel periodo: restringi il periodo o i filtri per esportarle`);
   }
+  return rr;
+}
+
+/** GET /resoconti/spese/righe.csv: il dettaglio del periodo, dalla spesa più vecchia */
+export async function righeCsv(ctx: Contesto, q: FiltriSpese): Promise<{ nome: string; testo: string; righe: number }> {
+  const periodo = periodoDi(ctx, q);
+  const f = await filtroDi(ctx, q);
+  const rr = await dettaglioSpese(ctx, periodo, f, NESSUN_FILTRO_FORNITORE, PARAMETRI.esportaRighe);
   const righe: RigaCsv[] = rr.map(r => ({
     giorno: r.giorno,
     soggetto: r.nome_soggetto,
@@ -270,6 +292,45 @@ export async function righeCsv(ctx: Contesto, q: FiltriSpese): Promise<{ nome: s
     manodopera: costoManodopera(r.manodopera) ?? 0,
   }));
   return { nome: nomeFileCsv(periodo), testo: testoCsv(righe), righe: righe.length };
+}
+
+export interface FiltriFornitori {
+  periodo?: Periodo;
+  dal?: Giorno;
+  al?: Giorno;
+  /** Un fornitore (uuid) */
+  fornitore?: string;
+  /** Un tipo di fornitore (chiave del catalogo) */
+  tipoFornitore?: string;
+}
+
+/** GET /resoconti/fornitori: interventi e costi per fornitore nel periodo (predefinito: ultimi 12 mesi) */
+export async function interventiFornitori(ctx: Contesto, q: FiltriFornitori) {
+  const periodo = intervalloDi(q.periodo ?? '12m', ctx.oggi, q.dal, q.al);
+  if (typeof periodo === 'string') throw new ValidationError(periodo);
+  // solo le spese con un fornitore, eventualmente uno solo o un tipo
+  const ff: FiltroFornitore = { sql: ' AND fo.id_fornitore IS NOT NULL', valori: {} };
+  if (q.fornitore) {
+    const f = await trovaNelTenant(Fornitore, 'uuidFornitore', q.fornitore, ctx.idTenant, 'Fornitore');
+    ff.sql += ' AND fo.id_fornitore = :idFornitore';
+    ff.valori.idFornitore = f.idFornitore;
+  }
+  if (q.tipoFornitore) {
+    ff.sql += ' AND tf.chiave = :tipoFornitore';
+    ff.valori.tipoFornitore = q.tipoFornitore;
+  }
+  const rr = await dettaglioSpese(ctx, periodo, { sql: '', valori: {} }, ff, PARAMETRI.esportaRighe);
+  const righe: RigaFornitore[] = rr.map(r => ({
+    giorno: r.giorno,
+    soggetto: r.nome_soggetto ? { nome: r.nome_soggetto, identificativo: r.identificativo } : null,
+    intervento: r.natura === 'uso' ? `Rifornimento: ${r.scadenza ?? ''}` : (r.scadenza ?? ''),
+    natura: r.natura,
+    riferimento: r.riferimento,
+    importo: r.importo == null ? 0 : Number(r.importo),
+    litri: r.litri == null ? null : Number(r.litri),
+    fornitore: { uuid: r.uuid_fornitore!, nome: r.nome_fornitore!, tipo: r.chiave_tipo ? { chiave: r.chiave_tipo, nome: r.nome_tipo! } : null },
+  }));
+  return { periodo, ...perFornitore(righe) };
 }
 
 /** GET /resoconti/spese */

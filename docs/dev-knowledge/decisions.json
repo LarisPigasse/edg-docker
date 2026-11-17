@@ -1,5 +1,5 @@
 {
-  "lastUpdated": "2026-11-12",
+  "lastUpdated": "2026-11-16",
   "decisions": [
     {
       "id": "ADR001",
@@ -998,6 +998,15 @@
       "context": "Mancavano i report di molte pagine di Vigilo (soggetti, scheda del soggetto, piano dei controlli, controlli non seguiti, storico, rifornimenti, fornitori, calendario). Esistevano solo il PDF delle Scadenze, il PDF di Da fare e PDF/CSV di Spese e consumi (quest'ultimo CSV generato dal servizio).",
       "decision": "I report si generano nel browser con le righe lette dal servizio: @edg/ui utils/exportCsv.ts (exportTableToCsv, csvDate, csvText: BOM, punto e virgola, CRLF, virgola decimale, apostrofo contro le formule, come resoconti/csv.ts del servizio) accanto a exportTableToPdf/exportReportToPdf. In Vigilo: MenuEsporta (pulsante Esporta con PDF, CSV o voci libere; solo icona sotto i 640 px), leggiFinoA in api/client.ts (elenco filtrato intero fino a 1024 righe, con troncate), useEsportazione (leggi → vuoto/PDF/CSV → avviso se parziale), colonne e testi come regole pure in utils/esporta*.ts e utils/pdf*.ts. Il servizio cambia solo dove manca un dato: GET /controlli-non-seguiti (decisioni del tenant) e registratoDa nei rifornimenti. Report: Soggetti (PDF/CSV), Scheda del soggetto (PDF), Configurazione (Piano dei controlli, Controlli non seguiti in corso o con lo storico), Storico e Rifornimenti del mezzo (PDF/CSV), Fornitori (PDF/CSV), Calendario (agenda del mese in PDF).",
       "rationale": "Gli elenchi di Vigilo restano piccoli per natura (centinaia di righe): generarli nel browser evita nuovi endpoint e usa gli stessi testi della pagina, così PDF, CSV e schermo dicono le stesse cose. Le basi comuni rendono ogni nuovo report quasi solo una definizione di colonne. Il CSV lato servizio resta per i dettagli lunghi (spese del periodo).",
+      "status": "accepted"
+    },
+    {
+      "id": "ADR112",
+      "date": "2026-11-16",
+      "title": "Tabelle: l'intestazione di una colonna segue l'allineamento dei suoi valori",
+      "context": "Nelle tabelle di @edg/ui le colonne di numeri avevano i valori a destra (className 'text-right') ma l'intestazione a sinistra: la th riceveva text-right, però il contenitore flex di etichetta e freccia d'ordinamento restava allineato a sinistra. Lo stesso nei PDF a tabella semplice (exportTableToPdf), senza alcuna opzione di allineamento. L'utente lo ha fissato come regola generale.",
+      "decision": "Regola generale: l'intestazione segue l'allineamento dei valori della colonna (numeri a destra, intestazione compresa). Table di @edg/ui: proprietà `align` della colonna (left/center/right), ricavata da className se manca (table/allineamento.ts: allineamentoColonna, TESTO_ALLINEATO, INTESTAZIONE_ALLINEATA); vale per th, contenitore dell'etichetta (a destra flex-row-reverse: la freccia prima, l'etichetta sul bordo dei numeri) e td. PDF: PdfColumn.align applicato a corpo e intestazione in exportTableToPdf; exportReportToPdf già con rightAligned su intestazione, corpo e piede.",
+      "rationale": "Correggere il componente comune applica la regola a tutte le tabelle esistenti (Vigilo e pro-frontend) senza toccarle, perché già dichiaravano le colonne numeriche con text-right; la proprietà esplicita rende l'intenzione chiara per le nuove. Il file separato mantiene il fast refresh di Vite (un file di componenti esporta solo componenti).",
       "status": "accepted"
     }
   ]
