@@ -1,5 +1,5 @@
 {
-  "lastUpdated": "2026-11-16",
+  "lastUpdated": "2026-11-17",
   "decisions": [
     {
       "id": "ADR001",
@@ -1007,6 +1007,15 @@
       "context": "Nelle tabelle di @edg/ui le colonne di numeri avevano i valori a destra (className 'text-right') ma l'intestazione a sinistra: la th riceveva text-right, però il contenitore flex di etichetta e freccia d'ordinamento restava allineato a sinistra. Lo stesso nei PDF a tabella semplice (exportTableToPdf), senza alcuna opzione di allineamento. L'utente lo ha fissato come regola generale.",
       "decision": "Regola generale: l'intestazione segue l'allineamento dei valori della colonna (numeri a destra, intestazione compresa). Table di @edg/ui: proprietà `align` della colonna (left/center/right), ricavata da className se manca (table/allineamento.ts: allineamentoColonna, TESTO_ALLINEATO, INTESTAZIONE_ALLINEATA); vale per th, contenitore dell'etichetta (a destra flex-row-reverse: la freccia prima, l'etichetta sul bordo dei numeri) e td. PDF: PdfColumn.align applicato a corpo e intestazione in exportTableToPdf; exportReportToPdf già con rightAligned su intestazione, corpo e piede.",
       "rationale": "Correggere il componente comune applica la regola a tutte le tabelle esistenti (Vigilo e pro-frontend) senza toccarle, perché già dichiaravano le colonne numeriche con text-right; la proprietà esplicita rende l'intenzione chiara per le nuove. Il file separato mantiene il fast refresh di Vite (un file di componenti esporta solo componenti).",
+      "status": "accepted"
+    },
+    {
+      "id": "ADR113",
+      "date": "2026-11-17",
+      "title": "Vigilo: stima approssimata dei costi di un servizio (non un modulo di preventivi)",
+      "context": "L'utente vuole un'idea dei costi a cui si va incontro quando viene richiesto un servizio (trasporto a km o lavoro a ore), usando quello che Vigilo sa già (costo dei mezzi, costo orario delle persone) più valori aziendali inseriti a mano a consuntivo e a preventivo. Un vero modulo di costi e preventivi (clienti, offerte, telemetria, percorsi) è un progetto futuro e separato.",
+      "decision": "Pagina \"Stima costi\" in Vigilo, solo per l'ufficio con vigilo.costi (stime: read e costi; parametri: write e costi). Tre fasi: 1) parametri: impostazioni.stima (costo orario medio del conducente, velocità media 64 km/h, ore di guida al giorno 9, diaria, pedaggio per km; tutti modificabili entro limiti in impostazioni/limiti.ts) e tabella costi_aziendali per anno (consuntivo o preventivo, sei macro voci, ore di servizio annue → costo aziendale per ora di servizio); per la stima l'anno in corso o il più recente prima. 2) calcolatore con regole pure: mezzo (km × €/km o ore × €/h dal costo del mezzo, correggibile), conducente (ore di servizio × costo orario, giorni dalle ore di guida, diarie per pernottamento), pedaggi ed extra, costi aziendali (ore di servizio × costo per ora), totale e costi per km/ora; PDF. 3) stime salvate con la fotografia dei parametri usati, costo reale inserito dopo e scostamento.",
+      "rationale": "Una stima approssimata e trasparente vale subito e richiede solo dati che il tenant ha o può scrivere; ripartire i costi aziendali per ora di servizio vale sia per i km sia per le ore. La fotografia dei parametri nelle stime salvate e il confronto col costo reale permettono di tarare i parametri nel tempo, senza dipendere da telemetria o servizi esterni.",
       "status": "accepted"
     }
   ]

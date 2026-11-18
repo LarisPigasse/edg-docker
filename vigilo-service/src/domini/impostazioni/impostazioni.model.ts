@@ -11,7 +11,7 @@ import { CreationOptional, DataTypes, InferAttributes, InferCreationAttributes, 
 import { sequelize } from '../../config/database';
 import { AUDIT, giorno, istante, json } from '../../core/db/colonne';
 import type { Giorno, Preavvisi, Tolleranza } from '../../regole';
-import { AVVISI_INIZIALI, type RegoleAvvisi, type RegoleInterventi } from './limiti';
+import { AVVISI_INIZIALI, type RegoleAvvisi, type RegoleInterventi, type RegoleStima } from './limiti';
 
 export { AVVISI_INIZIALI, type RegoleAvvisi };
 
@@ -42,6 +42,8 @@ export class ImpostazioniTenant extends Model<InferAttributes<ImpostazioniTenant
   declare ultimoRiepilogoIl: CreationOptional<Giorno | null>;
   /** Costo orario predefinito e giorni per riparare (passo 8): leggerle sempre con interventiEffettivi */
   declare interventi: CreationOptional<Partial<RegoleInterventi>>;
+  /** Parametri generali della stima dei costi di un servizio (2026-11-17) */
+  declare stima: CreationOptional<Partial<RegoleStima>>;
   declare createdAt: CreationOptional<Date>;
   declare updatedAt: CreationOptional<Date>;
   declare creatoDa: CreationOptional<number | null>;
@@ -57,6 +59,7 @@ ImpostazioniTenant.init(
     avvisi: json(false, AVVISI_INIZIALI),
     ultimoRiepilogoIl: giorno(),
     interventi: json(false, {}),
+    stima: json(false, {}),
     createdAt: istante(false),
     updatedAt: istante(false),
     ...AUDIT,

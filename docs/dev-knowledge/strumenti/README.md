@@ -30,4 +30,7 @@ All'inizio di una nuova conversazione: `cp docs/dev-knowledge/strumenti/w.py ~/w
     `rifornimenti-autore.js` (registratoDa nei rifornimenti del DAF XF 01),
     `interventi-fornitori.js` (report per fornitore confrontato con "A chi vanno"), `csv-spese.js` (CSV delle spese),
     `origine-letture.js` (letture dei tagliandi del DAF con l'origine, quelle manuali senza),
-    `andamento-vivo.js` (andamento dei costi del DAF confrontato con la scheda)
+    `andamento-vivo.js` (andamento dei costi del DAF confrontato con la scheda),
+    `stima-parametri.js` (stima costi, fase 1: parametri generali e costi aziendali per anno; rimette tutto com'era),
+    `stima-calcolo.js` (stima costi, fase 2: POST /stima/calcola col DAF e una persona),
+    `stime-salvate.js` (stima costi, fase 3: salva, elenco, costo reale, permessi; elimina ciò che crea)

@@ -29,6 +29,8 @@ import { RecapitoEmail } from './avvisi/recapitoEmail.model';
 import { DecisioneLibreria } from './aggiornamenti/decisioneLibreria.model';
 import { Rifornimento } from './rifornimenti/rifornimento.model';
 import { ControlloNonSeguito } from './esclusioni/esclusione.model';
+import { CostiAziendali } from './stima/costiAziendali.model';
+import { StimaCosti } from './stima/stima.model';
 
 const fk = (foreignKey: string) => ({ foreignKey, constraints: false });
 
@@ -133,4 +135,6 @@ export {
   DecisioneLibreria,
   Rifornimento,
   ControlloNonSeguito,
+  CostiAziendali,
+  StimaCosti,
 };

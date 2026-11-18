@@ -33,6 +33,7 @@ import { aggiornamentiRoutes } from './aggiornamenti/aggiornamenti.routes';
 import { resocontiRoutes } from './resoconti/resoconti.routes';
 import { rifornimentiRoutes } from './rifornimenti/rifornimenti.routes';
 import { esclusioniRoutes } from './esclusioni/esclusioni.routes';
+import { stimaRoutes } from './stima/stima.routes';
 
 const router = Router();
 
@@ -60,5 +61,6 @@ router.use(aggiornamentiRoutes);
 router.use(resocontiRoutes);
 router.use(rifornimentiRoutes);
 router.use(esclusioniRoutes);
+router.use(stimaRoutes);
 
 export default router;

@@ -189,3 +189,92 @@ export function interventiEffettivi(salvate: Partial<RegoleInterventi> | null | 
     s[k] !== undefined && erroriInterventi({ [k]: s[k] } as Partial<RegoleInterventi>).length === 0 ? (s[k] as RegoleInterventi[K]) : INTERVENTI_INIZIALI[k];
   return { costoOrario: valida('costoOrario'), giorniRiparazione: valida('giorniRiparazione') };
 }
+
+// -----------------------------------------------------------------------------
+// Stima dei costi di un servizio (2026-11-17): parametri generali del tenant e
+// limiti dei costi aziendali per anno. Tutti modificabili dall'ufficio con i
+// costi; i limiti escludono l'assurdo. Velocità e ore di guida hanno un valore
+// iniziale; costo orario, diaria e pedaggio restano vuoti finché non si scrivono.
+// -----------------------------------------------------------------------------
+
+export interface RegoleStima {
+  /** €/h del conducente o dell'operatore quando non si sceglie una persona; null = non impostato */
+  costoOrarioConducente: number | null;
+  /** km/h medi di guida, per le ore di un servizio a km */
+  velocitaMedia: number;
+  /** Ore di guida al giorno oltre le quali serve un altro giorno (limite di legge: 9) */
+  oreGuidaGiorno: number;
+  /** € per ogni pernottamento fuori sede; null = non impostata */
+  diaria: number | null;
+  /** € per km autostradale, per stimare i pedaggi; null = non impostato */
+  pedaggioKm: number | null;
+}
+
+export const STIMA_INIZIALI: RegoleStima = { costoOrarioConducente: null, velocitaMedia: 64, oreGuidaGiorno: 9, diaria: null, pedaggioKm: null };
+
+export const LIMITI_STIMA = {
+  costoOrarioConducente: { min: 0, max: 1024 },
+  velocitaMedia: { min: 16, max: 128 },
+  oreGuidaGiorno: { min: 1, max: 16 },
+  diaria: { min: 0, max: 1024 },
+  /** €/km autostradale */
+  pedaggioKm: { min: 0, max: 4 },
+  /** Un costo aziendale annuo per voce, € (2^28) */
+  costoAnnuo: { min: 0, max: 268435456 },
+  /** Ore di servizio annue dell'azienda (2^24) */
+  oreServizio: { min: 1, max: 16777216 },
+  /** Anni dei costi aziendali */
+  anno: { min: 2000, max: 2100 },
+  // i dati di una stima (fase 2)
+  /** km dell'andata o in autostrada (2^16) */
+  km: { min: 0, max: 65536 },
+  /** Ore di lavoro o in più (2^12) */
+  ore: { min: 0, max: 4096 },
+  pernottamenti: { min: 0, max: 64 },
+  /** €/km o €/h del mezzo, scritto a mano */
+  costoMezzo: { min: 0, max: 1024 },
+  /** Pedaggi noti o una voce extra, € (2^16) */
+  importo: { min: 0, max: 65536 },
+  /** Voci extra in una stima */
+  extraMassimi: 16,
+} as const;
+
+/** Un importo o una quantità con al massimo due decimali, fra i limiti (pura) */
+export const numeroValido = (n: unknown, l: { min: number; max: number }): n is number =>
+  typeof n === 'number' && Number.isFinite(n) && n >= l.min && n <= l.max && Math.abs(Math.round(n * 100) - n * 100) < 1e-6;
+
+const NOMI_STIMA: Record<keyof RegoleStima, string> = {
+  costoOrarioConducente: 'Il costo orario del conducente (€)',
+  velocitaMedia: 'La velocità media (km/h)',
+  oreGuidaGiorno: 'Le ore di guida al giorno',
+  diaria: 'La diaria (€)',
+  pedaggioKm: 'Il pedaggio per km (€)',
+};
+
+/** Gli errori dei parametri generali della stima (vuoto = validi), con parole per l'utente */
+export function erroriStima(r: Partial<RegoleStima>): string[] {
+  const errori: string[] = [];
+  for (const k of Object.keys(NOMI_STIMA) as (keyof RegoleStima)[]) {
+    const v = r[k];
+    if (v === undefined) continue;
+    const facoltativo = k === 'costoOrarioConducente' || k === 'diaria' || k === 'pedaggioKm';
+    if (v === null && facoltativo) continue;
+    const l = LIMITI_STIMA[k];
+    if (!numeroValido(v, l)) errori.push(`${NOMI_STIMA[k]} va da ${l.min} a ${l.max}${k === 'velocitaMedia' ? '' : ', al centesimo'}`);
+  }
+  return errori;
+}
+
+/** I parametri da usare: salvati se validi, altrimenti il valore iniziale di ciascuno */
+export function stimaEffettiva(salvate: Partial<RegoleStima> | null | undefined): RegoleStima {
+  const s = salvate ?? {};
+  const valida = <K extends keyof RegoleStima>(k: K): RegoleStima[K] =>
+    s[k] !== undefined && erroriStima({ [k]: s[k] } as Partial<RegoleStima>).length === 0 ? (s[k] as RegoleStima[K]) : STIMA_INIZIALI[k];
+  return {
+    costoOrarioConducente: valida('costoOrarioConducente'),
+    velocitaMedia: valida('velocitaMedia'),
+    oreGuidaGiorno: valida('oreGuidaGiorno'),
+    diaria: valida('diaria'),
+    pedaggioKm: valida('pedaggioKm'),
+  };
+}
