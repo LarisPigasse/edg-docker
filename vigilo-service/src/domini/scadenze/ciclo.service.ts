@@ -9,6 +9,11 @@
 //   soggetto ripristinato -> si riaprono quelle chiuse dall'ultima
 //                            archiviazione, con le loro date
 //   controllo disattivato -> le sue scadenze aperte si chiudono
+//   controllo riattivato  -> si riaprono quelle chiuse dalla
+//                            disattivazione, con le loro date (2026-11-19)
+//   categorie cambiate    -> si chiudono quelle dei soggetti rimasti fuori
+//                            ('fuori-ambito') e si riaprono, con le loro
+//                            date, quelle dei soggetti rientrati
 //   controllo non seguito -> per quel soggetto non nasce né si riapre niente
 //                            (esclusioni, revisione 2026-11-11)
 // Una sola scadenza aperta per (soggetto, controllo): lo garantisce anche il
@@ -21,6 +26,7 @@ import { Contatore, Controllo, Scadenza, Soggetto } from '../modelli';
 import type { MotivoChiusura } from '../valori';
 import { coppia } from '../esclusioni/esclusioni';
 import { controlliNonSeguitiDi, coppieNonSeguite } from '../esclusioni/inCorso';
+import { scadenzeDaRiaprire } from '../controlli/riattivazione';
 import { ricalcolaScadenze } from './ricalcolo.service';
 
 /** Il controllo riguarda il soggetto per tipo e categoria (categorie vuote = tutti), qualunque sia il suo stato */
@@ -141,4 +147,64 @@ export async function chiudiScadenze(where: WhereOptions<Scadenza>, motivo: Moti
     { where: { ...(where as object), chiusaIl: null } as WhereOptions<Scadenza>, transaction, validate: false }
   );
   return n;
+}
+
+/**
+ * Riapre, con le loro date, le scadenze di un controllo chiuse per `motivo`
+ * ('controllo-disattivato' alla riattivazione, 'fuori-ambito' quando una
+ * categoria torna fra le sue): per ogni soggetto si guarda la sua ultima
+ * scadenza chiusa, e si riapre se è stata chiusa per quel motivo, se il
+ * soggetto non ne ha una aperta, se il controllo si segue e gli si applica
+ * (controlli/riattivazione.ts). Restituisce quante.
+ */
+export async function riapriScadenzeChiuse(
+  controllo: Controllo,
+  idCategorie: number[],
+  motivo: 'controllo-disattivato' | 'fuori-ambito',
+  oggi: Giorno,
+  transaction: Transaction
+): Promise<number> {
+  const chiuse = await Scadenza.findAll({
+    where: { idControllo: controllo.idControllo, chiusaIl: { [Op.ne]: null } },
+    attributes: ['idScadenza', 'idSoggetto', 'motivoChiusura', 'chiusaIl'],
+    order: [['chiusaIl', 'DESC'], ['idScadenza', 'DESC']],
+    transaction,
+  });
+  // l'ultima chiusa di ogni soggetto, se è stata chiusa per quel motivo
+  const ultime = new Map<number, Scadenza>();
+  for (const s of chiuse) if (!ultime.has(Number(s.idSoggetto))) ultime.set(Number(s.idSoggetto), s);
+  const candidate = [...ultime.values()].filter(s => s.motivoChiusura === motivo);
+  if (!candidate.length) return 0;
+  const idSoggetti = candidate.map(s => Number(s.idSoggetto));
+  const aperte = await Scadenza.findAll({ where: { idControllo: controllo.idControllo, chiusaIl: null }, attributes: ['idSoggetto'], transaction });
+  const nonSeguite = await coppieNonSeguite(idSoggetti, [controllo.idControllo], transaction);
+  const ammessi = await soggettiDelControllo(controllo, idCategorie, transaction);
+  const ids = scadenzeDaRiaprire(
+    candidate.map(s => ({ idScadenza: Number(s.idScadenza), idSoggetto: Number(s.idSoggetto) })),
+    {
+      conAperta: new Set(aperte.map(s => Number(s.idSoggetto))),
+      nonSeguiti: new Set(idSoggetti.filter(id => nonSeguite.has(coppia(id, controllo.idControllo)))),
+      ammessi: new Set(ammessi.map(s => s.idSoggetto)),
+    }
+  );
+  if (!ids.length) return 0;
+  // validate: false — i validatori di modello vedrebbero solo i campi aggiornati (L054)
+  await Scadenza.update({ chiusaIl: null, motivoChiusura: null }, { where: { idScadenza: ids }, transaction, validate: false });
+  // lo stato si ricalcola sulla data di oggi (nel frattempo potrebbero essere scadute)
+  await ricalcolaScadenze({ idScadenza: ids }, oggi, transaction);
+  return ids.length;
+}
+
+/**
+ * Categorie cambiate: chiude, con motivo 'fuori-ambito', le scadenze aperte
+ * dei soggetti a cui il controllo non si applica più. Restituisce quante.
+ */
+export async function chiudiFuoriAmbito(controllo: Controllo, idCategorie: number[], transaction: Transaction): Promise<number> {
+  const ammessi = await soggettiDelControllo(controllo, idCategorie, transaction);
+  const dentro = ammessi.map(s => s.idSoggetto);
+  return chiudiScadenze(
+    { idControllo: controllo.idControllo, ...(dentro.length ? { idSoggetto: { [Op.notIn]: dentro } } : {}) } as WhereOptions<Scadenza>,
+    'fuori-ambito',
+    transaction
+  );
 }

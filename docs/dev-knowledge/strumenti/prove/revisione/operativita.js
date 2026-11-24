@@ -1,0 +1,32 @@
+// Analisi fase C: la flotta al lavoro ricalcolata a parte (consumo, km al mese, fermo e disponibilità)
+const jwt = require('/app/node_modules/jsonwebtoken');
+const T = jwt.sign({ accountType: 'cliente', modules: ['vigilo'], tenantId: 2, systemTenant: false, roleId: 2, accountId: 9, email: 'demo.admin@expressdeliverygroup.com', permissions: ['vigilo.*'] }, process.env.JWT_SECRET, { expiresIn: '5m', issuer: 'edg-auth-service' });
+let ok = 0, ko = 0;
+const v = (n, c, x) => { c ? ok++ : ko++; console.log(`${c ? 'OK ' : 'KO '} ${n}${!c && x !== undefined ? ' -> ' + JSON.stringify(x).slice(0, 300) : ''}`); };
+const g = async (gw, p) => (await (await fetch(`http://${gw}:8080/api/vigilo${p}`, { headers: { Authorization: `Bearer ${T}` } })).json()).data;
+const d1 = n => Math.round(n * 10) / 10;
+(async () => {
+  const o = (await g('api-gateway-1', '/analisi')).operativita;
+  const o2 = (await g('api-gateway-2', '/analisi')).operativita;
+  const { perVeicolo, ...resto } = o;
+  console.log(JSON.stringify(resto));
+  for (const x of perVeicolo) console.log(' ', x.nome, JSON.stringify({ fermo: x.giorniFermo, disp: x.disponibilita, l100: x.consumo, cat: x.categoria, sullaCat: x.sullaCategoria, kmMese: x.kmMese, rip: x.riparazioni }));
+  v('i due gateway danno la stessa flotta', JSON.stringify(o) === JSON.stringify(o2));
+  const m = (await g('api-gateway-1', '/resoconti/mezzi?periodo=12m')).mezzi.filter(x => x.tipo === 'veicolo');
+  const c = m.filter(x => x.uso?.unita === 'km' && x.uso.valore > 0 && x.rifornimenti.litri > 0);
+  const l100 = d1((c.reduce((s, x) => s + x.rifornimenti.litri, 0) / c.reduce((s, x) => s + x.uso.valore, 0)) * 100);
+  v(`consumo della flotta ${l100} l/100 km dai rifornimenti`, o.consumo.l100 === l100, o.consumo);
+  const daf = m.find(x => /DAF/.test(x.nome));
+  const pv = perVeicolo.find(x => x.uuid === daf.uuid);
+  v(`DAF: ${Math.round(daf.uso.valore / daf.mesi)} km al mese`, pv.kmMese === Math.round(daf.uso.valore / daf.mesi), pv);
+  const dalGuasto = Math.round((Date.parse(o.periodo.al) - Date.parse('2026-11-11')) / 864e5) + 1;
+  v(`DAF fermo dall'11 novembre: almeno ${dalGuasto} giorni`, pv.giorniFermo >= dalGuasto, pv.giorniFermo);
+  const fermo = perVeicolo.reduce((s, x) => s + x.giorniFermo, 0);
+  v('disponibilità della flotta coerente con i fermi dei veicoli', o.disponibilita.giorniFermo === fermo && o.disponibilita.percentuale === d1((1 - fermo / (o.veicoli * o.giorni)) * 100), o.disponibilita);
+  const an = await g('api-gateway-1', '/analisi');
+  for (const c of an.categorie) console.log('  categoria', c.categoria, JSON.stringify({ veicoli: c.veicoli, conPossesso: c.conPossesso, fissa: c.mezzoOra, variabile: c.mezzoKm, perOra: c.perOra, perKm: c.perKm }));
+  const camion = perVeicolo.filter(x => x.categoria && x.categoria === pv.categoria && x.consumo !== null);
+  v(`il DAF si confronta con la sua categoria (${pv.categoria}, ${camion.length} veicoli con i consumi)`, camion.length >= 2 ? pv.sullaCategoria !== null : pv.sullaCategoria === null, pv);
+  v('costo pieno per categoria: ordinato dal più caro', an.categorie.every((c, i) => i === 0 || an.categorie[i - 1].perOra >= c.perOra));
+  console.log(`\n${ok}/${ok + ko} OK`);
+})().catch(e => console.log('ERRORE', e.message));

@@ -37,7 +37,8 @@ function ordinato(v: unknown): unknown {
   if (v && typeof v === 'object') {
     return Object.fromEntries(
       Object.keys(v as Valori)
-        .filter(k => (v as Valori)[k] !== undefined)
+        // null e assente sono la stessa cosa anche dentro gli oggetti (es. cadenza.finestra, cadenza.fasce)
+        .filter(k => (v as Valori)[k] != null)
         .sort()
         .map(k => [k, ordinato((v as Valori)[k])])
     );

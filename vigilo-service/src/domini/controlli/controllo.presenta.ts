@@ -7,6 +7,8 @@
 import { descriviCadenza, descriviPreavvisi, descriviTolleranza, type Cadenza, type Preavvisi, type Tolleranza } from '../../regole';
 import { riferimentoCategoria } from '../categorie/categoria.presenta';
 import { etichetteDate, type TipoSoggetto } from '../valori';
+import { CAMPI_CONTROLLO } from '../avvio/copia';
+import { uguale } from '../aggiornamenti/aggiornamenti';
 import type { Controllo } from './controllo.model';
 
 interface Regole {
@@ -26,8 +28,19 @@ export function frasiControllo(c: Regole) {
   };
 }
 
+/**
+ * Un controllo della libreria è personalizzato se almeno un suo campo è
+ * diverso dalla fotografia presa dalla libreria (le categorie a parte, come
+ * negli aggiornamenti); senza fotografia non si sa: no (2026-11-19)
+ */
+export function personalizzato(c: Controllo): boolean {
+  if (!c.chiaveLibreria || !c.origine) return false;
+  const valori = c.get() as Record<string, unknown>;
+  return CAMPI_CONTROLLO.some(k => k in c.origine! && !uguale(valori[k] ?? null, c.origine![k] ?? null));
+}
+
 export function presentaControllo(c: Controllo) {
-  const conteggi = c.get() as { nAperte?: string | number };
+  const conteggi = c.get() as { nAperte?: string | number; eliminabile?: boolean };
   return {
     uuid: c.uuidControllo,
     nome: c.nome,
@@ -49,7 +62,11 @@ export function presentaControllo(c: Controllo) {
     categorie: (c.categorie ?? []).map(riferimentoCategoria),
     frasi: frasiControllo(c),
     libreria: c.chiaveLibreria ? { chiave: c.chiaveLibreria, versione: c.versioneLibreria, versioneIgnorata: c.versioneIgnorata ?? null } : null,
+    /** Della libreria ma cambiato dal cliente */
+    personalizzato: personalizzato(c),
     ...(conteggi.nAperte !== undefined ? { scadenzeAperte: Number(conteggi.nAperte) } : {}),
+    /** Nessuna scadenza, nemmeno chiusa: si può eliminare */
+    ...(conteggi.eliminabile !== undefined ? { eliminabile: !!conteggi.eliminabile } : {}),
     creatoIl: c.createdAt,
     modificatoIl: c.updatedAt,
   };

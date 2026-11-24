@@ -1,15 +1,5 @@
 // Aggiornamenti della libreria: confronto a tre, preselezione, esito, ritiro (B10b)
-import {
-  categorieComparabili,
-  confronta,
-  daApplicare,
-  daProporre,
-  decisioneRitiro,
-  esitoDi,
-  sceltaPredefinita,
-  scelteComplete,
-  uguale,
-} from '../../src/domini/aggiornamenti/aggiornamenti';
+import { categorieComparabili, confronta, daApplicare, daProporre, decisioneRitiro, esitoDi, sceltaPredefinita, scelteComplete, uguale } from '../../src/domini/aggiornamenti/aggiornamenti';
 
 describe('aggiornamenti della libreria (B10b)', () => {
   const preavvisi = { giorni: [32, 8, 1] };
@@ -75,5 +65,14 @@ describe('aggiornamenti della libreria (B10b)', () => {
     const delCliente = new Set(['auto', 'furgone']);
     expect(categorieComparabili(['furgone', 'autocarro', 'auto', 'auto'], delCliente)).toEqual(['auto', 'furgone']);
     expect(categorieComparabili(null, delCliente)).toEqual([]);
+  });
+});
+
+describe('uguale (2026-11-19)', () => {
+  test('null e assente sono la stessa cosa anche dentro gli oggetti', () => {
+    const libreria = { tempo: { valore: 1, unita: 'anni' }, uso: null, ancoraggio: 'scadenza', fineMese: false, prima: null };
+    const editor = { ...libreria, finestra: null, fasce: null };
+    expect(uguale(editor, libreria)).toBe(true);
+    expect(uguale({ ...editor, fineMese: true }, libreria)).toBe(false);
   });
 });

@@ -21,6 +21,8 @@ export class StimaCosti extends ConAudit<StimaCosti> {
   declare risultato: Record<string, unknown>;
   declare totale: number;
   declare costoReale: CreationOptional<number | null>;
+  /** Prezzo applicato al cliente, opzionale (2026-11-23) */
+  declare prezzo: CreationOptional<number | null>;
   declare noteReale: CreationOptional<string | null>;
   declare realeIl: CreationOptional<Date | null>;
   declare realeDa: CreationOptional<number | null>;
@@ -38,6 +40,7 @@ StimaCosti.init(
     risultato: json(false, {}),
     totale: { ...decimale('totale'), allowNull: false },
     costoReale: decimale('costoReale'),
+    prezzo: decimale('prezzo'),
     noteReale: testo(1024),
     realeIl: istante(true),
     realeDa: intero(),

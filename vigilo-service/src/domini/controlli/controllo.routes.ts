@@ -24,6 +24,11 @@ controlliRoutes.get('/controlli/:id', richiedi('read'), validateParams(paramUuid
   successResponse(res, presentaControllo(await servizio.leggiControllo(contestoDi(req), req.params.id)));
 });
 
+// che cosa succederebbe creando il controllo, senza crearlo (2026-11-19)
+controlliRoutes.post('/controlli/anteprima', richiedi('config'), validateBody(schemi.creaControllo), async (req: Request, res: Response) => {
+  successResponse(res, await servizio.anteprimaCreazione(contestoDi(req), req.body));
+});
+
 controlliRoutes.post('/controlli', richiedi('config'), validateBody(schemi.creaControllo), async (req: Request, res: Response) => {
   const { controllo, scadenzeCreate } = await servizio.creaControllo(contestoDi(req), req.body);
   createdResponse(res, { ...presentaControllo(controllo), scadenzeCreate }, 'Controllo creato');
@@ -37,6 +42,17 @@ controlliRoutes.patch(
   async (req: Request, res: Response) => {
     const { controllo, ...esito } = await servizio.modificaControllo(contestoDi(req), req.params.id, req.body);
     successResponse(res, { ...presentaControllo(controllo), ...esito }, 'Controllo modificato');
+  }
+);
+
+// che cosa cambierebbe salvando la modifica, senza salvarla (2026-11-19)
+controlliRoutes.post(
+  '/controlli/:id/anteprima',
+  richiedi('config'),
+  validateParams(paramUuid),
+  validateBody(schemi.modificaControllo),
+  async (req: Request, res: Response) => {
+    successResponse(res, await servizio.anteprimaModifica(contestoDi(req), req.params.id, req.body));
   }
 );
 

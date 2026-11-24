@@ -8,6 +8,7 @@
 //                   persona, totale, costo reale e scostamento
 //   leggiStima      una stima intera
 //   registraReale   il costo reale dopo il servizio (null lo toglie), con note
+//   registraPrezzo  il prezzo applicato al cliente (null lo toglie): margine
 //   eliminaStima    la toglie: chi l'ha salvata o chi ha write
 // Tutto con read e costi (rotte).
 // =============================================================================
@@ -18,7 +19,7 @@ import { ForbiddenError } from '../../core/utils/errors';
 import { nomeAutore, nomiAutori, NESSUN_NOME, type NomiAutori } from '../soggetti/autori';
 import { calcolaServizio, type RichiestaCalcolo } from './calcolo.service';
 import { StimaCosti } from './stima.model';
-import { descrizioneDi, scostamento } from './stime';
+import { descrizioneDi, margine, scostamento } from './stime';
 
 interface UsatiSalvati {
   mezzo?: { nome?: string; identificativo?: string | null } | null;
@@ -40,6 +41,9 @@ function presentaRiga(s: StimaCosti, ctx: Contesto, nomi: NomiAutori) {
     totale: s.totale,
     costoReale: s.costoReale,
     scostamento: scostamento(s.totale, s.costoReale),
+    /** Prezzo applicato e margine, opzionali (2026-11-23) */
+    prezzo: s.prezzo,
+    margine: margine(s.prezzo, s.totale, s.costoReale),
     salvataIl: s.createdAt,
     salvataDa: nomeAutore(nomi, s.creatoDa),
     /** Può eliminarla chi la guarda: l'ha salvata lui o ha write */
@@ -89,6 +93,15 @@ export async function elencoStime(ctx: Contesto, p: { offset: number; righe: num
 
 export async function leggiStima(ctx: Contesto, uuid: string) {
   const s = await trovaNelTenant(StimaCosti, 'uuidStima', uuid, ctx.idTenant, 'Stima');
+  return presenta(s, ctx, await nomiAutori([s.creatoDa, s.realeDa]));
+}
+
+/** Il prezzo applicato al cliente (anche prima del servizio); null lo toglie (2026-11-23) */
+export async function registraPrezzo(ctx: Contesto, uuid: string, d: { prezzo: number | null }) {
+  const s = await trovaNelTenant(StimaCosti, 'uuidStima', uuid, ctx.idTenant, 'Stima');
+  const prima = { prezzo: s.prezzo };
+  await s.update({ prezzo: d.prezzo });
+  traccia(ctx, 'vigilo.stima.prezzo', `Prezzo ${d.prezzo === null ? 'tolto' : 'registrato'}: ${s.descrizione}`, prima, { prezzo: s.prezzo });
   return presenta(s, ctx, await nomiAutori([s.creatoDa, s.realeDa]));
 }
 

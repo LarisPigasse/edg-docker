@@ -1,0 +1,35 @@
+// Analisi (fase B): i numeri di /analisi ricalcolati a parte dai dati del tenant; avvisi; permessi
+const jwt = require('/app/node_modules/jsonwebtoken');
+const f = o => jwt.sign({ accountType: 'cliente', modules: ['vigilo'], tenantId: 2, systemTenant: false, ...o }, process.env.JWT_SECRET, { expiresIn: '10m', issuer: 'edg-auth-service' });
+const T = f({ roleId: 2, accountId: 9, email: 'demo.admin@expressdeliverygroup.com', permissions: ['vigilo.*'] });
+const TW = f({ roleId: 3, accountId: 10, email: 'demo.operatore@expressdeliverygroup.com', permissions: ['vigilo.write', 'vigilo.read'] });
+let ok = 0, ko = 0;
+const v = (n, c, x) => { c ? ok++ : ko++; console.log(`${c ? 'OK ' : 'KO '} ${n}${!c && x !== undefined ? ' -> ' + JSON.stringify(x).slice(0, 300) : ''}`); };
+const g = async (gw, p, t = T) => { const r = await fetch(`http://${gw}:8080/api/vigilo${p}`, { headers: { Authorization: `Bearer ${t}` } }); return { s: r.status, j: await r.json().catch(() => null) }; };
+const c2 = n => Math.round(n * 100) / 100, c3 = n => Math.round(n * 1000) / 1000, c1 = n => Math.round(n * 10) / 10;
+(async () => {
+  const a = (await g('api-gateway-1', '/analisi')).j.data;
+  const b = (await g('api-gateway-2', '/analisi')).j.data;
+  console.log(JSON.stringify({ costoPieno: a.costoPieno, flotta: a.flotta, conducente: a.conducente, stime: a.stime, margine: a.margine, avvisi: a.avvisi.map(x => x.chiave) }));
+  v('i due gateway danno la stessa analisi', JSON.stringify(a) === JSON.stringify(b));
+  const m = (await g('api-gateway-1', '/resoconti/mezzi?periodo=12m')).j.data.mezzi;
+  const vei = m.filter(x => x.tipo === 'veicolo');
+  const conP = vei.filter(x => x.possesso.quota > 0 && x.componenti.oreImpiego > 0);
+  const ore = conP.reduce((s, x) => s + x.componenti.oreImpiego, 0);
+  const fissi = conP.reduce((s, x) => s + x.possesso.totale + x.manutenzione.totale, 0);
+  const km = vei.filter(x => x.uso?.unita === 'km' && x.uso.valore > 0);
+  const variab = km.reduce((s, x) => s + x.rifornimenti.totale, 0) / km.reduce((s, x) => s + x.uso.valore, 0);
+  v(`flotta: ${m.length} mezzi, ${vei.length} veicoli, ${conP.length} con possesso; fissa ${c2(fissi / ore)} €/h, variabile ${c3(variab)} €/km`, a.flotta.mezzi === m.length && a.flotta.conPossesso === conP.length && a.avvisi.some(x => x.chiave === 'possesso') === (vei.length > conP.length) && a.flotta.fissoOra === c2(fissi / ore) && a.flotta.variabileKm === c3(variab), a.flotta);
+  const p = (await g('api-gateway-1', '/stima/parametri')).j.data;
+  const anno = p.anni.find(x => x.anno === p.annoDiRiferimento);
+  const ora = c2(a.flotta.fissoOra + a.conducente.costoOrario + anno.costoPerOra);
+  v(`costo pieno per ora = ${a.flotta.fissoOra} + ${a.conducente.costoOrario} + ${anno.costoPerOra} = ${ora}`, a.costoPieno.perOra.totale === ora);
+  const perKm = c3(a.flotta.variabileKm + c3(ora / p.generali.velocitaMedia));
+  v(`costo pieno per km = ${a.flotta.variabileKm} + ${ora}/${p.generali.velocitaMedia} = ${perKm}`, a.costoPieno.perKm.totale === perKm);
+  const st = (await g('api-gateway-2', '/stima/stime?righe=128')).j.data;
+  const reali = st.filter(x => x.costoReale != null && x.totale > 0).map(x => ((x.costoReale - x.totale) / x.totale) * 100);
+  v(`stime: ${st.length} salvate, ${reali.length} con il reale, scostamento ${reali.length ? c1(reali.reduce((s, x) => s + x, 0) / reali.length) : null}`, a.stime.stime === st.length && a.stime.conReale === reali.length && a.stime.scostamentoMedio === (reali.length ? c1(reali.reduce((s, x) => s + x, 0) / reali.length) : null), a.stime);
+  v('senza ricavi: nessun margine e l\'avviso dei ricavi', a.margine === null && a.avvisi.some(x => x.chiave === 'ricavi'));
+  v('senza vigilo.costi -> 403', (await g('api-gateway-1', '/analisi', TW)).s === 403);
+  console.log(`\n${ok}/${ok + ko} OK`);
+})().catch(e => console.log('ERRORE', e.message));

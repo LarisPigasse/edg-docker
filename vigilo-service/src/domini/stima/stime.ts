@@ -21,6 +21,20 @@ export function scostamento(stimato: number, reale: number | null | undefined) {
   return { euro, percentuale: stimato > 0 ? arrotonda((euro / stimato) * 100, 1) : null };
 }
 
+/**
+ * Il margine di un servizio (2026-11-23): prezzo applicato − costo, dove il
+ * costo è quello reale se c'è, altrimenti la stima (e `base` lo dice). In
+ * euro e in percentuale sul prezzo; null senza prezzo; la percentuale è null
+ * se il prezzo è zero (pura)
+ */
+export function margine(prezzo: number | null | undefined, stimato: number, reale: number | null | undefined) {
+  if (prezzo === null || prezzo === undefined) return null;
+  const base = reale === null || reale === undefined ? 'stimato' : 'reale';
+  const costo = base === 'reale' ? (reale as number) : stimato;
+  const euro = arrotonda(prezzo - costo, 2);
+  return { euro, percentuale: prezzo > 0 ? arrotonda((euro / prezzo) * 100, 1) : null, base } as const;
+}
+
 /** La descrizione scritta, o una di riserva dai dati (pura) */
 export function descrizioneDi(scritta: string | null | undefined, tipo: TipoServizio, km?: number, oreLavoro?: number): string {
   const t = scritta?.trim();

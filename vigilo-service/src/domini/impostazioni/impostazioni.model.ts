@@ -11,7 +11,7 @@ import { CreationOptional, DataTypes, InferAttributes, InferCreationAttributes, 
 import { sequelize } from '../../config/database';
 import { AUDIT, giorno, istante, json } from '../../core/db/colonne';
 import type { Giorno, Preavvisi, Tolleranza } from '../../regole';
-import { AVVISI_INIZIALI, type RegoleAvvisi, type RegoleInterventi, type RegoleStima } from './limiti';
+import { AVVISI_INIZIALI, type RegoleAnalisi, type RegoleAvvisi, type RegoleInterventi, type RegoleStima } from './limiti';
 
 export { AVVISI_INIZIALI, type RegoleAvvisi };
 
@@ -44,6 +44,8 @@ export class ImpostazioniTenant extends Model<InferAttributes<ImpostazioniTenant
   declare interventi: CreationOptional<Partial<RegoleInterventi>>;
   /** Parametri generali della stima dei costi di un servizio (2026-11-17) */
   declare stima: CreationOptional<Partial<RegoleStima>>;
+  /** Le soglie dei segnali dell'Analisi (2026-11-23) */
+  declare analisi: CreationOptional<Partial<RegoleAnalisi>>;
   declare createdAt: CreationOptional<Date>;
   declare updatedAt: CreationOptional<Date>;
   declare creatoDa: CreationOptional<number | null>;
@@ -60,6 +62,7 @@ ImpostazioniTenant.init(
     ultimoRiepilogoIl: giorno(),
     interventi: json(false, {}),
     stima: json(false, {}),
+    analisi: json(false, {}),
     createdAt: istante(false),
     updatedAt: istante(false),
     ...AUDIT,

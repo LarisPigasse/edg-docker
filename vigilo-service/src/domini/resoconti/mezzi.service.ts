@@ -19,7 +19,9 @@ import { trovaNelTenant } from '../../core/db/tenant';
 import { PARAMETRI } from '../../core/parametri';
 import { aggiungiGiorni, differenzaGiorni, type Giorno } from '../../regole';
 import { ValidationError } from '../../core/utils/errors';
-import { Categoria, Soggetto } from '../modelli';
+import { Categoria, ImpostazioniTenant, Soggetto } from '../modelli';
+import { stimaEffettiva } from '../impostazioni/limiti';
+import { componentiMezzo } from './componenti';
 import { avvisoQuota, erroriPossesso, quotaMensile, TIPI_CON_POSSESSO, type DatiPossesso, type Possesso } from '../soggetti/possesso';
 import type { StatoSoggetto, TipoSoggetto } from '../valori';
 import { bloccoDi, costiMezzi, type MezzoDaCalcolare } from './mezzi';
@@ -93,11 +95,17 @@ export async function costoMezzi(ctx: Contesto, q: FiltriMezzi) {
     soglie,
     sogliaScostamento
   );
+  // le due componenti di ogni mezzo: fissa per ora di impiego, variabile per km (o ora motore)
+  const imp = await ImpostazioniTenant.findByPk(ctx.idTenant, { attributes: ['idTenant', 'stima'] });
+  const oreImpiegoAnnue = stimaEffettiva(imp?.stima).oreImpiegoAnnue;
+  const scelti = q.soggetto ? costi.filter(c => c.uuid === q.soggetto) : costi;
   return {
     periodo,
     soglie,
     sogliaScostamento,
-    mezzi: q.soggetto ? costi.filter(c => c.uuid === q.soggetto) : costi,
+    /** Le ore di impiego annue con cui si calcola la parte fissa (parametro della stima) */
+    oreImpiegoAnnue,
+    mezzi: scelti.map(c => ({ ...c, componenti: componentiMezzo(c, oreImpiegoAnnue) })),
   };
 }
 

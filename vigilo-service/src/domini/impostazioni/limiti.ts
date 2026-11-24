@@ -208,9 +208,17 @@ export interface RegoleStima {
   diaria: number | null;
   /** € per km autostradale, per stimare i pedaggi; null = non impostato */
   pedaggioKm: number | null;
+  /** Ore di impiego annue di un mezzo: dividono i suoi costi fissi (possesso, obblighi, manutenzione) in un costo per ora */
+  oreImpiegoAnnue: number;
+  /** € per ogni giorno fuori sede (trasferta: pasti, indennità), anche senza dormire fuori; null = non impostata */
+  indennitaTrasferta: number | null;
+  /** Oltre queste ore di servizio il conducente non rientra in giornata: scatta l'indennità */
+  sogliaOreTrasferta: number;
+  /** Oltre questi km di andata (trasporti) il conducente non rientra in giornata: scatta l'indennità */
+  sogliaKmTrasferta: number;
 }
 
-export const STIMA_INIZIALI: RegoleStima = { costoOrarioConducente: null, velocitaMedia: 64, oreGuidaGiorno: 9, diaria: null, pedaggioKm: null };
+export const STIMA_INIZIALI: RegoleStima = { costoOrarioConducente: null, velocitaMedia: 64, oreGuidaGiorno: 9, diaria: null, pedaggioKm: null, oreImpiegoAnnue: 2048, indennitaTrasferta: null, sogliaOreTrasferta: 8, sogliaKmTrasferta: 128 };
 
 export const LIMITI_STIMA = {
   costoOrarioConducente: { min: 0, max: 1024 },
@@ -219,10 +227,22 @@ export const LIMITI_STIMA = {
   diaria: { min: 0, max: 1024 },
   /** €/km autostradale */
   pedaggioKm: { min: 0, max: 4 },
+  /** Ore di impiego annue di un mezzo (2048 = 256 giorni × 8 ore) */
+  oreImpiegoAnnue: { min: 128, max: 8192 },
+  /** € per giorno fuori sede */
+  indennitaTrasferta: { min: 0, max: 1024 },
+  sogliaOreTrasferta: { min: 1, max: 24 },
+  sogliaKmTrasferta: { min: 1, max: 4096 },
   /** Un costo aziendale annuo per voce, € (2^28) */
   costoAnnuo: { min: 0, max: 268435456 },
   /** Ore di servizio annue dell'azienda (2^24) */
   oreServizio: { min: 1, max: 16777216 },
+  /** Km annui percorsi dall'azienda (2^30) */
+  kmAnnui: { min: 1, max: 1073741824 },
+  /** Ricavi dell'anno, opzionali (2^30 €; Analisi, 2026-11-23) */
+  ricaviAnnui: { min: 0, max: 1073741824 },
+  /** % dei costi aziendali sui servizi con i mezzi (il resto alle altre attività) */
+  quotaMezzi: { min: 0, max: 100 },
   /** Anni dei costi aziendali */
   anno: { min: 2000, max: 2100 },
   // i dati di una stima (fase 2)
@@ -249,6 +269,10 @@ const NOMI_STIMA: Record<keyof RegoleStima, string> = {
   oreGuidaGiorno: 'Le ore di guida al giorno',
   diaria: 'La diaria (€)',
   pedaggioKm: 'Il pedaggio per km (€)',
+  oreImpiegoAnnue: 'Le ore di impiego annue di un mezzo',
+  indennitaTrasferta: 'L\'indennità di trasferta (€)',
+  sogliaOreTrasferta: 'Le ore oltre cui scatta la trasferta',
+  sogliaKmTrasferta: 'I km oltre cui scatta la trasferta',
 };
 
 /** Gli errori dei parametri generali della stima (vuoto = validi), con parole per l'utente */
@@ -257,10 +281,10 @@ export function erroriStima(r: Partial<RegoleStima>): string[] {
   for (const k of Object.keys(NOMI_STIMA) as (keyof RegoleStima)[]) {
     const v = r[k];
     if (v === undefined) continue;
-    const facoltativo = k === 'costoOrarioConducente' || k === 'diaria' || k === 'pedaggioKm';
+    const facoltativo = k === 'costoOrarioConducente' || k === 'diaria' || k === 'pedaggioKm' || k === 'indennitaTrasferta';
     if (v === null && facoltativo) continue;
     const l = LIMITI_STIMA[k];
-    if (!numeroValido(v, l)) errori.push(`${NOMI_STIMA[k]} va da ${l.min} a ${l.max}${k === 'velocitaMedia' ? '' : ', al centesimo'}`);
+    if (!numeroValido(v, l)) errori.push(`${NOMI_STIMA[k]} va da ${l.min} a ${l.max}${k === 'velocitaMedia' || k === 'oreImpiegoAnnue' || k === 'sogliaKmTrasferta' ? '' : ', al centesimo'}`);
   }
   return errori;
 }
@@ -276,5 +300,87 @@ export function stimaEffettiva(salvate: Partial<RegoleStima> | null | undefined)
     oreGuidaGiorno: valida('oreGuidaGiorno'),
     diaria: valida('diaria'),
     pedaggioKm: valida('pedaggioKm'),
+    oreImpiegoAnnue: valida('oreImpiegoAnnue'),
+    indennitaTrasferta: valida('indennitaTrasferta'),
+    sogliaOreTrasferta: valida('sogliaOreTrasferta'),
+    sogliaKmTrasferta: valida('sogliaKmTrasferta'),
   };
+}
+
+// =============================================================================
+// Soglie dei segnali dell'Analisi (2026-11-23, fase D): modificabili dal
+// tenant (vigilo.config) entro limiti invalicabili; quelle salvate non valide
+// tornano al valore iniziale.
+// =============================================================================
+
+export interface RegoleAnalisi {
+  /** % oltre la media della sua categoria: consumo alto di un veicolo */
+  consumoAlto: number;
+  /** % degli ultimi 3 mesi sui 9 prima: consumo della flotta in crescita */
+  consumoCrescita: number;
+  /** Km al mese sotto cui un veicolo è poco usato */
+  kmMeseMinimi: number;
+  /** % di disponibilità sotto cui un veicolo è spesso fermo */
+  disponibilitaMinima: number;
+  /** % di riparazioni su manutenzione + riparazioni oltre cui i guasti sono troppi */
+  quotaGuastiMassima: number;
+  /** % di aumento di una voce dei costi aziendali sull'anno prima */
+  strutturaMassima: number;
+  /** € di aumento sotto cui una voce non si segnala, qualunque sia la % (2026-11-24) */
+  strutturaMinimaEuro: number;
+  /** % di margine sui ricavi sotto cui il margine è basso */
+  margineMinimo: number;
+}
+
+export const ANALISI_INIZIALI: RegoleAnalisi = {
+  consumoAlto: 16,
+  consumoCrescita: 8,
+  kmMeseMinimi: 1024,
+  disponibilitaMinima: 96,
+  quotaGuastiMassima: 50,
+  strutturaMassima: 16,
+  strutturaMinimaEuro: 4096,
+  margineMinimo: 8,
+};
+
+export const LIMITI_ANALISI: Record<keyof RegoleAnalisi, { min: number; max: number }> = {
+  consumoAlto: { min: 1, max: 128 },
+  consumoCrescita: { min: 1, max: 128 },
+  kmMeseMinimi: { min: 1, max: 65536 },
+  disponibilitaMinima: { min: 1, max: 100 },
+  quotaGuastiMassima: { min: 1, max: 100 },
+  strutturaMassima: { min: 1, max: 1024 },
+  strutturaMinimaEuro: { min: 0, max: 16777216 },
+  margineMinimo: { min: 0, max: 100 },
+};
+
+export const NOMI_ANALISI: Record<keyof RegoleAnalisi, string> = {
+  consumoAlto: 'Consumo alto (% sulla categoria)',
+  consumoCrescita: 'Consumo in crescita (%)',
+  kmMeseMinimi: 'Mezzo poco usato (km al mese)',
+  disponibilitaMinima: 'Disponibilità minima (%)',
+  quotaGuastiMassima: 'Peso massimo dei guasti (%)',
+  strutturaMassima: 'Aumento massimo di una voce (%)',
+  strutturaMinimaEuro: 'Aumento minimo di una voce (€)',
+  margineMinimo: 'Margine minimo (%)',
+};
+
+/** Gli errori delle soglie (vuoto = valide): numeri interi entro i limiti */
+export function erroriAnalisi(r: Partial<RegoleAnalisi>): string[] {
+  const errori: string[] = [];
+  for (const k of Object.keys(LIMITI_ANALISI) as (keyof RegoleAnalisi)[]) {
+    const v = r[k];
+    if (v === undefined) continue;
+    const l = LIMITI_ANALISI[k];
+    if (typeof v !== 'number' || !Number.isInteger(v) || v < l.min || v > l.max) errori.push(`${NOMI_ANALISI[k]} va da ${l.min} a ${l.max.toLocaleString('it-IT')}, intero`);
+  }
+  return errori;
+}
+
+/** Le soglie da usare: salvate se valide, altrimenti il valore iniziale di ciascuna */
+export function analisiEffettiva(salvate: Partial<RegoleAnalisi> | null | undefined): RegoleAnalisi {
+  const s = salvate ?? {};
+  const r = { ...ANALISI_INIZIALI };
+  for (const k of Object.keys(ANALISI_INIZIALI) as (keyof RegoleAnalisi)[]) if (s[k] !== undefined && !erroriAnalisi({ [k]: s[k] }).length) r[k] = s[k] as number;
+  return r;
 }

@@ -4,6 +4,9 @@
 // Oltre a leggere e scrivere il controllo, tiene allineate le sue scadenze:
 //   automatico (o riattivato, o con categorie nuove) -> crea quelle mancanti
 //   disattivato                                     -> chiude le aperte
+//   riattivato                                      -> riapre quelle chiuse, con le date
+//   categorie cambiate                              -> chiude quelle fuori ambito, riapre
+//                                                      quelle rientrate, con le date
 //   preavvisi/tolleranza/cadenza cambiati           -> ricalcola gli stati
 // =============================================================================
 import { literal, Op, type Order, type Transaction, type WhereOptions } from 'sequelize';
@@ -18,13 +21,16 @@ import type { UnitaUso } from '../../regole';
 import { controllaCadenza } from '../coerenza';
 import { PREDEFINITI_INIZIALI } from '../impostazioni/impostazioni.model';
 import { Categoria, Controllo, ControlloCategoria, ImpostazioniTenant, Scadenza } from '../modelli';
-import { chiudiScadenze, generaScadenze, soggettiDelControllo } from '../scadenze/ciclo.service';
+import { chiudiFuoriAmbito, chiudiScadenze, generaScadenze, riapriScadenzeChiuse, soggettiDelControllo } from '../scadenze/ciclo.service';
 import { ricalcolaScadenze } from '../scadenze/ricalcolo.service';
+import { frasiControllo } from './controllo.presenta';
 
 const CON_CATEGORIE = { association: 'categorie', through: { attributes: [] } };
 const APERTE = {
   include: [
     [literal(`(SELECT count(*) FROM scadenze s WHERE s.id_controllo = "Controllo".id_controllo AND s.chiusa_il IS NULL)`), 'nAperte'],
+    // senza nessuna scadenza, nemmeno chiusa: si può eliminare (2026-11-19)
+    [literal(`NOT EXISTS (SELECT 1 FROM scadenze s WHERE s.id_controllo = "Controllo".id_controllo)`), 'eliminabile'],
   ] as [ReturnType<typeof literal>, string][],
 };
 
@@ -94,29 +100,52 @@ export async function generaPer(ctx: Contesto, c: Controllo, categorie: Categori
   return create.length;
 }
 
+/** Il cuore della creazione, dentro una transazione data: comune alla creazione e alla sua anteprima */
+async function creaNellaTransazione(ctx: Contesto, dati: Record<string, unknown>, transaction: Transaction): Promise<{ c: Controllo; scadenzeCreate: number }> {
+  const imp = await ImpostazioniTenant.findByPk(ctx.idTenant, { transaction });
+  const predefiniti = imp?.predefiniti ?? PREDEFINITI_INIZIALI;
+  const { categorie: uuidCategorie = [], ...campi } = dati as { categorie?: string[] } & Record<string, unknown>;
+  const categorie = await categorieDa(ctx, uuidCategorie, String(campi.tipoSoggetto), transaction);
+  const c = Controllo.build({
+    preavvisi: predefiniti.preavvisi,
+    tolleranza: predefiniti.tolleranza,
+    destinatari: [{ tipo: 'ufficio' }],
+    ...(campi as object),
+    idTenant: ctx.idTenant,
+  } as never);
+  verifica(c, categorie);
+  await c.save({ transaction });
+  await impostaCategorie(ctx, c, categorie, transaction);
+  const scadenzeCreate = await generaPer(ctx, c, categorie, transaction);
+  return { c, scadenzeCreate };
+}
+
 export async function creaControllo(ctx: Contesto, dati: Record<string, unknown>): Promise<{ controllo: Controllo; scadenzeCreate: number }> {
   let uuid = '';
   let scadenzeCreate = 0;
   await sequelize.transaction(async transaction => {
-    const imp = await ImpostazioniTenant.findByPk(ctx.idTenant, { transaction });
-    const predefiniti = imp?.predefiniti ?? PREDEFINITI_INIZIALI;
-    const { categorie: uuidCategorie = [], ...campi } = dati as { categorie?: string[] } & Record<string, unknown>;
-    const categorie = await categorieDa(ctx, uuidCategorie, String(campi.tipoSoggetto), transaction);
-    const c = Controllo.build({
-      preavvisi: predefiniti.preavvisi,
-      tolleranza: predefiniti.tolleranza,
-      destinatari: [{ tipo: 'ufficio' }],
-      ...(campi as object),
-      idTenant: ctx.idTenant,
-    } as never);
-    verifica(c, categorie);
-    await c.save({ transaction });
-    await impostaCategorie(ctx, c, categorie, transaction);
-    scadenzeCreate = await generaPer(ctx, c, categorie, transaction);
-    traccia(ctx, 'vigilo.controllo.creato', `Controllo creato: ${c.nome}`, null, c, { scadenzeCreate });
-    uuid = c.uuidControllo ?? (await c.reload({ transaction })).uuidControllo;
+    const creato = await creaNellaTransazione(ctx, dati, transaction);
+    scadenzeCreate = creato.scadenzeCreate;
+    traccia(ctx, 'vigilo.controllo.creato', `Controllo creato: ${creato.c.nome}`, null, creato.c, { scadenzeCreate });
+    uuid = creato.c.uuidControllo ?? (await creato.c.reload({ transaction })).uuidControllo;
   });
   return { controllo: await leggiControllo(ctx, uuid), scadenzeCreate };
+}
+
+/**
+ * Che cosa succederebbe creando il controllo, senza crearlo (2026-11-19):
+ * la stessa creazione in una transazione che poi si annulla. Quante scadenze
+ * nascerebbero e le frasi in parole; gli errori (nome già usato, cadenza non
+ * coerente) arrivano come per la creazione.
+ */
+export async function anteprimaCreazione(ctx: Contesto, dati: Record<string, unknown>): Promise<{ scadenzeCreate: number; frasi: ReturnType<typeof frasiControllo> }> {
+  const transaction = await sequelize.transaction();
+  try {
+    const { c, scadenzeCreate } = await creaNellaTransazione(ctx, dati, transaction);
+    return { scadenzeCreate, frasi: frasiControllo(c) };
+  } finally {
+    await transaction.rollback();
+  }
 }
 
 const cambiato = (a: unknown, b: unknown) => JSON.stringify(a) !== JSON.stringify(b);
@@ -125,6 +154,8 @@ export interface EsitoModifica {
   controllo: Controllo;
   scadenzeCreate: number;
   scadenzeChiuse: number;
+  /** Riattivazione: riaperte con le loro date (2026-11-19) */
+  scadenzeRiaperte: number;
   scadenzeRicalcolate: number;
 }
 
@@ -143,7 +174,7 @@ export async function applicaAlControllo(
   nuoveCategorie: Categoria[] | null,
   transaction: Transaction
 ): Promise<EsitoScadenze> {
-  const esito = { scadenzeCreate: 0, scadenzeChiuse: 0, scadenzeRicalcolate: 0 };
+  const esito = { scadenzeCreate: 0, scadenzeChiuse: 0, scadenzeRiaperte: 0, scadenzeRicalcolate: 0 };
   const categoriePrima = (c.categorie ?? []).map(k => k.idCategoria).sort();
   const categorie = nuoveCategorie ?? (await Categoria.findAll({ where: { idCategoria: categoriePrima }, transaction }));
   const categorieCambiate = cambiato(categoriePrima, categorie.map(k => k.idCategoria).sort());
@@ -159,15 +190,24 @@ export async function applicaAlControllo(
 
   if (eraAttivo && !c.attivo) {
     esito.scadenzeChiuse = await chiudiScadenze({ idControllo: c.idControllo }, 'controllo-disattivato', transaction);
-  } else if (c.attivo && c.automatico && (!eraAttivo || !eraAutomatico || categorieCambiate)) {
-    esito.scadenzeCreate = await generaPer(ctx, c, categorie, transaction);
+  } else if (c.attivo) {
+    const idCategorie = categorie.map(k => k.idCategoria);
+    // categorie cambiate: fuori chi non c'entra più, e si riaprono, con le loro date, quelle di chi rientra
+    if (categorieCambiate) {
+      esito.scadenzeChiuse = await chiudiFuoriAmbito(c, idCategorie, transaction);
+      esito.scadenzeRiaperte += await riapriScadenzeChiuse(c, idCategorie, 'fuori-ambito', ctx.oggi, transaction);
+    }
+    // riattivato: si riaprono, con le loro date, quelle chiuse dalla disattivazione
+    if (!eraAttivo) esito.scadenzeRiaperte += await riapriScadenzeChiuse(c, idCategorie, 'controllo-disattivato', ctx.oggi, transaction);
+    // poi nascono solo quelle che mancano (soggetti nuovi, categorie nuove)
+    if (c.attivo && c.automatico && (!eraAttivo || !eraAutomatico || categorieCambiate)) esito.scadenzeCreate = await generaPer(ctx, c, categorie, transaction);
   }
   if (statoCambia && c.attivo) esito.scadenzeRicalcolate = await ricalcolaScadenze({ idControllo: c.idControllo }, ctx.oggi, transaction);
   return esito;
 }
 
 export async function modificaControllo(ctx: Contesto, uuid: string, dati: Record<string, unknown>): Promise<EsitoModifica> {
-  let esito: EsitoScadenze = { scadenzeCreate: 0, scadenzeChiuse: 0, scadenzeRicalcolate: 0 };
+  let esito: EsitoScadenze = { scadenzeCreate: 0, scadenzeChiuse: 0, scadenzeRiaperte: 0, scadenzeRicalcolate: 0 };
   await sequelize.transaction(async transaction => {
     const c = await leggiControllo(ctx, uuid, transaction);
     const prima = snapshot(c);
@@ -182,6 +222,35 @@ export async function modificaControllo(ctx: Contesto, uuid: string, dati: Recor
     traccia(ctx, 'vigilo.controllo.modificato', `Controllo modificato: ${c.nome}`, prima, c, esito);
   });
   return { controllo: await leggiControllo(ctx, uuid), ...esito };
+}
+
+/**
+ * Che cosa cambierebbe salvando la modifica, senza salvarla (2026-11-19): la
+ * stessa modifica in una transazione che poi si annulla, così i conteggi
+ * (ricalcolate, chiuse, riaperte, create) sono quelli veri e la regola è una
+ * sola. Nessuna traccia; il segnale agli avvisi che il ricalcolo manda
+ * rigenera dallo stato invariato, senza effetti.
+ */
+export async function anteprimaModifica(
+  ctx: Contesto,
+  uuid: string,
+  dati: Record<string, unknown>
+): Promise<EsitoScadenze & { scadenzeAperte: number; frasi: ReturnType<typeof frasiControllo> }> {
+  const transaction = await sequelize.transaction();
+  try {
+    const c = await leggiControllo(ctx, uuid, transaction);
+    const scadenzeAperte = await Scadenza.count({ where: { idControllo: c.idControllo, chiusaIl: null }, transaction });
+    const { categorie: uuidCategorie, ...campi } = dati as { categorie?: string[] } & Record<string, unknown>;
+    if (campi.tipoSoggetto && campi.tipoSoggetto !== c.tipoSoggetto && (await Scadenza.count({ where: { idControllo: c.idControllo }, transaction })))
+      throw new ConflictError('Il tipo di soggetto non si cambia: il controllo ha già delle scadenze');
+    const tipo = String(campi.tipoSoggetto ?? c.tipoSoggetto);
+    const categorie = uuidCategorie ? await categorieDa(ctx, uuidCategorie, tipo, transaction) : null;
+    const esito = await applicaAlControllo(ctx, c, campi, categorie, transaction);
+    // le frasi come risulterebbero (cadenza, preavvisi, tolleranza in parole), per l'editor
+    return { ...esito, scadenzeAperte, frasi: frasiControllo(c) };
+  } finally {
+    await transaction.rollback();
+  }
 }
 
 /** Si elimina solo un controllo senza scadenze (nemmeno chiuse): altrimenti si disattiva */

@@ -1,5 +1,5 @@
 {
-  "lastUpdated": "2026-11-12",
+  "lastUpdated": "2026-11-24",
   "modules": {
     "auth-service": {
       "status": "stable",
@@ -107,9 +107,9 @@
       "lastUpdated": "2026-08-31"
     },
     "vigilo (modulo app-frontend)": {
-      "status": "in-progress",
-      "notes": "B8d-1 bis (ADR096): voce di menu Avvisi (solo Vigilo), preferenze anche nella pagina /avvisi della piattaforma. Prossimo: B8d-3 editor dei destinatari.",
-      "lastUpdated": "2026-10-26"
+      "status": "review",
+      "notes": "Vedi app-frontend (vigilo) e vigilo-service: aggiornati al 2026-11-24 (ADR114-ADR116). Prossimo: gestione dal pro-frontend.",
+      "lastUpdated": "2026-11-24"
     },
     "revisione UI @edg/ui": {
       "status": "in-progress",
@@ -148,13 +148,13 @@
     },
     "vigilo-service": {
       "status": "review",
-      "notes": "Revisione 9-11/11: recupero ricalcolo (L070), fasce dashboard, autori e chi ha chiuso (L072), controlli non seguiti (ADR110, migrazione eseguita). Jest 261/261. Prossimo: report mancanti.",
-      "lastUpdated": "2026-11-12"
+      "notes": "Stima costi (ADR115), Configurazione modificabile (ADR114), Analisi con segnali e soglie (ADR116). Jest 323/323. Da ricostruire per strutturaMinimaEuro. Prossimo: pro-frontend.",
+      "lastUpdated": "2026-11-24"
     },
     "app-frontend (vigilo)": {
       "status": "review",
-      "notes": "Report fatti (ADR111): Soggetti, Scheda soggetto, Piano dei controlli, Controlli non seguiti, Storico, Rifornimenti, Fornitori, Calendario. Prossimo: elenchi/liste/tabelle.",
-      "lastUpdated": "2026-11-12"
+      "notes": "Stima costi su tre colonne, gestione categorie e controlli in Configurazione, Dashboard › Analisi (Da valutare, Soglie). Prossimo: pro-frontend per i moduli e Vigilo.",
+      "lastUpdated": "2026-11-24"
     },
     "api-gateway": {
       "status": "stable",

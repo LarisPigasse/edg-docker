@@ -16,6 +16,13 @@ const CONTEGGI = {
   include: [
     [literal(`(SELECT count(*) FROM soggetti s WHERE s.id_categoria = "Categoria".id_categoria AND s.stato <> 'dismesso')`), 'nSoggetti'],
     [literal(`(SELECT count(*) FROM controlli_categorie cc WHERE cc.id_categoria = "Categoria".id_categoria)`), 'nControlli'],
+    // senza nessun soggetto, nemmeno archiviato, e senza controlli che valgono solo per lei: si può eliminare (2026-11-19)
+    [
+      literal(
+        `NOT EXISTS (SELECT 1 FROM soggetti s WHERE s.id_categoria = "Categoria".id_categoria) AND NOT EXISTS (SELECT 1 FROM controlli_categorie cc WHERE cc.id_categoria = "Categoria".id_categoria AND NOT EXISTS (SELECT 1 FROM controlli_categorie altra WHERE altra.id_controllo = cc.id_controllo AND altra.id_categoria <> cc.id_categoria))`
+      ),
+      'eliminabile',
+    ],
   ] as [ReturnType<typeof literal>, string][],
 };
 
@@ -67,6 +74,15 @@ export async function modificaCategoria(ctx: Contesto, uuid: string, dati: Recor
         (await Controllo.count({ include: [{ association: 'categorie', where: { idCategoria: c.idCategoria } }], transaction }));
       if (usata) throw new ConflictError('Il tipo di soggetto non si cambia: la categoria ha già soggetti o controlli');
     }
+    // un contatore tolto non deve servire a controlli a uso che valgono per questa categoria (2026-11-19)
+    if (Array.isArray(dati.contatori)) {
+      const tolti = c.contatori.filter(u => !(dati.contatori as UnitaUso[]).includes(u));
+      if (tolti.length) {
+        const usano = await controlliAUso(c, tolti, transaction);
+        if (usano.length)
+          throw new ConflictError(`Il contatore ${tolti.join(' e ')} serve ai controlli ${usano.map(n => `"${n}"`).join(', ')}: cambia prima la loro cadenza o le loro categorie`);
+      }
+    }
     await applicaAllaCategoria(ctx, c, dati, transaction);
     traccia(ctx, 'vigilo.categoria.modificata', `Categoria modificata: ${c.nome}`, prima, c);
   });
@@ -97,12 +113,43 @@ export async function applicaAllaCategoria(ctx: Contesto, c: Categoria, dati: Re
   }
 }
 
+/**
+ * I nomi dei controlli attivi con una cadenza a uso in una di queste unità che
+ * valgono per la categoria: quelli che la elencano e quelli senza categorie
+ * (tutti i soggetti del tipo)
+ */
+async function controlliAUso(c: Categoria, unita: UnitaUso[], transaction: Transaction): Promise<string[]> {
+  const controlli = await Controllo.findAll({
+    where: { idTenant: c.idTenant, tipoSoggetto: c.tipoSoggetto, attivo: true },
+    include: [{ association: 'categorie', attributes: ['idCategoria'], through: { attributes: [] } }],
+    transaction,
+  });
+  return controlli
+    .filter(k => k.cadenza.uso && unita.includes(k.cadenza.uso.unita))
+    .filter(k => !(k.categorie ?? []).length || (k.categorie ?? []).some(x => x.idCategoria === c.idCategoria))
+    .map(k => k.nome);
+}
+
+/** I nomi dei controlli che hanno questa come unica categoria */
+async function controlliSoloPer(c: Categoria, transaction: Transaction): Promise<string[]> {
+  const controlli = await Controllo.findAll({
+    where: { idTenant: c.idTenant, tipoSoggetto: c.tipoSoggetto },
+    include: [{ association: 'categorie', attributes: ['idCategoria'], through: { attributes: [] } }],
+    transaction,
+  });
+  return controlli.filter(k => (k.categorie ?? []).length === 1 && k.categorie![0].idCategoria === c.idCategoria).map(k => k.nome);
+}
+
 /** Si elimina solo una categoria senza soggetti (anche dismessi): altrimenti si disattiva */
 export async function eliminaCategoria(ctx: Contesto, uuid: string): Promise<void> {
   await sequelize.transaction(async transaction => {
     const c = await trovaNelTenant(Categoria, 'uuidCategoria', uuid, ctx.idTenant, 'Categoria', { transaction });
     if (await Soggetto.count({ where: { idCategoria: c.idCategoria }, transaction }))
       throw new ConflictError('La categoria ha dei soggetti: si può solo disattivare');
+    // un controllo che vale solo per lei resterebbe senza categorie, cioè per tutti i soggetti del tipo (2026-11-19)
+    const soloLei = await controlliSoloPer(c, transaction);
+    if (soloLei.length)
+      throw new ConflictError(`I controlli ${soloLei.map(n => `"${n}"`).join(', ')} valgono solo per questa categoria: senza, varrebbero per tutti i soggetti del tipo. Cambia prima le loro categorie`);
     const prima = snapshot(c);
     await c.destroy({ transaction });
     traccia(ctx, 'vigilo.categoria.eliminata', `Categoria eliminata: ${c.nome}`, prima, null);

@@ -271,7 +271,7 @@ export async function decidi(ctx: Contesto, entita: EntitaDecisione, uuid: strin
       valori = { ...applicati, ...azzera, versioneLibreria: p.lib.versione, versioneIgnorata: null, origine };
     }
 
-    let scadenze: EsitoScadenze = { scadenzeCreate: 0, scadenzeChiuse: 0, scadenzeRicalcolate: 0 };
+    let scadenze: EsitoScadenze = { scadenzeCreate: 0, scadenzeChiuse: 0, scadenzeRiaperte: 0, scadenzeRicalcolate: 0 };
     if (entita === 'controllo') scadenze = await applicaAlControllo(ctx, voce as Controllo, valori, categorie, transaction);
     else await applicaAllaCategoria(ctx, voce as Categoria, valori, transaction);
 

@@ -1,5 +1,5 @@
 // Stime salvate: scostamento e descrizione di riserva (2026-11-18)
-import { descrizioneDi, scostamento } from '../../src/domini/stima/stime';
+import { descrizioneDi, margine, scostamento } from '../../src/domini/stima/stime';
 
 describe('stime salvate', () => {
   test('scostamento: reale − stimato, in euro e in percentuale', () => {
@@ -13,5 +13,18 @@ describe('stime salvate', () => {
     expect(descrizioneDi('', 'km', 1024)).toBe('Trasporto di 1.024 km');
     expect(descrizioneDi(null, 'ore', undefined, 1)).toBe('Lavoro di 1 ora');
     expect(descrizioneDi(undefined, 'ore', undefined, 16)).toBe('Lavoro di 16 ore');
+  });
+});
+
+describe('margine (2026-11-23)', () => {
+  test('senza prezzo: nessun margine', () => {
+    expect(margine(null, 1000, null)).toBeNull();
+  });
+  test('sul costo reale se c\'è, altrimenti sulla stima', () => {
+    expect(margine(1200, 1000, null)).toEqual({ euro: 200, percentuale: 16.7, base: 'stimato' });
+    expect(margine(1200, 1000, 1250.5)).toEqual({ euro: -50.5, percentuale: -4.2, base: 'reale' });
+  });
+  test('prezzo zero: la percentuale non si calcola', () => {
+    expect(margine(0, 100, null)).toEqual({ euro: -100, percentuale: null, base: 'stimato' });
   });
 });

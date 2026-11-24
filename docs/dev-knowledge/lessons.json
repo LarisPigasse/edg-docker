@@ -1,5 +1,5 @@
 {
-  "lastUpdated": "2026-11-10",
+  "lastUpdated": "2026-11-24",
   "lessons": [
     {
       "id": "L001",
@@ -648,6 +648,24 @@
       "title": "modificatoDa non dice chi ha chiuso: i processi non lo aggiornano",
       "problem": "Gli hook di audit (core/db/audit.ts) scrivono creatoDa/modificatoDa solo quando c'è un account nella richiesta; nei processi pianificati (rinnovo tacito, ricalcolo) lasciano il valore precedente. Usare scadenza.modificatoDa per dire \"chi l'ha chiusa\" attribuirebbe un rinnovo tacito all'ultima persona che aveva toccato la scadenza.",
       "solution": "Per l'autore di un evento si usa la riga che lo rappresenta: la registrazione che ha chiuso (confermataDa ?? creatoDa; rinnovo tacito = automatica), regola pura domini/scadenze/chiusura.ts. modificatoDa solo per le chiusure fatte da un'azione dell'ufficio (soggetto dismesso, controllo disattivato). Nomi letti da auth-service una volta per risposta (domini/soggetti/autori.ts), con risposta comunque valida se auth non risponde."
+    },
+    {
+      "id": "L073",
+      "date": "2026-11-23",
+      "category": "strumenti",
+      "severity": "medium",
+      "title": "Script di prova nei container: la trascrizione di blocchi lunghi in base64 si corrompe",
+      "problem": "Per eseguire uno script nel container (exec-in-container) se ne ricopia l'archivio .gz in base64. Con blocchi di 2.000 caratteri la trascrizione ha sbagliato più volte (un carattere, o intere righe), e gunzip falliva o lo script non partiva. In più il comando passa da cmd di Windows: $(…) e virgolette escapate si perdono ('Impossibile trovare il percorso specificato', 'Accesso negato'). Nei token di prova senza email il gateway risponde 401.",
+      "solution": "Dividere il base64 in pezzi da 400 caratteri (fold -w 400), calcolare l'md5 di ognuno sul computer, scriverli nel container con printf %s ... > /tmp/pN e controllarne l'md5, poi cat + base64 -d e confronto dell'md5 dell'archivio con l'originale prima di eseguire. Per correggere un carattere: sed su base64 dell'archivio già nel container. Niente $(…) né \\\" dentro sh -c; nei token di prova mettere sempre anche email."
+    },
+    {
+      "id": "L074",
+      "date": "2026-11-24",
+      "category": "frontend",
+      "severity": "medium",
+      "title": "Il frontend non deve cadere se il servizio è un passo indietro",
+      "problem": "Aggiunta una soglia nuova in servizio e frontend, il frontend (aggiornato subito da Vite) leggeva i limiti di tutte le soglie che conosceva, anche a pannello chiuso; vigilo-service non ancora ricostruito non mandava quella nuova: TypeError e tutta la vista Analisi nella pagina d'errore.",
+      "solution": "Quando il frontend elenca chiavi che il servizio dà (soglie, parametri, campi), usare solo quelle presenti nella risposta (filtrare l'elenco locale con ciò che il servizio manda) e non calcolare niente di un pannello chiuso che possa fallire. Dire all'utente quale servizio ricostruire, ma non far dipendere il funzionamento dall'ordine delle ricostruzioni."
     }
   ]
 }
