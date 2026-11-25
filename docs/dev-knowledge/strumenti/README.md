@@ -18,6 +18,10 @@ All'inizio di una nuova conversazione: `cp docs/dev-knowledge/strumenti/w.py ~/w
     `prove-1d.js` (accessi ai moduli dal gateway: uno per sessione su due gateway, campanella esclusa, assistenza, Redis; lascia 3 accessi di prova con user-agent prova-1d),
     `prove-2b.js` (fase 2: riepilogo dell'uso del Tenant Demo e ultimo uso dei tenant; somme confrontate con i Logs, limiti dei giorni, permessi; solo lettura),
     `prove-1e.js` (consultazioni di vigilo-service con l'operatore demo, account 10: schede, report, CSV, andamento, assistenza, elenchi esclusi; le chiavi restano 16 minuti: per rilanciarlo prima, riavviare vigilo-service)
+  - `dati/` fase 3 (ADR121), nel container auth-service, DOPO la ricostruzione di vigilo-service:
+    `prove-3a.js` (riepilogo, "solo i dati", "tutto", permessi; solo sul tenant finto 2147480001, che lascia vuoto),
+    `prepara-3b.js` (crea o riprende il tenant vero "Prova dati EDG" con Vigilo avviato, 2 soggetti e un PDF, per provare a video
+    la finestra Moduli; alla fine eliminarlo da SISTEMA › Tenant)
   - `aa4/codice.js` codice d'ingresso di un'assistenza di prova (`node /tmp/codice.js 9`), `aa4/prove.js`, `aa5/prove.js`
   - `b9c`, `f0`, `f1`, `csv` prove dei rispettivi blocchi
   - `b10b/simula.js` e `ripristina.js` simulano/ripristinano un aggiornamento della libreria

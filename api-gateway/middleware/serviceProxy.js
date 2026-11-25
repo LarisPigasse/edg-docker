@@ -113,7 +113,7 @@ function streamTo(route) {
  *
  * @param {import('express').Express} app
  * @param {ReadonlyArray<object>} routes   SERVICE_ROUTES
- * @param {{ cors: Function, sessionGuard: Function, publicLimiter: Function, registroUso?: (modulo: string) => Function }} deps
+ * @param {{ cors: Function, sessionGuard: Function, publicLimiter: Function, registroUso?: (modulo: string, nonUso?: string[]) => Function }} deps
  */
 function mountServiceRoutes(app, routes, { cors, sessionGuard, publicLimiter, registroUso }) {
   for (const route of routes) {
@@ -121,7 +121,7 @@ function mountServiceRoutes(app, routes, { cors, sessionGuard, publicLimiter, re
     if (!route.pubblica && route.module) {
       steps.push(requireModule(route.module));
       // Accesso al modulo (ADR117): solo dopo che il modulo e' concesso; non attende
-      if (registroUso) steps.push(registroUso(route.module));
+      if (registroUso) steps.push(registroUso(route.module, route.nonUso));
     }
     if (!route.pubblica) steps.push(injectGatewayHeaders);
     const forward = route.stream ? streamTo(route) : forwardTo(route);

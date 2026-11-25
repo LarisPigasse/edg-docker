@@ -43,6 +43,7 @@ import { PREFERENZE_PREDEFINITE, passaFiltri } from './preferenze';
 import { preferenzeDelTenant } from './preferenze.service';
 import { escluseDelTenant } from './recapiti.service';
 import { testoAvviso } from './testo';
+import { eInEliminazione } from '../piattaforma/eliminazioni';
 
 export interface EsitoGenerazione {
   avvisi: number;
@@ -52,6 +53,8 @@ export interface EsitoGenerazione {
 
 export async function generaAvvisiTenant(idTenant: number, oggi: Giorno = oggiInItalia()): Promise<EsitoGenerazione> {
   const esito: EsitoGenerazione = { avvisi: 0, consegne: 0, risolte: 0 };
+  // dati del tenant in eliminazione (fase 3, ADR117): niente righe nuove
+  if (eInEliminazione(idTenant)) return esito;
   const [imp, account] = await Promise.all([ImpostazioniTenant.findByPk(idTenant), accountTenant(idTenant)]);
   if (!imp?.avviatoIl) return esito;
   const { intervalloRichiami } = avvisiEffettivi(imp.avvisi);

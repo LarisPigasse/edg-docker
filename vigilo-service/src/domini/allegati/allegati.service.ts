@@ -44,6 +44,9 @@ import { LIMITI_ALLEGATI, TIPI_ALLEGATO, byteMassimi, nomePulito, tipoDaFirma, t
 const CARTELLA = path.resolve(process.env.VIGILO_ALLEGATI_DIR || '/app/uploads');
 const IN_ARRIVO = path.join(CARTELLA, '.in-arrivo');
 
+/** La cartella dei documenti di un tenant (eliminazione dei dati, fase 3) */
+export const cartellaDelTenant = (idTenant: number): string => path.join(CARTELLA, String(idTenant));
+
 const ETICHETTA: Record<EntitaAllegato, string> = { soggetto: 'soggetto', scadenza: 'scadenza', registrazione: 'registrazione', rifornimento: 'rifornimento' };
 
 /** Il percorso sul disco; mai fuori dalla cartella degli allegati */

@@ -693,6 +693,15 @@
       "title": "exec-in-container: cmd spezza su & e | anche dentro gli apici singoli",
       "problem": "Un node -e '...' con un URL contenente & (query string) o un \"|\" in una stringa è stato spezzato da cmd di Windows: 'unterminated quoted string' e '\"startDate\" non è riconosciuto come comando'. Gli apici singoli proteggono il testo per sh, non per cmd. Anche le funzioni freccia (=>) contengono >.",
       "solution": "Nei comandi in linea: niente &, |, > e < (usare URLSearchParams per le query, function(){} al posto delle frecce, separatori come \"--\"). Per qualcosa di più lungo: script trasferito a pezzi (comando.sh, L073, L075)."
+    },
+    {
+      "id": "L078",
+      "date": "2026-11-25",
+      "category": "gateway",
+      "severity": "medium",
+      "title": "Middleware \"non bloccante\": leggere req prima di next(), l'inoltro lo riscrive",
+      "problem": "registroUso chiamava next() e poi leggeva req.path per escludere i percorsi nonUso. Per le rotte stream next() arriva in modo sincrono a streamTo, che riscrive req.url verso l'upstream (/api/vigilo/...): l'esclusione di /piattaforma non scattava mai. La prova isolata non lo vedeva perché il next fittizio non mutava req.",
+      "solution": "Nei middleware che chiamano subito next() per non rallentare, calcolare PRIMA di next() tutto ciò che dipende dalla richiesta (percorso, utente, intestazioni) e usare dopo solo valori catturati. Nei test, il next fittizio deve riscrivere req.url come fa l'inoltro vero."
     }
   ]
 }

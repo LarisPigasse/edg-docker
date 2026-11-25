@@ -20,6 +20,10 @@
 //             il segreto del gateway, nessun dato utente (ADR098). La
 //             credenziale e' nella richiesta (es. un codice) e la verifica
 //             il servizio. Solo per pagine aperte da un'email.
+//   nonUso    sotto-percorsi (relativi al prefisso) che non sono uso del
+//             modulo e non diventano "Accesso a <modulo>" nei log (ADR117):
+//             es. /piattaforma, da cui il personale EDG amministra i dati
+//             dei tenant da EDG Pro. Assente = tutto e' uso.
 //
 // L'ORDINE CONTA: Express prova le voci nell'ordine di registrazione, quindi
 // un prefisso piu' specifico va PRIMA di quello generico che lo contiene
@@ -39,7 +43,7 @@ const SERVICE_ROUTES = Object.freeze([
   { prefix: '/api/vigilo/pubblico', target: VIGILO_SERVICE, upstream: '/api/vigilo/pubblico', module: null, service: 'vigilo-service', stream: true, pubblica: true },
 
   // Moduli attivabili per tenant
-  { prefix: '/api/vigilo', target: VIGILO_SERVICE, upstream: '/api/vigilo', module: 'vigilo', service: 'vigilo-service', stream: true },
+  { prefix: '/api/vigilo', target: VIGILO_SERVICE, upstream: '/api/vigilo', module: 'vigilo', service: 'vigilo-service', stream: true, nonUso: ['/piattaforma'] },
   // vecchio Vigilo, da eliminare quando Vigilo sara' pronto (ADR060)
   { prefix: '/api/vehicles', target: VEHICLE_SERVICE, upstream: '/api/vehicles', module: 'vigilo', service: 'vehicle-service' },
 

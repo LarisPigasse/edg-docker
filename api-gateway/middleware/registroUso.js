@@ -14,7 +14,9 @@
 //
 // Non contano: le richieste in sottofondo (intestazione x-edg-sfondo: 1, es.
 // la campanella di EDG App che rilegge gli avvisi da qualunque pagina) e le
-// richieste HEAD/OPTIONS. In accesso assistito l'evento nomina anche chi di
+// richieste HEAD/OPTIONS, e i sotto-percorsi che la rotta dichiara `nonUso`
+// (config/serviceRoutes.js: es. /piattaforma, amministrazione da EDG Pro).
+// In accesso assistito l'evento nomina anche chi di
 // EDG agisce (claim `assistenza` del token, ADR085).
 //
 // Parametro (limiti invalicabili):
@@ -29,6 +31,10 @@ const NON_CONTANO = new Set(['HEAD', 'OPTIONS']);
 
 /** La richiesta e' in sottofondo o non e' un uso (pura) */
 const nonConta = req => NON_CONTANO.has(String(req.method).toUpperCase()) || req.headers['x-edg-sfondo'] === '1';
+
+/** Il percorso (relativo al prefisso della rotta) e' fra quelli che non sono uso del modulo (pura) */
+const fuoriUso = (percorso, nonUso = []) =>
+  nonUso.some(p => percorso === p || String(percorso).startsWith(`${p}/`));
 
 /** Identificativo della sessione: quella del token, o la sessione assistita, o l'account (pura) */
 function sessioneDi(utente) {
@@ -112,11 +118,15 @@ function createRegistroUso(redisClient, logClient) {
     }
   }
 
-  /** Middleware per un modulo: non attende, chiama subito next() */
-  return modulo => (req, res, next) => {
-    next();
+  /**
+   * Middleware per un modulo: non attende, chiama subito next(); `nonUso` dalla rotta.
+   * Si decide PRIMA di next(): l'inoltro a flusso riscrive req.url verso il servizio.
+   */
+  return (modulo, nonUso = []) => (req, res, next) => {
     const utente = req.userData;
-    if (!utente?.accountId || nonConta(req)) return;
+    const conta = Boolean(utente?.accountId) && !nonConta(req) && !fuoriUso(req.path, nonUso);
+    next();
+    if (!conta) return;
     void nuovoAccesso(chiaveUso(utente, modulo))
       .then(nuovo => {
         if (!nuovo) return;
@@ -136,4 +146,4 @@ function createRegistroUso(redisClient, logClient) {
   };
 }
 
-module.exports = { createRegistroUso, eventoAccesso, chiaveUso, sessioneDi, nonConta, PAUSA_SECONDI };
+module.exports = { createRegistroUso, eventoAccesso, chiaveUso, sessioneDi, nonConta, fuoriUso, PAUSA_SECONDI };

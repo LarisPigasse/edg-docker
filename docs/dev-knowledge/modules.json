@@ -165,6 +165,11 @@
       "status": "stable",
       "notes": "AA1-AA5 completi (ADR085, ADR106): Preparazione, Assistenza in sola lettura \"vedi come\", accessi visibili all'admin del cliente. Rinviati: avviso al cliente e consenso.",
       "lastUpdated": "2026-11-04"
+    },
+    "pro-frontend (gestione moduli e Vigilo, ADR117)": {
+      "status": "in-progress",
+      "notes": "Fasi 1-3 fatte e provate (log, uso, dati del tenant con eliminazione root in due modi, ADR121). Da committare. Prossima: fase 4 demo Autotrasporto.",
+      "lastUpdated": "2026-11-25"
     }
   }
 }

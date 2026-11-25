@@ -10,7 +10,14 @@
 
 ## 1. Dove siamo
 
-### Punto di ripartenza (2026-11-24, fine giornata) — leggere per primo
+### Punto di ripartenza (2026-11-25, sera) — leggere per primo
+
+#### Stato al 2026-11-25, sera (gestione della piattaforma, fasi 1-3 — ADR117)
+- **Fasi 1, 2 e 3 FATTE e verificate.** Fasi 1-2 già committate dall'utente; **fase 3 da committare** (messaggi proposti in chat). Ricostruiti: log-service, vigilo-service, api-gateway-1 e api-gateway-2. Nessuna migrazione in sospeso.
+- **Fase 3 (ADR121)**: vigilo-service `domini/piattaforma/` (`tabelle.ts` DATI/CONFIGURAZIONE, `eliminazioni.ts`, `piattaforma.service.ts`, `piattaforma.routes.ts`): `GET /piattaforma/tenant/:id/dati` (personale EDG con sistema.tenant) e `DELETE` solo root con `{modo: 'dati'|'tutto', conferma: id}`; settori della libreria spostati in `GET /piattaforma/libreria/modelli` (`libreria/libreria.service.ts`; `libreria.routes.ts` eliminato). Pro-frontend: `components/module-data/` (registro `MODULE_DATI`, `DatiModulo`, `EliminaDatiModal`), `utils/datiModuli.ts`, `api/datiModuliApi.ts`, riquadro Dati/Configurazione nella finestra Moduli; "Elimina i dati…" solo root. Jest 338/338, `prove/dati/prove-3a.js` 21/21, a video 1440/1024/470 con `prepara-3b.js` (tenant di prova poi eliminato).
+- **Gateway**: campo `nonUso` in `config/serviceRoutes.js` (Vigilo: `['/piattaforma']`): le letture di EDG Pro non sono "Accesso a vigilo". Il registro d'uso decide PRIMA di `next()` (L078: l'inoltro a flusso riscrive `req.url`). Verificato dal vivo: root nessun accesso, demo.admin un accesso.
+- **Da decidere più avanti** (proposto, non chiesto): la gestione root dei tipi di fornitore (`/api/vigilo/fornitori/tipi` da EDG Pro) conta ancora come uso di Vigilo: spostare sotto `/piattaforma` solo la gestione riservata a root, lasciando la lettura dove sta.
+- **Prossimo: fase 4 demo Autotrasporto** (ADR117): demo creata a comando da pro-frontend, che resta finché non si elimina; base: eliminazione "tutto" della fase 3 + dati demo (`prove/demo/`). Proporla con le domande prima di implementare.
 
 #### Stato al 2026-11-24, fine giornata (gestione della piattaforma, fase 1 log — ADR117)
 - **Argomento in corso: gestione della piattaforma e dei moduli dal pro-frontend** (ADR117: piano a 7 fasi e decisioni dell'utente). Ordine: F1 log → F2 attività del tenant → F3 contratto "dati del tenant" per modulo → F4 demo Autotrasporto → F5 demo Agricoltura e Movimento terra → F6 scheda del tenant → F7 libreria in sola lettura.

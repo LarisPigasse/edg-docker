@@ -22,7 +22,6 @@ import { scadenzeRoutes } from './scadenze/scadenza.routes';
 import { avvioRoutes } from './avvio/avvio.routes';
 import { dashboardRoutes } from './dashboard/dashboard.routes';
 import { calendarioRoutes } from './calendario/calendario.routes';
-import { libreriaRoutes } from './libreria/libreria.routes';
 import { avvisiRoutes } from './avvisi/avviso.routes';
 import { impostazioniRoutes } from './impostazioni/impostazioni.routes';
 import { recapitiRoutes } from './avvisi/recapiti.routes';
@@ -35,6 +34,7 @@ import { rifornimentiRoutes } from './rifornimenti/rifornimenti.routes';
 import { esclusioniRoutes } from './esclusioni/esclusioni.routes';
 import { stimaRoutes } from './stima/stima.routes';
 import { analisiRoutes } from './analisi/analisi.routes';
+import { piattaformaRoutes } from './piattaforma/piattaforma.routes';
 
 const router = Router();
 
@@ -52,7 +52,6 @@ router.use(scadenzeRoutes);
 router.use(avvioRoutes);
 router.use(dashboardRoutes);
 router.use(calendarioRoutes);
-router.use(libreriaRoutes);
 router.use(avvisiRoutes);
 router.use(impostazioniRoutes);
 router.use(allegatiRoutes);
@@ -64,5 +63,7 @@ router.use(rifornimentiRoutes);
 router.use(esclusioniRoutes);
 router.use(stimaRoutes);
 router.use(analisiRoutes);
+// i dati di un tenant per la piattaforma (fase 3, ADR117): solo personale EDG
+router.use(piattaformaRoutes);
 
 export default router;
