@@ -10,6 +10,7 @@
 import Joi from 'joi';
 import { Router, Request, Response } from 'express';
 import { contestoDi } from '../../core/contesto';
+import { consultato } from '../../core/services/consultazioni';
 import { richiedi } from '../../core/middleware/permessi';
 import { validateBody, validateParams, validateQuery } from '../../core/middleware/validate';
 import { paginaDa, rispondiLista, schemaLista } from '../../core/utils/lista';
@@ -44,7 +45,10 @@ rifornimentiRoutes.get('/rifornimenti', richiedi('read', 'own'), validateQuery(l
 });
 
 rifornimentiRoutes.get('/rifornimenti/:id', richiedi('read', 'own'), validateParams(paramUuid), async (req: Request, res: Response) => {
-  successResponse(res, await leggiRifornimento(contestoDi(req), req.params.id));
+  const ctx = contestoDi(req);
+  const r = await leggiRifornimento(ctx, req.params.id);
+  successResponse(res, r);
+  consultato(ctx, 'rifornimento', { id: r.uuid, nome: [r.nomeVoce, r.soggetto?.nome, r.fattoIl].filter(Boolean).join(' · ') });
 });
 
 rifornimentiRoutes.post('/rifornimenti', richiedi('write', 'own'), validateBody(nuovo), async (req: Request, res: Response) => {

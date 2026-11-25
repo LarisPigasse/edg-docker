@@ -15,15 +15,7 @@
 // =============================================================================
 const rateLimit = require('express-rate-limit');
 const { ResilientRateLimitStore } = require('./resilientRateLimitStore');
-
-/** Valore intero dall'ambiente, dentro i limiti; fuori dai limiti si ferma al bordo */
-function parametro(nome, predefinito, min, max) {
-  const letto = parseInt(process.env[nome], 10);
-  const valore = Number.isFinite(letto) ? letto : predefinito;
-  const limitato = Math.min(max, Math.max(min, valore));
-  if (limitato !== valore) console.warn(`⚠️ [GATEWAY] ${nome}=${valore} fuori dai limiti (${min}-${max}): uso ${limitato}`);
-  return limitato;
-}
+const { parametro } = require('../config/parametri');
 
 const LIMITE_PUBBLICO = Object.freeze({
   finestraMinuti: parametro('PUBLIC_RATE_LIMIT_WINDOW', 16, 4, 64),

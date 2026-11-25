@@ -4,6 +4,7 @@ import { apiKeyAuth } from "../middleware/authMiddleware";
 import { requireAuth } from "../middleware/auth";
 import { requirePermission } from "../middleware/rbac";
 import * as logController from "../controllers/logController";
+import * as usoController from "../controllers/usoController";
 
 const router = express.Router();
 
@@ -19,5 +20,9 @@ router.get("/azioni/:id", requireAuth, requirePermission('sistema', 'logs'), log
 router.get("/transazioni/:transazioneId", apiKeyAuth, logController.getTransazione);
 router.get("/statistiche", requireAuth, requirePermission('sistema', 'logs'), logController.getStatistiche);
 router.get("/utenti", requireAuth, requirePermission('sistema', 'logs'), logController.getUtenti); // Utenti distinti presenti nei log
+
+// Uso della piattaforma per tenant (fase 2, ADR117): stesso permesso dei log
+router.get("/uso", requireAuth, requirePermission('sistema', 'logs'), usoController.usoTenant);
+router.get("/uso/tenant", requireAuth, requirePermission('sistema', 'logs'), usoController.usoDeiTenant);
 
 export default router;

@@ -3,35 +3,55 @@ import { Request, Response } from 'express';
 import AzioneLog, { IAzioneLog } from '../models/azioneLog';
 import { computeDiff } from '../utils/diffUtils';
 import AlertManager from '../services/alerting/AlertManager';
+import { PIATTAFORMA, chiaveModulo } from '../config/moduli';
 
 /**
  * Helper: costruisce la query MongoDB dai filtri comuni
- * Usato sia da cercaLogs che da getStatistiche per garantire coerenza
+ * Usato sia da cercaLogs che da getStatistiche per garantire coerenza.
+ *
+ * Solo valori testuali: req.query puo' contenere oggetti (es. categoria[$ne]=x),
+ * che finirebbero nella query come operatori MongoDB. Il testo di "Cerca" e'
+ * testo semplice, non un'espressione regolare (caratteri speciali protetti,
+ * lunghezza limitata a MAX_CERCA).
  */
-const buildQuery = (params: Record<string, any>): any => {
+const MAX_CERCA = 128;
+
+/** Il valore se e' un testo non vuoto, altrimenti undefined */
+const testo = (v: unknown): string | undefined => (typeof v === 'string' && v.trim() !== '' ? v.trim() : undefined);
+
+/** Il testo con i caratteri speciali delle espressioni regolari protetti (pura) */
+export const testoLetterale = (v: string): string => v.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+export const buildQuery = (params: Record<string, any>): any => {
   const query: any = {};
+  const p = (k: string) => testo(params[k]);
 
-  if (params.categoria) query.categoria = params.categoria;
-  if (params.criticita) query.criticita = params.criticita;
-  if (params.userId) query['origine.id'] = params.userId;
-  if (params.tenantId) query['origine.dettagli.tenantId'] = Number(params.tenantId);
-  if (params.entita) query['azione.entita'] = params.entita;
-  if (params.esito) query['risultato.esito'] = params.esito;
+  if (p('categoria')) query.categoria = p('categoria');
+  if (p('criticita')) query.criticita = p('criticita');
+  if (p('userId')) query['origine.id'] = p('userId');
+  if (p('tenantId')) query['origine.dettagli.tenantId'] = Number(p('tenantId'));
+  if (p('entita')) query['azione.entita'] = p('entita');
+  if (p('esito')) query['risultato.esito'] = p('esito');
   // Tutti gli eventi della stessa richiesta, in qualunque servizio (ADR039)
-  if (params.transazioneId) query['contesto.transazioneId'] = String(params.transazioneId);
+  if (p('transazioneId')) query['contesto.transazioneId'] = p('transazioneId');
 
-  if (params.startDate || params.endDate) {
+  // Modulo (config/moduli.ts): 'piattaforma' = eventi senza modulo; una chiave
+  // non valida non trova niente invece di essere ignorata
+  const modulo = p('modulo');
+  if (modulo) query.modulo = modulo === PIATTAFORMA ? null : (chiaveModulo(modulo) ?? '\u0000');
+
+  const startDate = p('startDate');
+  const endDate = p('endDate');
+  if (startDate || endDate) {
     query.timestamp = {};
-    if (params.startDate) query.timestamp.$gte = new Date(params.startDate as string);
-    if (params.endDate) query.timestamp.$lte = new Date(params.endDate as string);
+    if (startDate) query.timestamp.$gte = new Date(startDate);
+    if (endDate) query.timestamp.$lte = new Date(endDate);
   }
 
-  if (params.search) {
-    query.$or = [
-      { 'risultato.messaggio': { $regex: params.search, $options: 'i' } },
-      { 'azione.operazione': { $regex: params.search, $options: 'i' } },
-      { 'azione.entita': { $regex: params.search, $options: 'i' } },
-    ];
+  const cerca = p('search');
+  if (cerca) {
+    const re = { $regex: testoLetterale(cerca.slice(0, MAX_CERCA)), $options: 'i' };
+    query.$or = [{ 'risultato.messaggio': re }, { 'azione.operazione': re }, { 'azione.entita': re }];
   }
 
   return query;
@@ -168,7 +188,7 @@ export const getStatistiche = async (req: Request, res: Response): Promise<void>
     ]);
 
     const byCategory: Record<string, number> = {
-      AUTH: 0, DATA: 0, EMAIL: 0, SYSTEM: 0, AUDIT: 0, SECURITY: 0,
+      AUTH: 0, DATA: 0, EMAIL: 0, SYSTEM: 0, AUDIT: 0, SECURITY: 0, USO: 0,
     };
     categoryStats.forEach((s) => {
       if (s._id && s._id in byCategory) byCategory[s._id] = s.count;

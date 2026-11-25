@@ -11,10 +11,10 @@ import axios from 'axios';
 // ---------------------------------------------------------------------------
 type LogLevel = 'info' | 'warn' | 'error' | 'debug';
 
-/** Le 6 categorie note a log-service (src/types/eventCategories.ts) — qui come
+/** Le 7 categorie note a log-service (USO dal 2026-11-25, ADR118) (src/types/eventCategories.ts) — qui come
  *  union di stringhe, non enum: evita di dipendere dal pacchetto di log-service
  *  solo per questo tipo. */
-type EventCategory = 'AUTH' | 'DATA' | 'EMAIL' | 'SYSTEM' | 'AUDIT' | 'SECURITY';
+type EventCategory = 'AUTH' | 'DATA' | 'EMAIL' | 'SYSTEM' | 'AUDIT' | 'SECURITY' | 'USO';
 
 /** Chi ha generato l'evento — stessi campi già presenti su req.user (vedi
  *  middleware/auth.ts), passati così come sono: nessuna query aggiuntiva nel

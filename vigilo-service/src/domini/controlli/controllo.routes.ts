@@ -3,6 +3,7 @@
 // =============================================================================
 import { Router, Request, Response } from 'express';
 import { contestoDi } from '../../core/contesto';
+import { consultato } from '../../core/services/consultazioni';
 import { richiedi } from '../../core/middleware/permessi';
 import { validateBody, validateParams, validateQuery } from '../../core/middleware/validate';
 import { paginaDa, rispondiLista } from '../../core/utils/lista';
@@ -21,7 +22,10 @@ controlliRoutes.get('/controlli', richiedi('read'), validateQuery(schemi.listaCo
 });
 
 controlliRoutes.get('/controlli/:id', richiedi('read'), validateParams(paramUuid), async (req: Request, res: Response) => {
-  successResponse(res, presentaControllo(await servizio.leggiControllo(contestoDi(req), req.params.id)));
+  const ctx = contestoDi(req);
+  const c = presentaControllo(await servizio.leggiControllo(ctx, req.params.id));
+  successResponse(res, c);
+  consultato(ctx, 'controllo', { id: c.uuid, nome: c.nome });
 });
 
 // che cosa succederebbe creando il controllo, senza crearlo (2026-11-19)

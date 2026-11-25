@@ -21,7 +21,9 @@ import { contestoDi } from '../../core/contesto';
 import { richiedi } from '../../core/middleware/permessi';
 import { validateParams, validateQuery } from '../../core/middleware/validate';
 import { PARAMETRI } from '../../core/parametri';
+import { consultato } from '../../core/services/consultazioni';
 import { logger } from '../../core/services/logger';
+import { nomeAllegato } from '../consultazioni';
 import { createdResponse, noContentResponse, notFound, successResponse } from '../../core/utils/response';
 import { paramUuid, uuid } from '../schemi';
 import { ENTITA_ALLEGATO, type EntitaAllegato } from '../valori';
@@ -47,7 +49,8 @@ allegatiRoutes.post('/allegati', richiedi('write', 'own'), async (req: Request, 
 });
 
 allegatiRoutes.get('/allegati/:id', richiedi('read', 'own'), validateParams(paramUuid), async (req: Request, res: Response) => {
-  const { allegato: a, percorso, tipo } = await servizio.leggiFile(contestoDi(req), req.params.id);
+  const ctx = contestoDi(req);
+  const { allegato: a, percorso, tipo } = await servizio.leggiFile(ctx, req.params.id);
   const inLinea = req.query.scarica !== '1' && !!tipo?.apribile;
   const flusso = fs.createReadStream(percorso);
   flusso.once('error', err => {
@@ -62,6 +65,8 @@ allegatiRoutes.get('/allegati/:id', richiedi('read', 'own'), validateParams(para
     res.setHeader('X-Content-Type-Options', 'nosniff');
     res.setHeader('Cache-Control', 'private, no-store');
     flusso.pipe(res);
+    // consultazione (ADR117): solo un file che si legge davvero
+    consultato(ctx, inLinea ? 'documento-aperto' : 'documento-scaricato', { id: a.uuidAllegato, nome: () => nomeAllegato(a) });
   });
 });
 

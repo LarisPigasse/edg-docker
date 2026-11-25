@@ -17,6 +17,8 @@ const { injectGatewayHeaders } = require('./middleware/gatewayHeaders');
 const { createSessionGuard } = require('./middleware/sessionGuard');
 const { mountServiceRoutes, runChain } = require('./middleware/serviceProxy');
 const { LIMITE_PUBBLICO, createPublicLimiter } = require('./middleware/publicRoute'); // ADR098
+const { createLogClient } = require('./middleware/logClient'); // eventi del gateway (ADR117)
+const { createRegistroUso } = require('./middleware/registroUso'); // accessi ai moduli (ADR117)
 const { SERVICE_ROUTES, VEHICLE_SERVICE, SYSTEM_SERVICE, VIGILO_SERVICE, isStreamPath } = require('./config/serviceRoutes'); // ADR009, ADR060, ADR069
 
 // Identita' della build (ADR044): build-info.json e' scritto dal Dockerfile.
@@ -61,6 +63,9 @@ if (process.env.REDIS_URL) {
 
 // Blacklist di account e sessioni (vedi middleware/sessionGuard.js)
 const { sessionGuard } = createSessionGuard(redisClient);
+
+// Accessi ai moduli in log-service (middleware/registroUso.js, ADR117)
+const registroUso = createRegistroUso(redisClient, createLogClient());
 
 const app = express();
 const PORT = parseInt(process.env.PORT || '8080', 10);
@@ -171,7 +176,8 @@ const corsMiddleware = cors({
   },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept'],
+  // X-Edg-Sfondo: richieste in sottofondo che non contano come accesso (registroUso, ADR117)
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'X-Edg-Sfondo'],
 });
 
 app.use('/auth', corsMiddleware); // le rotte /api ricevono CORS da mountServiceRoutes
@@ -368,7 +374,12 @@ app.use('/auth', async (req, res, next) => {
 // Il frontend legge `modules` dal JWT solo per menu e rotte: il controllo
 // vero e' qui (ADR009).
 // =============================================================================
-mountServiceRoutes(app, SERVICE_ROUTES, { cors: corsMiddleware, sessionGuard, publicLimiter: createPublicLimiter(redisClient) });
+mountServiceRoutes(app, SERVICE_ROUTES, {
+  cors: corsMiddleware,
+  sessionGuard,
+  publicLimiter: createPublicLimiter(redisClient),
+  registroUso,
+});
 
 // =============================================================================
 // PROXY FRONTEND - istanza unica, creata una sola volta all'avvio

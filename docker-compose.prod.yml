@@ -305,6 +305,8 @@ services:
       - EMAIL_SERVICE_URL=http://email-service:3002
       # Riepilogo giornaliero via email (ADR046): orario (cron a 6 campi) e link alla pagina Info
       - DIGEST_CRON=${DIGEST_CRON:-0 0 8 * * *}
+      # riepilogo dell'uso di un tenant: giorni guardati, da 1 a 256 (fase 2 dei log, ADR117)
+      - LOG_USO_GIORNI=${LOG_USO_GIORNI:-32}
       - TZ=Europe/Rome
       - FRONTEND_URL=${FRONTEND_URL:-https://pro.expressdeliverygroup.com}
       # Destinatari alert: anagrafica in log-service, ripiego su EMAIL_ALERTS_TO di email-service (ADR038)
@@ -611,6 +613,10 @@ services:
       # rotte pubbliche dei servizi (ADR098): richieste per IP; limiti 4-64 minuti, 8-128 richieste
       PUBLIC_RATE_LIMIT_WINDOW: 16
       PUBLIC_RATE_LIMIT_MAX: 32
+      # eventi del gateway in log-service (ADR117): accessi ai moduli
+      LOG_API_KEY_SECRET: ${LOG_API_KEY_SECRET}
+      # pausa che chiude un accesso a un modulo, in minuti (limiti 4-256)
+      GATEWAY_USO_PAUSA_MINUTI: 32
       INSTANCE_ID: gateway-1
     networks:
       - internal
@@ -684,6 +690,10 @@ services:
       # rotte pubbliche dei servizi (ADR098): richieste per IP; limiti 4-64 minuti, 8-128 richieste
       PUBLIC_RATE_LIMIT_WINDOW: 16
       PUBLIC_RATE_LIMIT_MAX: 32
+      # eventi del gateway in log-service (ADR117): accessi ai moduli
+      LOG_API_KEY_SECRET: ${LOG_API_KEY_SECRET}
+      # pausa che chiude un accesso a un modulo, in minuti (limiti 4-256)
+      GATEWAY_USO_PAUSA_MINUTI: 32
       INSTANCE_ID: gateway-2
     networks:
       - internal

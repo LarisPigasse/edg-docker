@@ -13,7 +13,7 @@ import { currentRequestId } from './requestContext';
 export const LOG_SERVICE_ID = 'log-service';
 
 export interface LocalEvent {
-  categoria: 'AUTH' | 'DATA' | 'EMAIL' | 'SYSTEM' | 'AUDIT' | 'SECURITY';
+  categoria: 'AUTH' | 'DATA' | 'EMAIL' | 'SYSTEM' | 'AUDIT' | 'SECURITY' | 'USO';
   /** Tipo di evento, es. 'health.down', 'alert.rule_created' */
   tipo: string;
   criticita: 'info' | 'warning' | 'error' | 'critical';

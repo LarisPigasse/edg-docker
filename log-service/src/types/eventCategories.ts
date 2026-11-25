@@ -10,6 +10,7 @@ export enum EventCategory {
   SYSTEM = "SYSTEM",       // Eventi di sistema e processi automatici
   AUDIT = "AUDIT",         // Eventi di auditing e compliance
   SECURITY = "SECURITY",   // Eventi di sicurezza e accessi
+  USO = "USO",             // Uso dei moduli: accessi e consultazioni (fase 1 log, ADR117)
 }
 
 /**
@@ -246,6 +247,8 @@ export const CATEGORY_EVENT_TYPES: Record<EventCategory, readonly EventType[]> =
   [EventCategory.SYSTEM]: Object.values(SystemEventType),
   [EventCategory.AUDIT]: Object.values(AuditEventType),
   [EventCategory.SECURITY]: Object.values(SecurityEventType),
+  // Tipi per modulo, non elencabili qui: '<modulo>.accesso', '<modulo>.consultazione' (ADR117)
+  [EventCategory.USO]: [],
 };
 
 /**

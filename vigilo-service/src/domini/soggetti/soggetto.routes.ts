@@ -4,6 +4,7 @@
 // =============================================================================
 import { Router, Request, Response } from 'express';
 import { contestoDi } from '../../core/contesto';
+import { consultato } from '../../core/services/consultazioni';
 import { richiedi } from '../../core/middleware/permessi';
 import { validateBody, validateParams, validateQuery } from '../../core/middleware/validate';
 import { paginaDa, rispondiLista } from '../../core/utils/lista';
@@ -25,8 +26,10 @@ soggettiRoutes.get('/soggetti', richiedi('read', 'own'), validateQuery(schemi.li
 });
 
 soggettiRoutes.get('/soggetti/:id', richiedi('read', 'own'), validateParams(paramUuid), async (req: Request, res: Response) => {
-  const s = await servizio.leggiSoggetto(contestoDi(req), req.params.id);
-  successResponse(res, { ...presentaSoggetto(s, contestoDi(req)), account: await accountDi(s) });
+  const ctx = contestoDi(req);
+  const s = await servizio.leggiSoggetto(ctx, req.params.id);
+  successResponse(res, { ...presentaSoggetto(s, ctx), account: await accountDi(s) });
+  consultato(ctx, 'soggetto', { id: s.uuidSoggetto, nome: s.nome });
 });
 
 // Account collegati alle persone (B9b): l'elenco per sceglierlo e il collegamento

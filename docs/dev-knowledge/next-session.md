@@ -10,9 +10,19 @@
 
 ## 1. Dove siamo
 
-### Punto di ripartenza (2026-11-24) — leggere per primo
+### Punto di ripartenza (2026-11-24, fine giornata) — leggere per primo
 
-#### Stato al 2026-11-24
+#### Stato al 2026-11-24, fine giornata (gestione della piattaforma, fase 1 log — ADR117)
+- **Argomento in corso: gestione della piattaforma e dei moduli dal pro-frontend** (ADR117: piano a 7 fasi e decisioni dell'utente). Ordine: F1 log → F2 attività del tenant → F3 contratto "dati del tenant" per modulo → F4 demo Autotrasporto → F5 demo Agricoltura e Movimento terra → F6 scheda del tenant → F7 libreria in sola lettura.
+- **Fatti e verificati (da committare)**: 1a Logs all'admin EDG (`sistema.logs`, migrazione `auth-service/migrations/2026-11-24-admin-logs-permission.sql` **già eseguita**, seed; `prove/log/prove-1a.js` 18/18); 1b campo `modulo` sugli eventi, filtro Modulo, Cerca come testo, filtri solo testuali, colonna Azione visibile a 1024 (`log-service/src/config/moduli.ts`, `scripts/assegnaModulo.ts` **già eseguito**; `prove/log/prove-1b.js` 22/22). A video 1440/1024/470 fatto. log-service ricostruito.
+- **Fatto il 2026-11-25: 1c + 1d** (ADR118): categoria USO; accessi ai moduli registrati dal gateway (`middleware/registroUso.js`, `logClient.js`, `config/parametri.js`; `LOG_API_KEY_SECRET` e `GATEWAY_USO_PAUSA_MINUTI` nei compose); campanella di EDG App con `x-edg-sfondo: 1`. `prove/log/prove-1d.js` 17/17, a video ok. Ricostruiti log-service e i due gateway. **Ancora da committare (1a-1d)**: l'utente vuole aspettare.
+- **1e consultazioni in vigilo-service (2026-11-25, ADR119)**: `core/services/consultazioni.ts` (consultato dopo una risposta riuscita, pausa `VIGILO_CONSULTAZIONI_PAUSA_MINUTI` 16 [1-256]), `domini/consultazioni.ts` (nomi), gestori collegati; letture in sottofondo (`ctx.sfondo` da `x-edg-sfondo`) escluse: conteggi della pagina Soggetti, I miei mezzi, persona della Stima costi. Jest 334/334, `prove/log/prove-1e.js` 33/33 + documenti (aperto/scaricato) a parte.
+- **Fase 2 fatta (2026-11-25, ADR120)**: voci Uso e Attività nella riga del tenant, finestra "Uso — tenant" (periodo 8/32/128/256, riquadri per modulo, assistenza EDG a parte, persone), colonna Ultimo uso; log-service `services/uso.ts`, `GET /api/log/uso` e `/uso/tenant`, `LOG_USO_GIORNI` 32 [1-256]. `prove/log/prove-2b.js` 30/30, a video 1440/1024/470. Ricostruito log-service. **Commit 1a-2d ancora da fare** (l'utente aspetta).
+- **Prossimo: fase 3** (ADR117): contratto "dati del tenant" per modulo in vigilo-service (riepilogo + elimina i dati di un tenant), base per la demo (fase 4) e per la pulizia a fine prova (ADR047 p.3). Proporla con le domande prima di implementare. Rimandati e non chiesti: esportazioni PDF/CSV fatte nel browser (peso 1); filtri di Logs sotto un pulsante a 470 px (peso 1).
+- **Proposta a parte, non chiesta**: a 470 px i 9 filtri di Logs occupano mezzo schermo: pulsante "Filtri" sotto una certa larghezza (peso 1).
+- **Strumenti** (L075, L076): pezzi base64 con a capo finale dopo `fold` e conteggio sulla lunghezza; in exec-in-container gli apici singoli arrivano a sh (sed -i 's/…/…/' funziona; mai `>`, `|`, `&` fuori dagli apici: li prende cmd). Dalla VM `git --no-optional-locks -c core.autocrlf=true status`. Admin EDG: system@expressdeliverygroup.com (id 3); ci si collega l'utente.
+
+#### Stato al 2026-11-24 (mattina)
 - **Conversazione precedente chiusa il 2026-11-24.** Lavoro dal 18 al 24 novembre tutto verificato (tsc, lint, Jest, prove dal vivo sui due gateway, a video); **da committare** con i due messaggi proposti in chat (edg-docker: vigilo-service + docs; edg-system: app-frontend). L'utente dice se il commit è fatto.
 - **Da ricostruire**: vigilo-service (soglia `strutturaMinimaEuro` dei segnali: finché non si ricostruisce il pannello delle soglie ne mostra 7 e il segnale "Altro +25%" resta). Nessuna migrazione in sospeso: tutte eseguite fino a `20261123-02-soglie-analisi.js`.
 - **Fatto in questo giro** (dettagli nelle voci "In corso dal…" qui sotto e negli ADR):

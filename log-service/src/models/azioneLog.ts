@@ -6,6 +6,7 @@ import {
   EventType,
   EventMetadata,
 } from "../types/eventCategories";
+import { moduloEvento } from "../config/moduli";
 
 // Interfaccia per i metodi di istanza personalizzati
 export interface IAzioneLogMethods {
@@ -23,6 +24,8 @@ export interface IAzioneLog extends Document {
   sottoCategoria?: EventType;
   criticita?: EventSeverity;
   metadata?: EventMetadata;
+  /** Modulo della piattaforma (es. 'vigilo'); null = piattaforma (config/moduli.ts) */
+  modulo?: string | null;
 
   // CAMPI LEGACY (mantenuti per retrocompatibilità)
   origine: {
@@ -97,6 +100,10 @@ const AzioneLogSchema = new Schema<IAzioneLog, IAzioneLogModel>(
       type: String,
       enum: Object.values(EventSeverity),
       index: true, // Indice per filtrare per severità
+    },
+    // Modulo dell'evento, deciso alla scrittura (hook pre-validate qui sotto)
+    modulo: {
+      type: String,
     },
     metadata: {
       type: Schema.Types.Mixed,
@@ -194,6 +201,12 @@ const AzioneLogSchema = new Schema<IAzioneLog, IAzioneLogModel>(
 
 // ========== INDICI COMPOSTI ==========
 
+// Indice per i log di un modulo ordinati nel tempo (filtro Modulo di SISTEMA > Logs)
+AzioneLogSchema.index({ modulo: 1, timestamp: -1 });
+
+// Indice per l'attivita' e l'uso di un tenant (filtro Tenant, riepilogo dell'uso: fase 2, ADR117)
+AzioneLogSchema.index({ "origine.dettagli.tenantId": 1, timestamp: -1 });
+
 // Indice per query su transazioni ordinate temporalmente
 AzioneLogSchema.index({ "contesto.transazioneId": 1, timestamp: 1 });
 
@@ -235,6 +248,16 @@ AzioneLogSchema.index(
     },
   }
 );
+
+// ========== MODULO ==========
+
+// Ogni scrittura (controller, eventi locali, script) passa da qui: il modulo
+// dichiarato da chi scrive se valido, altrimenti quello del servizio, altrimenti
+// null (piattaforma). Si salva sempre, anche null, cosi' il filtro e' esatto.
+AzioneLogSchema.pre("validate", function (next) {
+  this.modulo = moduloEvento(this.modulo, this.azione?.entita);
+  next();
+});
 
 // ========== METODI DI ISTANZA ==========
 

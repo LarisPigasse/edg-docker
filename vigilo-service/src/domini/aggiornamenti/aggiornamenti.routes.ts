@@ -11,6 +11,8 @@
 import { Router, Request, Response } from 'express';
 import Joi from 'joi';
 import { contestoDi } from '../../core/contesto';
+import { consultato } from '../../core/services/consultazioni';
+import { nomeVoce } from '../consultazioni';
 import { richiedi } from '../../core/middleware/permessi';
 import { validateBody, validateParams } from '../../core/middleware/validate';
 import { successResponse } from '../../core/utils/response';
@@ -55,5 +57,8 @@ aggiornamentiRoutes.post(
 );
 
 aggiornamentiRoutes.get('/aggiornamenti/:entita/:id/storico', richiedi('read'), validateParams(paramVoce), async (req: Request, res: Response) => {
-  successResponse(res, await servizio.storicoLibreria(contestoDi(req), ...voce(req)));
+  const ctx = contestoDi(req);
+  const [entita, id] = voce(req);
+  successResponse(res, await servizio.storicoLibreria(ctx, entita, id));
+  consultato(ctx, 'storico-libreria', { id, nome: () => nomeVoce(ctx.idTenant, entita, id), dettagli: { entita } });
 });

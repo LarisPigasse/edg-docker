@@ -17,6 +17,7 @@
 import Joi from 'joi';
 import { Router, Request, Response } from 'express';
 import { contestoDi } from '../../core/contesto';
+import { consultato } from '../../core/services/consultazioni';
 import { richiedi } from '../../core/middleware/permessi';
 import { validateBody, validateParams, validateQuery } from '../../core/middleware/validate';
 import { paginaDa, rispondiLista, schemaLista } from '../../core/utils/lista';
@@ -114,7 +115,10 @@ stimaRoutes.post('/stima/stime', ...lettura, validateBody(corpoSalva), async (re
 });
 
 stimaRoutes.get('/stima/stime/:id', ...lettura, validateParams(paramUuid), async (req: Request, res: Response) => {
-  successResponse(res, await leggiStima(contestoDi(req), req.params.id));
+  const ctx = contestoDi(req);
+  const s = await leggiStima(ctx, req.params.id);
+  successResponse(res, s);
+  consultato(ctx, 'stima', { id: s.uuid, nome: s.descrizione });
 });
 
 // il prezzo applicato al cliente, anche prima del servizio; null lo toglie (2026-11-23)

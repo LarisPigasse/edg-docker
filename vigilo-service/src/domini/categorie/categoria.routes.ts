@@ -3,6 +3,7 @@
 // =============================================================================
 import { Router, Request, Response } from 'express';
 import { contestoDi } from '../../core/contesto';
+import { consultato } from '../../core/services/consultazioni';
 import { richiedi } from '../../core/middleware/permessi';
 import { validateBody, validateParams, validateQuery } from '../../core/middleware/validate';
 import { paginaDa, rispondiLista } from '../../core/utils/lista';
@@ -21,7 +22,10 @@ categorieRoutes.get('/categorie', richiedi('read'), validateQuery(schemi.listaCa
 });
 
 categorieRoutes.get('/categorie/:id', richiedi('read'), validateParams(paramUuid), async (req: Request, res: Response) => {
-  successResponse(res, presentaCategoria(await servizio.leggiCategoria(contestoDi(req), req.params.id)));
+  const ctx = contestoDi(req);
+  const c = presentaCategoria(await servizio.leggiCategoria(ctx, req.params.id));
+  successResponse(res, c);
+  consultato(ctx, 'categoria', { id: c.uuid, nome: c.nome });
 });
 
 categorieRoutes.post('/categorie', richiedi('config'), validateBody(schemi.creaCategoria), async (req: Request, res: Response) => {

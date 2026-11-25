@@ -1,5 +1,5 @@
 {
-  "lastUpdated": "2026-11-24",
+  "lastUpdated": "2026-11-25",
   "modules": {
     "auth-service": {
       "status": "stable",
@@ -8,8 +8,8 @@
     },
     "log-service": {
       "status": "stable",
-      "notes": "ADR051: permessi sistema.* (log, salute, riepilogo, allarmi) solo con systemTenant nel JWT (personale EDG). 18/18 controlli via gateway.",
-      "lastUpdated": "2026-10-05"
+      "notes": "Fase 1 log, 1b: campo modulo (dallo scrivente o servizio→modulo, config/moduli.ts), filtro modulo/piattaforma, Cerca come testo, filtri solo testuali. 22/22 su 2 gateway.",
+      "lastUpdated": "2026-11-24"
     },
     "email-service": {
       "status": "stable",
@@ -92,9 +92,9 @@
       "lastUpdated": "2026-10-26"
     },
     "pro-frontend (edg-system)": {
-      "status": "stable",
-      "notes": "Verificato a video: menu SISTEMA per permessi (ADR050), pannello permessi a 3 colonne, Logs compatta senza scroll, Guida in Info (ADR052). Prossimo: fase 2 moduli.",
-      "lastUpdated": "2026-10-05"
+      "status": "in-progress",
+      "notes": "ADR117-ADR120: Logs per modulo/uso, accessi e consultazioni, Uso e Attività del tenant, colonna Ultimo uso. Prossimo: fase 3 (contratto \"dati del tenant\" per modulo).",
+      "lastUpdated": "2026-11-25"
     },
     "asset-frontend (edg-docker)": {
       "status": "review",
@@ -148,8 +148,8 @@
     },
     "vigilo-service": {
       "status": "review",
-      "notes": "Stima costi (ADR115), Configurazione modificabile (ADR114), Analisi con segnali e soglie (ADR116). Jest 323/323. Da ricostruire per strutturaMinimaEuro. Prossimo: pro-frontend.",
-      "lastUpdated": "2026-11-24"
+      "notes": "ADR119: consultazioni in log-service (documenti, schede, report, CSV), pausa 16 min, sottofondo escluso. Jest 334/334, prove-1e 33/33. Prossimo: fase 2 (attività del tenant).",
+      "lastUpdated": "2026-11-25"
     },
     "app-frontend (vigilo)": {
       "status": "review",
@@ -158,8 +158,8 @@
     },
     "api-gateway": {
       "status": "stable",
-      "notes": "ADR098: voci pubblica: true in serviceRoutes (senza JWT, limite per IP su Redis PUBLIC_RATE_LIMIT_*, solo segreto). Verificato sui due gateway.",
-      "lastUpdated": "2026-10-27"
+      "notes": "ADR118: accessi ai moduli in log-service (registroUso dopo requireModule, Redis uso:*, pausa 32 min, coda verso log-service, x-edg-sfondo escluso). 17/17 su entrambi i gateway.",
+      "lastUpdated": "2026-11-25"
     },
     "Accesso assistito (auth-service, gateway, @edg/auth, app/pro-frontend)": {
       "status": "stable",

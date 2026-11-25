@@ -13,6 +13,11 @@ All'inizio di una nuova conversazione: `cp docs/dev-knowledge/strumenti/w.py ~/w
   `demo/verifica.js`) vanno nel container **vigilo-service**; gli altri nel container **auth-service** (ha `jsonwebtoken`,
   `JWT_SECRET`, `mysql2`; chiamano `http://api-gateway-1:8080` e `-2`). Niente segreti nei file:
   tutto dalle variabili d'ambiente del container.
+  - `log/` fase 1 dei log (ADR117), nel container auth-service, sola lettura: `prove-1a.js` (Logs all'admin EDG con i permessi veri dei ruoli),
+    `prove-1b.js` (campo modulo, filtro, Cerca come testo, filtri solo testuali; dopo `node dist/scripts/assegnaModulo.js` in log-service),
+    `prove-1d.js` (accessi ai moduli dal gateway: uno per sessione su due gateway, campanella esclusa, assistenza, Redis; lascia 3 accessi di prova con user-agent prova-1d),
+    `prove-2b.js` (fase 2: riepilogo dell'uso del Tenant Demo e ultimo uso dei tenant; somme confrontate con i Logs, limiti dei giorni, permessi; solo lettura),
+    `prove-1e.js` (consultazioni di vigilo-service con l'operatore demo, account 10: schede, report, CSV, andamento, assistenza, elenchi esclusi; le chiavi restano 16 minuti: per rilanciarlo prima, riavviare vigilo-service)
   - `aa4/codice.js` codice d'ingresso di un'assistenza di prova (`node /tmp/codice.js 9`), `aa4/prove.js`, `aa5/prove.js`
   - `b9c`, `f0`, `f1`, `csv` prove dei rispettivi blocchi
   - `b10b/simula.js` e `ripristina.js` simulano/ripristinano un aggiornamento della libreria

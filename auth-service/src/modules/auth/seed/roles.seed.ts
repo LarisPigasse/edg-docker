@@ -33,12 +33,13 @@ const DEFAULT_ROLES: RoleDefinition[] = [
       'system.read',
       'system.create',
       'system.update',
-      // ADR047/ADR049: dell'area SISTEMA solo moduli, tenant e account.
+      // ADR047/ADR049: dell'area SISTEMA moduli, tenant e account; poi assistenza e log.
       // Catalogo moduli, eliminazione tenant e il resto di 'sistema.*' restano a root.
       'sistema.moduli',
       'sistema.tenant',
       'sistema.account', // ADR049: account di tutti i tenant, mai root
       'sistema.assistenza', // ADR085: accesso assistito (vale solo nel tenant di sistema)
+      'sistema.logs', // Fase 1 log: tutti i log (log-service lo vuole con systemTenant, ADR051)
       'account.assistenze', // AA5: il cliente vede gli accessi dell'assistenza EDG
       'vigilo.*', // ADR084: tutto Vigilo (configurazione, dati, costi)
     ],

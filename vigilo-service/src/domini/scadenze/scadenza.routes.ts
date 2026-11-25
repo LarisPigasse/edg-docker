@@ -5,6 +5,7 @@
 // =============================================================================
 import { Router, Request, Response } from 'express';
 import { contestoDi, type Contesto } from '../../core/contesto';
+import { consultato } from '../../core/services/consultazioni';
 import { richiedi } from '../../core/middleware/permessi';
 import { validateBody, validateParams, validateQuery } from '../../core/middleware/validate';
 import { paginaDa, rispondiLista } from '../../core/utils/lista';
@@ -62,7 +63,9 @@ scadenzeRoutes.get('/scadenze', richiedi('read', 'own'), validateQuery(schemi.li
 
 scadenzeRoutes.get('/scadenze/:id', richiedi('read', 'own'), validateParams(paramUuid), async (req: Request, res: Response) => {
   const ctx = contestoDi(req);
-  successResponse(res, await presentaDettaglio(await servizio.leggiScadenza(ctx, req.params.id), ctx));
+  const d = await presentaDettaglio(await servizio.leggiScadenza(ctx, req.params.id), ctx);
+  successResponse(res, d);
+  consultato(ctx, 'scadenza', { id: d.uuid, nome: [d.titolo, d.soggetto?.nome].filter(Boolean).join(' di ') });
 });
 
 scadenzeRoutes.post('/scadenze', richiedi('write'), validateBody(schemi.creaScadenza), async (req: Request, res: Response) => {

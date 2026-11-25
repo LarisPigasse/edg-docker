@@ -55,6 +55,8 @@ export const LIMITI_PIATTAFORMA = {
   scostamentoPercento: { predefinito: 32, min: 8, max: 128 },
   /** Ogni quanti minuti si controlla se il ricalcolo di oggi manca (servizio fermo a mezzanotte) */
   recuperoMinuti: { predefinito: 16, min: 4, max: 64 },
+  /** Consultazioni (ADR117): la stessa persona sullo stesso oggetto entro questa pausa conta una volta */
+  consultazioniPausaMinuti: { predefinito: 16, min: 1, max: 256 },
 } as const satisfies Record<string, Limiti>;
 
 export const PARAMETRI = {
@@ -68,4 +70,5 @@ export const PARAMETRI = {
   esportaRighe: parametro('VIGILO_ESPORTA_RIGHE', LIMITI_PIATTAFORMA.esportaRighe),
   scostamentoPercento: parametro('VIGILO_SCOSTAMENTO_PERCENTO', LIMITI_PIATTAFORMA.scostamentoPercento),
   recuperoMinuti: parametro('VIGILO_RECUPERO_MINUTI', LIMITI_PIATTAFORMA.recuperoMinuti),
+  consultazioniPausaMinuti: parametro('VIGILO_CONSULTAZIONI_PAUSA_MINUTI', LIMITI_PIATTAFORMA.consultazioniPausaMinuti),
 } as const;

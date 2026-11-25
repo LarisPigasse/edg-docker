@@ -6,6 +6,7 @@
 // =============================================================================
 import { Router, type Request, type Response } from 'express';
 import { contestoDi } from '../../core/contesto';
+import { consultato } from '../../core/services/consultazioni';
 import { richiedi } from '../../core/middleware/permessi';
 import { successResponse } from '../../core/utils/response';
 import Joi from 'joi';
@@ -16,7 +17,9 @@ import { cambiaSoglie, leggiAnalisi } from './analisi.service';
 export const analisiRoutes = Router();
 
 analisiRoutes.get('/analisi', richiedi('read'), richiedi('costi'), async (req: Request, res: Response) => {
-  successResponse(res, await leggiAnalisi(contestoDi(req)));
+  const ctx = contestoDi(req);
+  successResponse(res, await leggiAnalisi(ctx));
+  consultato(ctx, 'analisi');
 });
 
 const corpoSoglie = Joi.object(

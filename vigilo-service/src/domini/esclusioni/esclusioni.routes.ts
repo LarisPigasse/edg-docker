@@ -11,6 +11,7 @@
 import Joi from 'joi';
 import { Router, Request, Response } from 'express';
 import { contestoDi } from '../../core/contesto';
+import { consultato } from '../../core/services/consultazioni';
 import { richiedi } from '../../core/middleware/permessi';
 import { validateBody, validateParams, validateQuery } from '../../core/middleware/validate';
 import { successResponse } from '../../core/utils/response';
@@ -27,7 +28,9 @@ const queryReport = Joi.object({ quali: Joi.string().valid('in-corso', 'tutte').
 export const esclusioniRoutes = Router();
 
 esclusioniRoutes.get('/controlli-non-seguiti', richiedi('read'), validateQuery(queryReport), async (req: Request, res: Response) => {
-  successResponse(res, await elencoNonSeguiti(contestoDi(req), req.query.quali as QualiDecisioni));
+  const ctx = contestoDi(req);
+  successResponse(res, await elencoNonSeguiti(ctx, req.query.quali as QualiDecisioni));
+  consultato(ctx, 'controlli-non-seguiti', { dettagli: { filtri: req.query } });
 });
 
 esclusioniRoutes.get('/soggetti/:id/controlli', richiedi('read', 'own'), validateParams(paramUuid), async (req: Request, res: Response) => {

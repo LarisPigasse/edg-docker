@@ -15,11 +15,22 @@ export interface Contesto {
   utente: GatewayUser;
   capacita: Capacitas;
   oggi: Giorno;
+  /**
+   * Lettura in sottofondo (intestazione x-edg-sfondo: 1, es. i conteggi della
+   * pagina Soggetti): non è una consultazione (ADR117) né, nel gateway, un accesso
+   */
+  sfondo?: boolean;
 }
 
 export function contestoDi(req: Request): Contesto {
   const utente = req.user!;
-  return { idTenant: utente.tenantId!, utente, capacita: capacitaDi(utente.permissions), oggi: oggiInItalia() };
+  return {
+    idTenant: utente.tenantId!,
+    utente,
+    capacita: capacitaDi(utente.permissions),
+    oggi: oggiInItalia(),
+    sfondo: req.headers['x-edg-sfondo'] === '1',
+  };
 }
 
 /** Contesto dei processi pianificati: nessun utente, un tenant per volta */

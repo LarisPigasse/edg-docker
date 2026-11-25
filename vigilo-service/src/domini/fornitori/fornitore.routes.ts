@@ -12,6 +12,7 @@ import Joi from 'joi';
 import { col, fn, literal, Op, where as condizione, type Order, type WhereOptions } from 'sequelize';
 import { Router, Request, Response } from 'express';
 import { contestoDi } from '../../core/contesto';
+import { consultato } from '../../core/services/consultazioni';
 import { trovaNelTenant } from '../../core/db/tenant';
 import { richiedi } from '../../core/middleware/permessi';
 import { validateBody, validateParams, validateQuery } from '../../core/middleware/validate';
@@ -127,7 +128,9 @@ fornitoriRoutes.get('/fornitori', richiedi('read'), validateQuery(lista), async 
 
 fornitoriRoutes.get('/fornitori/:id', richiedi('read'), validateParams(paramUuid), async (req: Request, res: Response) => {
   const ctx = contestoDi(req);
-  successResponse(res, presenta(await rileggi(ctx.idTenant, req.params.id)));
+  const f = presenta(await rileggi(ctx.idTenant, req.params.id));
+  successResponse(res, f);
+  consultato(ctx, 'fornitore', { id: f.uuid, nome: f.nome });
 });
 
 fornitoriRoutes.post('/fornitori', richiedi('write'), validateBody(crea), async (req: Request, res: Response) => {

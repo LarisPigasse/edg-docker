@@ -88,7 +88,8 @@ async function idEntitaDi(ctx: Contesto, entita: EntitaAllegato, uuid: string, t
 }
 
 /** Il soggetto a cui appartiene un documento (per l'ambito dell'addetto) */
-async function soggettoDellAllegato(a: Allegato): Promise<number | null> {
+/** id del soggetto a cui appartiene un documento (anche per i nomi delle consultazioni) */
+export async function soggettoDellAllegato(a: Allegato): Promise<number | null> {
   if (a.entita === 'soggetto') return a.idEntita;
   if (a.entita === 'scadenza') return (await Scadenza.findByPk(a.idEntita, { attributes: ['idSoggetto'] }))?.idSoggetto ?? null;
   if (a.entita === 'rifornimento') return (await Rifornimento.findByPk(a.idEntita, { attributes: ['idSoggetto'] }))?.idSoggetto ?? null;

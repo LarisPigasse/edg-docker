@@ -18,6 +18,8 @@
 import Joi from 'joi';
 import { Router, Request, Response } from 'express';
 import { contestoDi } from '../../core/contesto';
+import { consultato } from '../../core/services/consultazioni';
+import { nomeSoggetto } from '../consultazioni';
 import { richiedi } from '../../core/middleware/permessi';
 import { validateParams, validateQuery } from '../../core/middleware/validate';
 import { successResponse } from '../../core/utils/response';
@@ -75,7 +77,11 @@ const anteprima = Joi.object({
 export const resocontiRoutes = Router();
 
 resocontiRoutes.get('/resoconti/mezzi', richiedi('read'), richiedi('costi'), validateQuery(filtriMezzi), async (req: Request, res: Response) => {
-  successResponse(res, await costoMezzi(contestoDi(req), req.query as FiltriMezzi));
+  const ctx = contestoDi(req);
+  const q = req.query as FiltriMezzi;
+  successResponse(res, await costoMezzi(ctx, q));
+  // il costo di un solo mezzo lo chiedono la scheda, l'esportazione e la stima: conta solo il report
+  if (!q.soggetto) consultato(ctx, 'resoconto-mezzi', { dettagli: { filtri: req.query } });
 });
 
 resocontiRoutes.get(
@@ -85,7 +91,9 @@ resocontiRoutes.get(
   validateParams(paramUuid),
   validateQuery(filtriAndamento),
   async (req: Request, res: Response) => {
-    successResponse(res, await andamentoMezzo(contestoDi(req), req.params.id, req.query as FiltriAndamento));
+    const ctx = contestoDi(req);
+    successResponse(res, await andamentoMezzo(ctx, req.params.id, req.query as FiltriAndamento));
+    consultato(ctx, 'andamento-mezzo', { id: req.params.id, nome: () => nomeSoggetto(ctx.idTenant, req.params.id), dettagli: { filtri: req.query } });
   }
 );
 
@@ -96,17 +104,23 @@ resocontiRoutes.get('/resoconti/possesso/anteprima', richiedi('read'), richiedi(
 });
 
 resocontiRoutes.get('/resoconti/spese/righe.csv', richiedi('read'), richiedi('costi'), validateQuery(filtri), async (req: Request, res: Response) => {
-  const csv = await righeCsv(contestoDi(req), req.query as FiltriSpese);
+  const ctx = contestoDi(req);
+  const csv = await righeCsv(ctx, req.query as FiltriSpese);
   res.setHeader('Content-Type', 'text/csv; charset=utf-8');
   res.setHeader('Content-Disposition', intestazioneNome(csv.nome, false));
   res.setHeader('Cache-Control', 'no-store');
   res.send(csv.testo);
+  consultato(ctx, 'csv-spese', { dettagli: { filtri: req.query, file: csv.nome } });
 });
 
 resocontiRoutes.get('/resoconti/fornitori', richiedi('read'), richiedi('costi'), validateQuery(filtriFornitori), async (req: Request, res: Response) => {
-  successResponse(res, await interventiFornitori(contestoDi(req), req.query as FiltriFornitori));
+  const ctx = contestoDi(req);
+  successResponse(res, await interventiFornitori(ctx, req.query as FiltriFornitori));
+  consultato(ctx, 'resoconto-fornitori', { dettagli: { filtri: req.query } });
 });
 
 resocontiRoutes.get('/resoconti/spese', richiedi('read'), richiedi('costi'), validateQuery(filtri), async (req: Request, res: Response) => {
-  successResponse(res, await spese(contestoDi(req), req.query as FiltriSpese));
+  const ctx = contestoDi(req);
+  successResponse(res, await spese(ctx, req.query as FiltriSpese));
+  consultato(ctx, 'resoconto-spese', { dettagli: { filtri: req.query } });
 });
